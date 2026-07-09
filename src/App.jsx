@@ -686,7 +686,7 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
       .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
       [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
       body.mwu-live-editing { cursor: text; }
-      body.mwu-live-editing a, body.mwu-live-editing button, body.mwu-live-editing input, body.mwu-live-editing select, body.mwu-live-editing textarea { pointer-events: none !important; }
+      body.mwu-live-editing input, body.mwu-live-editing select, body.mwu-live-editing textarea { pointer-events: none !important; }
       body.mwu-live-editing img, body.mwu-live-editing [data-mwu-background-editable="true"] { cursor: pointer; pointer-events: auto !important; }
       body.mwu-live-editing [data-mwu-edit-skip="true"],
       body.mwu-live-editing [data-mwu-edit-skip="true"] *,
@@ -1072,8 +1072,12 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
           if (!target || target.nodeType !== 1) return null;
           if (target === document.body || target === document.documentElement) return null;
           if (target.closest && target.closest('.mwu-image-toolbar, .mwu-editor-help')) return null;
+          var buttonTarget = target.closest && target.closest('a, button, .th-btn, .btn, [role="button"], input[type="button"], input[type="submit"]');
 
           if (!preferParent) {
+            if (buttonTarget && buttonTarget !== document.body && buttonTarget !== document.documentElement) {
+              return buttonTarget;
+            }
             return target;
           }
 
@@ -1310,6 +1314,37 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
           sendUpdate('duplicate-live-element');
         }
 
+        function deleteSelectedElement() {
+          if (!selectedElement || selectedElement === document.body || selectedElement === document.documentElement) return;
+          var removalTarget = selectedElement;
+          var parent = selectedElement.parentElement;
+          if (
+            selectedElement.tagName &&
+            selectedElement.tagName.toLowerCase() === 'img' &&
+            parent &&
+            parent.getAttribute('data-mwu-crop-frame') === 'true' &&
+            parent.querySelectorAll('img').length === 1 &&
+            parent.children.length === 1
+          ) {
+            removalTarget = parent;
+          }
+
+          var nextSelection = removalTarget.nextElementSibling || removalTarget.previousElementSibling || removalTarget.parentElement;
+          if (!removalTarget.parentElement || removalTarget === document.body || removalTarget === document.documentElement) return;
+
+          removalTarget.remove();
+          cleanEditorUi();
+          activeImage = null;
+          selectedElement = null;
+          hideImageToolbar();
+          if (nextSelection && nextSelection !== document.body && nextSelection !== document.documentElement && document.contains(nextSelection)) {
+            notifyElementSelected(nextSelection);
+          } else {
+            window.parent.postMessage({ type: 'MWU_ELEMENT_SELECTED', element: null }, '*');
+          }
+          sendUpdate('delete-live-element');
+        }
+
         function normalizeStyleValue(field, value) {
           var rawValue = String(value == null ? '' : value).trim();
           if (rawValue === '') return '';
@@ -1367,6 +1402,11 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
           var data = event.data || {};
           if (data.type === 'MWU_DUPLICATE_SELECTED_ELEMENT') {
             duplicateSelectedElement();
+            return;
+          }
+
+          if (data.type === 'MWU_DELETE_SELECTED_ELEMENT') {
+            deleteSelectedElement();
             return;
           }
 
@@ -1623,7 +1663,10 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
               imageClickTimer = setTimeout(function () { showImageToolbar(mediaTarget); }, 180);
               return;
             }
-            if (target.closest && target.closest('a, button')) event.preventDefault();
+            if (target.closest && target.closest('a, button, .th-btn, .btn, [role="button"], input[type="button"], input[type="submit"]')) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
             hideImageToolbar();
             cleanEditorUi();
             var selectableTarget = getSelectableElement(target, event.shiftKey);
@@ -2068,6 +2111,13 @@ const withPageApiIdentifiers = (page = {}, payload = {}) => ({
   ...payload,
   id: page.id,
   page_id: page.page_id || page.pageId || page.id,
+  slug: page.slug
+});
+
+const withPageDeleteIdentifiers = (page = {}) => ({
+  id: page.id,
+  page_id: page.page_id || page.pageId || page.id,
+  pageId: page.pageId || page.page_id || page.id,
   slug: page.slug
 });
 
@@ -3059,18 +3109,30 @@ function App() {
         return;
       }
 
-      const deletePayload = JSON.stringify({
-        id: targetPage.id,
-        page_id: targetPage.page_id || targetPage.pageId || targetPage.id,
-        slug: targetPage.slug
+      const deleteIdentifiers = withPageDeleteIdentifiers(targetPage);
+      const deletePayload = JSON.stringify(deleteIdentifiers);
+      const deleteActionPayload = JSON.stringify({
+        ...deleteIdentifiers,
+        action: "delete",
+        operation: "delete",
+        _method: "DELETE"
       });
       const attempts = [
         ...identifiers.map((identifier) => ({ method: "DELETE", path: `/admin/pages/${encodeURIComponent(identifier)}` })),
         ...identifiers.map((identifier) => ({ method: "POST", path: `/admin/pages/${encodeURIComponent(identifier)}/delete`, body: deletePayload })),
+        ...identifiers.map((identifier) => ({ method: "POST", path: `/admin/pages/${encodeURIComponent(identifier)}`, body: deleteActionPayload })),
         { method: "POST", path: "/admin/pages/delete", body: deletePayload },
-        { method: "DELETE", path: "/admin/pages", body: deletePayload }
+        { method: "POST", path: "/admin/pages", body: deleteActionPayload },
+        { method: "DELETE", path: "/admin/pages", body: deletePayload },
+        ...identifiers.map((identifier) => ({ method: "DELETE", path: `/pages/${encodeURIComponent(identifier)}` })),
+        ...identifiers.map((identifier) => ({ method: "POST", path: `/pages/${encodeURIComponent(identifier)}/delete`, body: deletePayload })),
+        ...identifiers.map((identifier) => ({ method: "POST", path: `/pages/${encodeURIComponent(identifier)}`, body: deleteActionPayload })),
+        { method: "POST", path: "/pages/delete", body: deletePayload },
+        { method: "POST", path: "/pages", body: deleteActionPayload },
+        { method: "DELETE", path: "/pages", body: deletePayload }
       ];
       let finalError = "";
+      const failedAttempts = [];
 
       for (const attempt of attempts) {
         const response = await fetch(apiUrl(attempt.path), {
@@ -3088,13 +3150,22 @@ function App() {
         }
 
         finalError = await readApiError(response, "Delete failed.");
+        failedAttempts.push({ method: attempt.method, path: attempt.path, status: response.status });
         if (response.status === 401 || !shouldTryNextMutationRoute(response.status)) {
           break;
         }
       }
 
       if (finalError) {
-        throw new Error(finalError);
+        const routeSummary = failedAttempts
+          .slice(0, 8)
+          .map((attempt) => `${attempt.method} ${attempt.path} -> ${attempt.status}`)
+          .join("; ");
+        const allMissingRoutes = failedAttempts.length > 0 && failedAttempts.every((attempt) => Number(attempt.status) === 404);
+        if (allMissingRoutes) {
+          throw new Error(`Backend delete route is not deployed for pages. Tried: ${routeSummary}`);
+        }
+        throw new Error(`${finalError}${routeSummary ? ` Tried: ${routeSummary}` : ""}`);
       }
 
       const removalIds = new Set(identifiers.map(String));
@@ -4395,6 +4466,20 @@ function StandalonePageEditor({
     setNotice("Duplicated selected live element.");
   };
 
+  const deleteLiveElement = () => {
+    if (!selectedLiveElement?.id) {
+      setNotice("Select a duplicated section or any live element inside Editable Blocks first.");
+      return;
+    }
+
+    editableFrameRef.current?.contentWindow?.postMessage({
+      type: "MWU_DELETE_SELECTED_ELEMENT",
+      elementId: selectedLiveElement.id
+    }, "*");
+    setSelectedLiveElement(null);
+    setNotice("Deleted selected live element. Press Save to update the database.");
+  };
+
   const addLayoutPreset = (preset) => {
     preset.sections.forEach((type) => addSection(type));
     setNotice(`Added ${preset.title} sections.`);
@@ -4613,6 +4698,7 @@ function StandalonePageEditor({
             onRefreshHtml={() => loadEditableHtml({ force: true })}
             onApplyStyle={applyLiveElementStyle}
             onDuplicateElement={duplicateLiveElement}
+            onDeleteElement={deleteLiveElement}
           />
 
           <div className="inspector-card">
@@ -4809,7 +4895,7 @@ function NumericStyleInput({ value, onChange, placeholder, fallback = "0px" }) {
   );
 }
 
-function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onRefreshHtml, onApplyStyle, onDuplicateElement }) {
+function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onRefreshHtml, onApplyStyle, onDuplicateElement, onDeleteElement }) {
   const styles = selectedElement?.styles || {};
   const valueOf = (field) => styles[field] || "";
   const apply = (field) => (event) => onApplyStyle(field, event.target.value);
@@ -4873,6 +4959,10 @@ function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onR
         <button className="ghost-button" type="button" onClick={onDuplicateElement}>
           <Copy size={16} />
           <span>Duplicate Selected</span>
+        </button>
+        <button className="danger-button" type="button" onClick={onDeleteElement}>
+          <Trash2 size={16} />
+          <span>Delete Selected</span>
         </button>
       </div>
 
