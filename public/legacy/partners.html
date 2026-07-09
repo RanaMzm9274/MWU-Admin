@@ -1,0 +1,526 @@
+<!doctype html>
+<html class="no-js" lang="en" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>MWU Partners | Global Network and Institutional Collaborations</title>
+    <meta name="author" content="Madda Walabu University">
+    <meta name="description" content="Explore Madda Walabu University's global network of academic, research, government, NGO, and community partners.">
+    <meta name="keywords" content="Madda Walabu University partners, MWU global network, MWU collaborations, institutional partnerships, research partners">
+    <meta name="robots" content="INDEX,FOLLOW">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/css/fontawesome.min.css">
+    <link rel="stylesheet" href="assets/css/magnific-popup.min.css">
+    <link rel="stylesheet" href="assets/css/swiper-bundle.min.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .partners-page {
+            --partners-ink: #142033;
+            --partners-muted: #657287;
+            --partners-blue: #0b4fd8;
+            --partners-navy: #101b2e;
+            --partners-gold: #ffc400;
+            background: #f6f8fc;
+        }
+
+        .partners-hero {
+            background: linear-gradient(135deg, rgba(16, 27, 46, .86), rgba(12, 65, 165, .72)), url("assets/img/partners/partner-banner.jpeg") center/cover;
+            color: #fff;
+            padding: 96px 0 92px;
+        }
+
+        .partners-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 13px;
+            color: rgba(255, 255, 255, .78);
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: .32em;
+            text-transform: uppercase;
+            margin-bottom: 22px;
+        }
+
+        .partners-kicker:before {
+            content: "";
+            width: 42px;
+            height: 2px;
+            background: var(--partners-gold);
+        }
+
+        .partners-hero h1 {
+            color: #fff;
+            font-family: "Playfair Display", serif;
+            font-size: clamp(42px, 6vw, 78px);
+            line-height: 1.02;
+            margin-bottom: 20px;
+        }
+
+        .partners-hero p {
+            max-width: 760px;
+            color: rgba(255, 255, 255, .86);
+            font-size: 18px;
+            line-height: 1.75;
+            margin-bottom: 0;
+        }
+
+        .partners-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 40px;
+        }
+
+        .partners-stat {
+            border: 1px solid rgba(255, 255, 255, .18);
+            background: rgba(255, 255, 255, .08);
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .partners-stat strong {
+            display: block;
+            color: #fff;
+            font-size: 28px;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .partners-stat span {
+            color: rgba(255, 255, 255, .78);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .partners-section {
+            padding: 82px 0;
+        }
+
+        .partners-section-head {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 30px;
+            margin-bottom: 34px;
+        }
+
+        .partners-section-head h2 {
+            color: var(--partners-ink);
+            font-family: "Playfair Display", serif;
+            font-size: clamp(34px, 4vw, 54px);
+            line-height: 1.08;
+            margin-bottom: 0;
+        }
+
+        .partners-section-head p {
+            max-width: 520px;
+            color: var(--partners-muted);
+            line-height: 1.7;
+            margin-bottom: 0;
+        }
+
+        .partners-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 22px;
+        }
+
+        .partner-card {
+            height: 100%;
+            background: #fff;
+            border: 1px solid rgba(20, 32, 51, .09);
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 16px 34px rgba(20, 32, 51, .06);
+        }
+
+        .partner-card-top {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .partner-logo-mark {
+            width: 72px;
+            height: 72px;
+            flex: 0 0 72px;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #eef4ff, #ffffff);
+            border: 1px solid rgba(11, 79, 216, .18);
+            color: var(--partners-blue);
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: .04em;
+            overflow: hidden;
+            padding: 9px;
+        }
+
+        .partner-logo-mark img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .partner-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            width: fit-content;
+            background: rgba(255, 196, 0, .17);
+            color: #755900;
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            text-transform: capitalize;
+        }
+
+        .partner-card h3 {
+            color: var(--partners-ink);
+            font-size: 20px;
+            line-height: 1.25;
+            margin: 0;
+        }
+
+        .partner-card address {
+            color: var(--partners-muted);
+            font-size: 15px;
+            line-height: 1.65;
+            margin: 0;
+        }
+
+        .partners-cta {
+            background: var(--partners-navy);
+            color: #fff;
+            padding: 54px 0;
+        }
+
+        .partners-cta h2 {
+            color: #fff;
+            font-family: "Playfair Display", serif;
+            font-size: clamp(30px, 4vw, 48px);
+            margin-bottom: 12px;
+        }
+
+        .partners-cta p {
+            color: rgba(255, 255, 255, .76);
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 1199px) {
+            .partners-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 767px) {
+            .partners-hero {
+                padding: 68px 0;
+            }
+
+            .partners-summary,
+            .partners-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .partners-section-head {
+                display: block;
+            }
+
+            .partners-section-head p {
+                margin-top: 14px;
+            }
+        }
+
+        .partners-page {
+            background: #fff;
+        }
+
+        .partners-hero {
+            background: #fff;
+            color: var(--title-color);
+            padding: 85px 0 35px;
+        }
+
+        .partners-hero h1 {
+            color: var(--title-color);
+        }
+
+        .partners-hero p,
+        .partners-stat span,
+        .partners-section-head p,
+        .partner-card address {
+            color: #4c5f78;
+        }
+
+        .partners-kicker {
+            color: var(--theme-color);
+        }
+
+        .partners-stat {
+            background: #f8fbff;
+            border-color: rgba(13, 63, 120, 0.16);
+            border-radius: 18px;
+        }
+
+        .partners-stat strong {
+            color: var(--theme-color);
+        }
+
+        .partner-card,
+        .partner-logo-mark {
+            border-radius: 18px;
+        }
+
+        .partner-type {
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mwu-universal-header"></div>
+    <script src="assets/js/universal-header.js"></script>
+
+    <div class="breadcumb-wrapper position-relative" data-bg-src="assets/img/shape/breadcrumb-shep.png">
+        <div class="breadcumb-banner">
+            <img src="assets/img/partners/partner-banner.jpeg" alt="MWU partners">
+        </div>
+        <div class="breadcumb-shape">
+            <img src="assets/img/shape/triangle-light.png" alt="shape" class="jump">
+        </div>
+        <div class="container th-container4">
+            <div class="row">
+                <div class="col-xxl-6">
+                    <div class="breadcumb-content">
+                        <h1 class="breadcumb-title">Institutional Collaborations</h1>
+                        <ul class="breadcumb-menu">
+                            <li><a href="/">Home</a></li>
+                            <li>Partners</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="partners-page">
+        <section class="partners-hero">
+            <div class="container th-container4">
+                <span class="sub-title">Global Network</span>
+                <h1 class="sec-title">Institutional Collaborations</h1>
+                <p>Madda Walabu University collaborates with over 13 universities, NGOs, and research institutions worldwide to advance education, research, community impact, and international academic exchange.</p>
+                <div class="partners-summary">
+                    <div class="partners-stat">
+                        <strong>13+</strong>
+                        <span>Institutional partners</span>
+                    </div>
+                    <div class="partners-stat">
+                        <strong>8</strong>
+                        <span>Countries and regional networks</span>
+                    </div>
+                    <div class="partners-stat">
+                        <strong>3</strong>
+                        <span>Primary collaboration areas</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="partners-section">
+            <div class="container th-container4">
+                <div class="partners-section-head">
+                    <h2>Partners Directory</h2>
+                    <p>MWU's network spans academic institutions, government agencies, NGOs, and research organizations supporting shared work in education, water, health, STEM, agriculture, and community development.</p>
+                </div>
+
+                <div class="partners-grid">
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Ministry of Water and Energy logo"><img src="assets/img/partners/logos/MOWE.png" alt="Ministry of Water and Energy logo"></div>
+                            <div>
+                                <span class="partner-type">research</span>
+                                <h3>Ministry of Water and Energy</h3>
+                            </div>
+                        </div>
+                        <address>Haile Gebreselassie Road, Addis Ababa. Mailing address: P.O. Box 5744, Ethiopia.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="STEM Power Inc logo"><img src="assets/img/partners/logos/SPI.png" alt="STEM Power Inc logo"></div>
+                            <div>
+                                <span class="partner-type">community</span>
+                                <h3>STEM Power Inc</h3>
+                            </div>
+                        </div>
+                        <address>Bole Sub City, Wereda 05, H.No. 363, Addis Ababa.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Oromia Seed Enterprise logo"><img src="assets/img/partners/logos/OSE.png" alt="Oromia Seed Enterprise logo"></div>
+                            <div>
+                                <span class="partner-type">research</span>
+                                <h3>Oromia Seed Enterprise</h3>
+                            </div>
+                        </div>
+                        <address>Oromia, Ethiopia.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Russian State Social University logo"><img src="assets/img/partners/logos/RSSU.png" alt="Russian State Social University logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>Russian State Social University</h3>
+                            </div>
+                        </div>
+                        <address>4-1, Vilgelma Pika Street, Moscow 129226, Russia.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Nanchang University China logo"><img src="assets/img/partners/logos/NCU.png" alt="Nanchang University China logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>Nanchang University, China</h3>
+                            </div>
+                        </div>
+                        <address>999 Xuefu Avenue, Honggutan New District, Nanchang, Jiangxi, China, 330031.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Technological University of the Philippines logo"><img src="assets/img/partners/logos/TUP.png" alt="Technological University of the Philippines logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>Technological University of the Philippines</h3>
+                            </div>
+                        </div>
+                        <address>Ayala Boulevard, Ermita, Manila 1000, Metro Manila, Philippines.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Moscow Technical University of Communication and Informatics logo"><img src="assets/img/partners/logos/MTUCI.png" alt="Moscow Technical University of Communication and Informatics logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>Moscow Technical University of Communication and Informatics (MTUCI)</h3>
+                            </div>
+                        </div>
+                        <address>Russia, 111024, Moscow, Aviamotornaya st., 8a.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="WaterAid Ethiopia logo"><img src="assets/img/partners/logos/WAE.png" alt="WaterAid Ethiopia logo"></div>
+                            <div>
+                                <span class="partner-type">research</span>
+                                <h3>WaterAid Ethiopia</h3>
+                            </div>
+                        </div>
+                        <address>United Insurance Building, 3rd Floor, Cameroon Street, near Edna Mall and Bole Medehanialem Church, Bole Subcity, Addis Ababa.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="African Population and Health Research Center logo"><img src="assets/img/partners/logos/APHRC.png" alt="African Population and Health Research Center logo"></div>
+                            <div>
+                                <span class="partner-type">research</span>
+                                <h3>African Population and Health Research Center APHRC</h3>
+                            </div>
+                        </div>
+                        <address>Manga Close, off Kirawa Road, Nairobi, Kenya.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="Zayed University logo"><img src="assets/img/partners/logos/ZU.png" alt="Zayed University logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>Zayed University</h3>
+                            </div>
+                        </div>
+                        <address>Dubai campus: Academic City, Al Ruwayyah. Abu Dhabi campus: Khalifa City, United Arab Emirates.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="University of Parma logo"><img src="assets/img/partners/logos/UNIPR.png" alt="University of Parma logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>University of Parma</h3>
+                            </div>
+                        </div>
+                        <address>Universita, 12, 43121 Parma (PR), Italy.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="UNITAFRICA Network logo"><img src="assets/img/partners/logos/UA.png" alt="UNITAFRICA Network logo"></div>
+                            <div>
+                                <span class="partner-type">research</span>
+                                <h3>UNITAFRICA Network</h3>
+                            </div>
+                        </div>
+                        <address>Coordinating Institution: University of Brescia, Piazza del Mercato, 15, 25121 Brescia BS, Italy.</address>
+                    </article>
+
+                    <article class="partner-card">
+                        <div class="partner-card-top">
+                            <div class="partner-logo-mark" aria-label="University of Messina logo"><img src="assets/img/partners/logos/UNIME.png" alt="University of Messina logo"></div>
+                            <div>
+                                <span class="partner-type">academic</span>
+                                <h3>University of Messina</h3>
+                            </div>
+                        </div>
+                        <address>Piazza Pugliatti, 1, 98122 Messina ME, Italy.</address>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="partners-cta">
+            <div class="container th-container4">
+                <div class="row gy-4 align-items-center justify-content-between">
+                    <div class="col-lg-8">
+                        <h2>Build a collaboration with MWU</h2>
+                        <p>Prospective partners can connect with MWU for academic exchange, joint research, capacity building, and community service initiatives.</p>
+                    </div>
+                    <div class="col-lg-auto">
+                        <a href="contact.html" class="th-btn th-icon white-hover">Contact MWU</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="mwu-universal-footer"></div>
+    <script src="assets/js/universal-footer.js"></script>
+
+    <script src="assets/js/vendor/jquery-3.7.1.min.js"></script>
+    <script src="assets/js/swiper-bundle.min.js"></script>
+    <script src="assets/js/bootstrap.min.js"></script>
+    <script src="assets/js/jquery.magnific-popup.min.js"></script>
+    <script src="assets/js/jquery.counterup.min.js"></script>
+    <script src="assets/js/jquery-ui.min.js"></script>
+    <script src="assets/js/imagesloaded.pkgd.min.js"></script>
+    <script src="assets/js/isotope.pkgd.min.js"></script>
+    <script src="assets/js/wow.min.js"></script>
+    <script src="assets/js/gsap.min.js"></script>
+    <script src="assets/js/ScrollTrigger.min.js"></script>
+    <script src="assets/js/SplitText.min.js"></script>
+    <script src="assets/js/lenis.min.js"></script>
+    <script src="assets/js/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,881 @@
+﻿<!doctype html>
+<html class="no-js " lang="zxx" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>MWU Campuses | Three Regional Hubs</title>
+    <meta name="author" content="Madda Walabu University">
+    <meta name="description" content="Explore Madda Walabu University campuses in Bale Robe, Shashemene, and Goba, including the main campus and Goba Teaching Hospital.">
+    <meta name="keywords" content="Madda Walabu University campuses, MWU Main Campus, Shashemene Campus, Goba Referral Hospital, Bale Robe university">
+    <meta name="robots" content="INDEX,FOLLOW">
+
+    <!-- Mobile Specific Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Favicons - Place favicon.ico in the root directory -->
+    <link rel="apple-touch-icon" sizes="57x57" href="assets/img/favicons/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="assets/img/favicons/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="assets/img/favicons/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="assets/img/favicons/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="assets/img/favicons/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="assets/img/favicons/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="assets/img/favicons/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="assets/img/favicons/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/favicons/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/img/favicons/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="assets/img/favicons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicons/favicon-16x16.png">
+    <link rel="manifest" href="assets/img/favicons/manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="assets/img/favicons/ms-icon-144x144.png">
+    <meta name="theme-color" content="#ffffff">
+
+    <!--==============================
+	  Google Fonts
+	============================== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+    <!--==============================
+	    All CSS File
+	============================== -->
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <!-- Fontawesome Icon -->
+    <link rel="stylesheet" href="assets/css/fontawesome.min.css">
+    <!-- Magnific Popup -->
+    <link rel="stylesheet" href="assets/css/magnific-popup.min.css">
+    <!-- Swiper Js -->
+    <link rel="stylesheet" href="assets/css/swiper-bundle.min.css">
+    <!-- Theme Custom CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .mwu-campus-page {
+            --mwu-navy: #111b2c;
+            --mwu-blue: #004bd7;
+            --mwu-blue-dark: #003896;
+            --mwu-gold: #ffc400;
+            --mwu-ink: #172033;
+            --mwu-muted: #61708a;
+            background: #f6f8fb;
+        }
+
+        body:has(.mwu-campus-page) .breadcumb-wrapper,
+        .mwu-campus-page ~ .campus,
+        .mwu-campus-page ~ .cta-area-2,
+        .mwu-campus-page ~ .marquee-area,
+        .mwu-campus-page ~ .overflow-hidden:not(.scroll-top) {
+            display: none !important;
+        }
+
+        .mwu-location-hero {
+            background: var(--mwu-navy);
+            padding: 88px 0 96px;
+            color: #fff;
+        }
+
+        .mwu-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 13px;
+            color: rgba(255, 255, 255, .76);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .45em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .mwu-eyebrow:before {
+            content: "";
+            width: 42px;
+            height: 2px;
+            background: var(--mwu-gold);
+        }
+
+        .mwu-location-hero h2 {
+            max-width: 880px;
+            color: #fff;
+            font-family: "Playfair Display", serif;
+            font-size: clamp(38px, 5vw, 70px);
+            line-height: 1.04;
+            margin: 0;
+        }
+
+        .mwu-location-hero h2 span {
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        .mwu-campus-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 32px;
+            margin-top: 72px;
+        }
+
+        .mwu-campus-card {
+            position: relative;
+            min-height: 520px;
+            overflow: hidden;
+            isolation: isolate;
+            background: var(--mwu-blue-dark);
+        }
+
+        .mwu-campus-card img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+        }
+
+        .mwu-campus-card:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(10, 18, 32, .18), rgba(10, 18, 32, .34));
+            z-index: -1;
+        }
+
+        .mwu-campus-card-content {
+            min-height: 520px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 32px;
+        }
+
+        .mwu-campus-tag {
+            align-self: flex-start;
+            display: inline-flex;
+            align-items: center;
+            background: var(--mwu-gold);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .24em;
+            line-height: 1;
+            padding: 8px 10px;
+            text-transform: uppercase;
+        }
+
+        .mwu-campus-place {
+            display: inline;
+            background: transparent;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 800;
+            line-height: 1.6;
+            padding: 0;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+        }
+
+        .mwu-campus-card h3 {
+            margin: 10px 0 12px;
+            color: #fff;
+            font-family: "Playfair Display", serif;
+            font-size: clamp(31px, 2.4vw, 42px);
+            line-height: 1.05;
+        }
+
+        .mwu-campus-card p {
+            display: inline;
+            background: transparent;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.65;
+            padding: 0;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+        }
+
+        .mwu-campus-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 26px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .mwu-campus-card p + .mwu-campus-link {
+            display: flex;
+            width: fit-content;
+        }
+
+        .mwu-campus-link i {
+            color: var(--mwu-gold);
+            font-size: 13px;
+        }
+
+        .mwu-campus-detail {
+            padding: 88px 0;
+        }
+
+        .mwu-detail-intro {
+            max-width: 760px;
+            margin-bottom: 34px;
+        }
+
+        .mwu-detail-intro h2 {
+            color: var(--mwu-ink);
+            font-family: "Playfair Display", serif;
+            font-size: clamp(34px, 4vw, 56px);
+            line-height: 1.08;
+            margin-bottom: 15px;
+        }
+
+        .mwu-detail-intro p {
+            color: var(--mwu-muted);
+            font-size: 17px;
+            line-height: 1.7;
+        }
+
+        .mwu-detail-card {
+            height: 100%;
+            background: #fff;
+            border: 1px solid rgba(17, 27, 44, .09);
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 18px 38px rgba(17, 27, 44, .07);
+        }
+
+        .mwu-detail-card h3 {
+            color: var(--mwu-ink);
+            font-size: 24px;
+            margin-bottom: 14px;
+        }
+
+        .mwu-detail-card p {
+            color: var(--mwu-muted);
+            line-height: 1.7;
+            margin-bottom: 18px;
+        }
+
+        .mwu-detail-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .mwu-detail-list li {
+            display: flex;
+            gap: 10px;
+            color: var(--mwu-ink);
+            font-weight: 700;
+            line-height: 1.5;
+            margin-top: 11px;
+        }
+
+        .mwu-detail-list i {
+            color: var(--mwu-gold);
+            margin-top: 4px;
+        }
+
+        .mwu-source-note {
+            margin-top: 34px;
+            color: var(--mwu-muted);
+            font-size: 14px;
+        }
+
+        .mwu-source-note a {
+            color: var(--mwu-blue-dark);
+            font-weight: 800;
+        }
+
+        @media (max-width: 1199px) {
+            .mwu-campus-grid {
+                gap: 24px;
+            }
+
+            .mwu-campus-card,
+            .mwu-campus-card-content {
+                min-height: 470px;
+            }
+        }
+
+        @media (max-width: 991px) {
+            .mwu-location-hero {
+                padding: 70px 0;
+            }
+
+            .mwu-campus-grid {
+                grid-template-columns: 1fr;
+                margin-top: 48px;
+            }
+        }
+
+        @media (max-width: 575px) {
+            .mwu-location-hero {
+                padding: 54px 0;
+            }
+
+            .mwu-campus-card,
+            .mwu-campus-card-content {
+                min-height: 430px;
+            }
+
+            .mwu-campus-card-content {
+                padding: 24px;
+            }
+
+            .mwu-eyebrow {
+                letter-spacing: .28em;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!--[if lte IE 9]>
+    	<p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+  	<![endif]-->
+
+
+    <!--********************************
+   		Code Start From Here 
+	******************************** -->
+
+    
+    </div><div id="mwu-universal-header"></div>
+<script src="assets/js/universal-header.js"></script> <!--==============================
+    Breadcumb
+============================== -->
+    <div class="breadcumb-wrapper position-relative " data-bg-src="assets/img/shape/breadcrumb-shep.png">
+        <div class="breadcumb-banner">
+            <img src="assets/img/breadcrumb/breadcumb-banner.png" alt="bg-banner">
+        </div>
+        <div class="breadcumb-shape">
+            <img src="assets/img/shape/triangle-light.png" alt="shape" class="jump">
+        </div>
+        <div class="container th-container4">
+            <div class="row">
+                <div class="col-xxl-5">
+                    <div class="breadcumb-content">
+                        <h1 class="breadcumb-title">MWU Community and Campus Life</h1>
+                        <ul class="breadcumb-menu">
+                            <li><a href="home-university.html">Home</a></li>
+                            <li>MWU Community</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <main class="mwu-campus-page">
+        <section class="mwu-location-hero">
+            <div class="container th-container4">
+                <div class="mwu-eyebrow">Locations</div>
+                <h2>A network of <span>excellence</span> across three regional hubs.</h2>
+
+                <div class="mwu-campus-grid">
+                    <article class="mwu-campus-card">
+                        <img src="assets/img/campus/mwu_main.png" alt="Students and staff at Madda Walabu University">
+                        <div class="mwu-campus-card-content">
+                            <span class="mwu-campus-tag">Flagship</span>
+                            <div>
+                                <span class="mwu-campus-place">Robe City</span>
+                                <h3>Main Campus</h3>
+                                <p>The flagship campus housing central administration, academic colleges, student services, and core research activity.</p>
+                                <a class="mwu-campus-link" href="#main-campus">View details <i class="fa-light fa-arrow-up-right"></i></a>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="mwu-campus-card">
+                        <img src="assets/img/campus/Shashemene.png" alt="Madda Walabu University students in a classroom">
+                        <div class="mwu-campus-card-content">
+                            <span class="mwu-campus-tag">Regional</span>
+                            <div>
+                                <span class="mwu-campus-place">Shashemene City</span>
+                                <h3>Shashemene Campus</h3>
+                                <p>A regional hub serving the West Arsi community with undergraduate and continuing education programs.</p>
+                                <a class="mwu-campus-link" href="#shashemene-campus">View details <i class="fa-light fa-arrow-up-right"></i></a>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="mwu-campus-card">
+                        <img src="assets/img/campus/gobah.png" alt="Health sciences community activity at Madda Walabu University">
+                        <div class="mwu-campus-card-content">
+                            <span class="mwu-campus-tag">Medical</span>
+                            <div>
+                                <span class="mwu-campus-place">Goba Sub-City</span>
+                                <h3>Goba Referral Hospital</h3>
+                                <p>Teaching hospital and clinical training centre for the College of Medicine and Health Sciences.</p>
+                                <a class="mwu-campus-link" href="#goba-campus">View details <i class="fa-light fa-arrow-up-right"></i></a>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="mwu-campus-detail">
+            <div class="container th-container4">
+                <div class="mwu-detail-intro">
+                    <h2>Campuses Built Around Access, Service, and Regional Impact</h2>
+                    <p>Madda Walabu University is based in Bale Robe, Oromia, with additional academic and health-science activity in Shashemene and Goba. The campuses support teaching, research, community service, healthcare training, and student life across southeast Ethiopia.</p>
+                </div>
+
+                <div class="row gy-4">
+                    <div class="col-lg-4" id="main-campus">
+                        <article class="mwu-detail-card">
+                            <h3>Main Campus</h3>
+                            <p>The Robe Main Campus is the university's principal academic and administrative home, located in Bale Robe, about 430 km from Addis Ababa.</p>
+                            <ul class="mwu-detail-list">
+                                <li><i class="fa-light fa-location-dot"></i> Bale Robe, Oromia Regional State</li>
+                                <li><i class="fa-light fa-building-columns"></i> Central administration and academic colleges</li>
+                                <li><i class="fa-light fa-flask"></i> Research, innovation, and student support services</li>
+                            </ul>
+                        </article>
+                    </div>
+
+                    <div class="col-lg-4" id="shashemene-campus">
+                        <article class="mwu-detail-card">
+                            <h3>Shashemene Campus</h3>
+                            <p>Shashemene Campus extends MWU's regional reach in West Arsi, supporting campus-based learning and continuing education opportunities.</p>
+                            <ul class="mwu-detail-list">
+                                <li><i class="fa-light fa-location-dot"></i> Shashemene City, West Arsi</li>
+                                <li><i class="fa-light fa-users"></i> Regional access point for students and communities</li>
+                                <li><i class="fa-light fa-book-open"></i> Undergraduate and continuing education hub</li>
+                            </ul>
+                        </article>
+                    </div>
+
+                    <div class="col-lg-4" id="goba-campus">
+                        <article class="mwu-detail-card">
+                            <h3>Goba Referral Hospital</h3>
+                            <p>MWU Goba Teaching Hospital supports medical education, health research, and healthcare service delivery for Bale, East Bale, West Arsi, Guji, and part of Somali Region.</p>
+                            <ul class="mwu-detail-list">
+                                <li><i class="fa-light fa-location-dot"></i> Goba, Ethiopia</li>
+                                <li><i class="fa-light fa-stethoscope"></i> Clinical training for health science programs</li>
+                                <li><i class="fa-light fa-hospital"></i> Teaching, research, and patient care services</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+
+                <p class="mwu-source-note">Facts cross-checked against <a href="https://www.mwu.edu.et/goba/" target="_blank" rel="noopener">MWU Goba Teaching Hospital</a>, <a href="https://www.timeshighereducation.com/world-university-rankings/madda-walabu-university" target="_blank" rel="noopener">Times Higher Education</a>, and MWU campus/program references.</p>
+            </div>
+        </section>
+    </main>
+
+    <section class="campus space overflow-hidden">
+        <div class="container th-container4">
+            <div class="row justify-content-lg-between justify-content-center align-items-center">
+                <div class="col-lg-4">
+                    <div class="title-area text-center text-lg-start">
+                        <h2 class="sec-title text-anim2">You can live student life to its fullest!</h2>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <p class="wow fadeInUp">Just because youâ€™re taking a full course schedule, studying during work breaks, and letâ€™s not forget
+                        trying to figure out what you want to do professionally for the rest of your working years, you can
+                        still have a life!</p>
+                </div>
+            </div>
+            <div class="row gy-4 justify-content-center">
+                <div class="campus-image global-img">
+                    <img src="assets/img/campus/campus-image.jpg" alt="">
+                </div>
+            </div>
+        </div>
+    </section><!--==============================
+Cta Area  
+==============================-->
+    <section class="cta-area-2 bg-title pt-5 pb-5 overflow-hidden" id="contact-sec">
+        <div class="container th-container4">
+            <div class="row gy-5 justify-content-between align-items-center">
+                <div class="col-lg-7">
+                    <div class="title-area mb-0 ps-xl-5">
+                        <h2 class="sec-title text-white">Not yet enrolled in university? Become one now and fully enjoy your
+                            time as a student.</h2>
+                    </div>
+                </div>
+                <div class="col-lg-5 text-lg-end">
+                    <a href="contact.html" class="th-btn th-icon white-hover">Apply Today</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="campus space overflow-hidden overflow-hidden">
+        <div class="container th-container4">
+            <div class="row justify-content-center">
+                <div class="col-lg-6">
+                    <div class="title-area text-center">
+                        <h2 class="sec-title text-anim2">Find Your Success as a Student at Madda Walabu University</h2>
+                        <p class="wow fadeInUp">Make the most of your time as a student here at Friends University! Below
+                            are some ways you can get involved and be part of our wonderful community.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row gy-4 space-bottom  justify-content-lg-between justify-content-center align-items-center">
+                <div class="col-lg-12 col-xl-6 campus-item_wrapp">
+                    <div class="campus-item">
+                        <div class="box-img global-img">
+                            <img src="assets/img/campus/campus-3-1.jpg" alt="">
+                        </div>
+                        <div class="box-content">
+                            <h3 class="box-title">Student Affairs</h3>
+                            <p class="box-text">The data is in students who live on campus have a 74 percent higher chance
+                                of graduating than those who live off campus. If that were a lottery odd, weâ€™d be playing.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-xl-3 campus-item_wrapp">
+                    <div class="campus-item">
+                        <div class="box-img global-img">
+                            <img src="assets/img/campus/campus-3-2.jpg" alt="">
+                        </div>
+                        <div class="box-content">
+                            <h3 class="box-title">Student Auditorium</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 col-xl-3 campus-item_wrapp">
+                    <div class="campus-item">
+                        <div class="box-img global-img">
+                            <img src="assets/img/campus/campus-3-3.jpg" alt="">
+                        </div>
+                        <div class="box-content">
+                            <h3 class="box-title">Grup Study & Diversity</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-50">
+                <h2 class="">Our campus is stunning from Davis to Casado!, we have a beautiful campus! Madda Walabu University
+                    campus is
+                    teaming with fun activities, fantastic facilities and helpful resources. And you can have access to all
+                    of it.</h2>
+            </div>
+            <div class="row gy-4 justify-content-lg-between justify-content-center align-items-center">
+                <div class="col-lg-6">
+                    <div class="campus-box-img1 global-img">
+                        <img src="assets/img/campus/campus-img1.jpg" alt="">
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="campus-box-img2 global-img">
+                        <img src="assets/img/campus/campus-img2.jpg" alt="">
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="overflow-hidden">
+        <div class="container th-container4">
+            <div class="row justify-content-center">
+                <div class="col-lg-6">
+                    <div class="title-area text-center">
+                        <h2 class="sec-title text-anim2">Arts & Culture</h2>
+                        <p class="wow fadeInUp">From the playing fields, to hallowed Davis Hall, to the MWU Campus
+                            Center, Madda Walabu University campus is teaming with fun activities, fantastic facilities and
+                            helpful resources. And you can have access to all of it.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="slider-area">
+                <div class="swiper th-slider campusSlider1 has-shadow" id="campusSlider1" data-slider-options='{"paginationType": "progressbar","mousewheel": {"enabled": true,"sensitivity": 4},"breakpoints":{"0":{"slidesPerView":1},"576":{"slidesPerView":"1"},"768":{"slidesPerView":"1"},"992":{"slidesPerView":"3"},"1400":{"centeredSlides":"true","slidesPerView":"4"}}}'>
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide">
+                            <div class="campus-card2" data-bg-src="assets/img/campus/campus-4-1.jpg">
+                                <div class="box-content2">
+                                    <h3 class="box-title">Wellness & Therapy</h3>
+                                </div>
+                                <div class="box-content">
+                                    <h3 class="box-title">Wellness & Therapy</h3>
+                                    <p class="box-text">Â Athletics provides intercollegiate and recreational opportunities
+                                        that enrich the Penn student experience, and makes athletic facilities and
+                                        activities available to the entire campus community.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="campus-card2" data-bg-src="assets/img/campus/campus-4-2.jpg">
+                                <div class="box-content2">
+                                    <h3 class="box-title">Museums</h3>
+                                </div>
+                                <div class="box-content">
+                                    <h3 class="box-title">Museums</h3>
+                                    <p class="box-text">Â Athletics provides intercollegiate and recreational opportunities
+                                        that enrich the Penn student experience, and makes athletic facilities and
+                                        activities available to the entire campus community.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="campus-card2" data-bg-src="assets/img/campus/campus-4-3.jpg">
+                                <div class="box-content2">
+                                    <h3 class="box-title">Athlete</h3>
+                                </div>
+                                <div class="box-content">
+                                    <h3 class="box-title">Athlete</h3>
+                                    <p class="box-text">Â Athletics provides intercollegiate and recreational opportunities
+                                        that enrich the Penn student experience, and makes athletic facilities and
+                                        activities available to the entire campus community.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="campus-card2" data-bg-src="assets/img/campus/campus-4-4.jpg">
+                                <div class="box-content2">
+                                    <h3 class="box-title">Performing Arts</h3>
+                                </div>
+                                <div class="box-content">
+                                    <h3 class="box-title">Performing Arts</h3>
+                                    <p class="box-text">Â Athletics provides intercollegiate and recreational opportunities
+                                        that enrich the Penn student experience, and makes athletic facilities and
+                                        activities available to the entire campus community.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="campus-card2" data-bg-src="assets/img/campus/campus-4-1.jpg">
+                                <div class="box-content2">
+                                    <h3 class="box-title">Wellness & Therapy</h3>
+                                </div>
+                                <div class="box-content">
+                                    <h3 class="box-title">Wellness & Therapy</h3>
+                                    <p class="box-text">Â Athletics provides intercollegiate and recreational opportunities
+                                        that enrich the Penn student experience, and makes athletic facilities and
+                                        activities available to the entire campus community.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="campus-card2" data-bg-src="assets/img/campus/campus-4-2.jpg">
+                                <div class="box-content2">
+                                    <h3 class="box-title">Museums</h3>
+                                </div>
+                                <div class="box-content">
+                                    <h3 class="box-title">Museums</h3>
+                                    <p class="box-text">Â Athletics provides intercollegiate and recreational opportunities
+                                        that enrich the Penn student experience, and makes athletic facilities and
+                                        activities available to the entire campus community.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div><!--==============================
+Marquee Area  
+==============================-->
+    <div class="marquee-area space  overflow-hidden">
+        <div class="container-fluid p-0">
+            <div class="swiper th-slider marquee-slider1" data-slider-options='{"breakpoints":{"0":{"slidesPerView":"auto"}},"autoplay":{"delay":0,"disableOnInteraction":false},"noSwiping":"true","speed":10000,"spaceBetween":40}'>
+                <div class="swiper-wrapper">
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">CREATION</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/scollarship.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">DISCOVER</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">INNOVATE</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">EDUCATION</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/scollarship.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">CASE STUDIES</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">CREATION</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">DISCOVER</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/scollarship.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">INNOVATE</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="mwu-universal-footer"></div>
+<script src="assets/js/universal-footer.js"></script>
+
+    <!--********************************
+			Code End  Here 
+	******************************** -->
+
+    <!-- Scroll To Top -->
+    <div class="scroll-top">
+        <svg class="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
+            <path d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98" style="transition: stroke-dashoffset 10ms linear 0s; stroke-dasharray: 307.919, 307.919; stroke-dashoffset: 307.919;">
+            </path>
+        </svg>
+    </div>
+    <!--==============================
+modal Area  
+==============================-->
+    <div id="login-form" class="popup-login-register mfp-hide">
+        <ul class="nav" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-menu" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="false">Login</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-menu active" id="pills-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-profile" type="button" role="tab" aria-controls="pills-profile" aria-selected="true">Register</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="pills-tabContent">
+            <div class="tab-pane fade" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab">
+                <h3 class="box-title mb-30">Sign in to your account</h3>
+                <div class="th-login-form">
+                    <form action="mail.php" method="POST" class="login-form ajax-contact">
+                        <div class="row">
+                            <div class="form-group col-12">
+                                <label>Username or email</label>
+                                <input type="text" class="form-control" name="email" id="email" required="required">
+                            </div>
+                            <div class="form-group col-12">
+                                <label>Password</label>
+                                <input type="password" class="form-control" name="pasword" id="pasword" required="required">
+                            </div>
+
+                            <div class="form-btn mb-20 col-12">
+                                <button class="th-btn btn-fw th-radius2 ">Send Message</button>
+                            </div>
+                        </div>
+                        <div id="forgot_url">
+                            <a href="my-account.html">Forgot password?</a>
+                        </div>
+                        <p class="form-messages mb-0 mt-3"></p>
+                    </form>
+                </div>
+            </div>
+            <div class="tab-pane fade active show" id="pills-profile" role="tabpanel" aria-labelledby="pills-profile-tab">
+                <h3 class="th-form-title mb-30">Sign in to your account</h3>
+                <form action="mail.php" method="POST" class="login-form ajax-contact">
+                    <div class="row">
+                        <div class="form-group col-12">
+                            <label>Username*</label>
+                            <input type="text" class="form-control" name="usename" id="usename" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label>First name*</label>
+                            <input type="text" class="form-control" name="firstname" id="firstname" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label>Last name*</label>
+                            <input type="text" class="form-control" name="lastname" id="lastname" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label for="new_email">Your email*</label>
+                            <input type="text" class="form-control" name="new_email" id="new_email" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label for="new_email_confirm">Confirm email*</label>
+                            <input type="text" class="form-control" name="new_email_confirm" id="new_email_confirm" required="required">
+                        </div>
+                        <div class="statement">
+                            <span class="register-notes">A password will be emailed to you.</span>
+                        </div>
+
+                        <div class="form-btn mt-20 col-12">
+                            <button class="th-btn btn-fw th-radius2 ">Sign up</button>
+                        </div>
+                    </div>
+                    <p class="form-messages mb-0 mt-3"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--==============================
+    All Js File
+============================== -->
+    <!-- Jquery -->
+    <script src="assets/js/vendor/jquery-3.7.1.min.js"></script>
+    <!-- Swiper Js -->
+    <script src="assets/js/swiper-bundle.min.js"></script>
+    <!-- Bootstrap -->
+    <script src="assets/js/bootstrap.min.js"></script>
+    <!-- Magnific Popup -->
+    <script src="assets/js/jquery.magnific-popup.min.js"></script>
+    <!-- Counter Up -->
+    <script src="assets/js/jquery.counterup.min.js"></script>
+    <!-- Range Slider -->
+    <script src="assets/js/jquery-ui.min.js"></script>
+    <!-- Isotope Filter -->
+    <script src="assets/js/imagesloaded.pkgd.min.js"></script>
+    <script src="assets/js/isotope.pkgd.min.js"></script>
+    <!-- Wow Js -->
+    <script src="assets/js/wow.min.js"></script>
+
+    <!-- Gsap Animation -->
+    <script src="assets/js/gsap.min.js"></script>
+    <!-- ScrollTrigger -->
+    <script src="assets/js/ScrollTrigger.min.js"></script>
+    <!-- SplitText -->
+    <script src="assets/js/SplitText.min.js"></script>
+    <!-- Lenis Js -->
+    <script src="assets/js/lenis.min.js"></script>
+    <!-- Main Js File -->
+    <script src="assets/js/main.js"></script>
+
+</body>
+
+</html>
+
+
+
+
+
+

@@ -1,0 +1,435 @@
+<section class="custom-google-review-widget" aria-labelledby="mwu-google-reviews-title">
+  <div class="google-review-wrapper">
+    <div class="business-info">
+      <div class="business-top">
+        <img id="businessLogo" src="" alt="Madda Walabu University logo">
+        <h3 id="businessName"></h3>
+      </div>
+
+      <div class="business-stars" id="businessStars" aria-label="Average rating"></div>
+      <div class="business-count" id="businessCount"></div>
+
+      <a id="writeReviewBtn" class="write-review-btn" target="_blank" rel="noopener">
+        Write a review
+      </a>
+    </div>
+
+    <button class="slider-btn prev-btn" type="button" aria-label="Previous reviews" onclick="moveReviews(-1)">&lsaquo;</button>
+
+    <div class="reviews-slider-area">
+      <div class="reviews-track" id="reviewsTrack"></div>
+    </div>
+
+    <button class="slider-btn next-btn" type="button" aria-label="Next reviews" onclick="moveReviews(1)">&rsaquo;</button>
+  </div>
+</section>
+
+<style>
+  .custom-google-review-widget {
+    width: 100%;
+    padding: 45px 20px;
+    background: #ffffff;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+  }
+
+  .google-review-wrapper {
+    max-width: 1220px;
+    margin: 0 auto;
+    display: flex;
+    align-items: stretch;
+    gap: 20px;
+    position: relative;
+  }
+
+  .business-info {
+    width: 280px;
+    flex: 0 0 280px;
+    padding: 20px 10px;
+    box-sizing: border-box;
+  }
+
+  .business-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .business-top img {
+    width: 66px;
+    height: 46px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: #f5f7f2;
+  }
+
+  .business-top h3 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.35;
+    font-weight: 700;
+    color: #000;
+  }
+
+  .business-stars {
+    color: #f4b400;
+    font-size: 25px;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .business-count {
+    font-size: 15px;
+    color: #000;
+    margin-bottom: 16px;
+  }
+
+  .write-review-btn {
+    display: inline-block;
+    padding: 9px 18px;
+    border: 1px solid #0b6b3a;
+    border-radius: 4px;
+    color: #0b6b3a;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    background: #fff;
+    transition: 0.25s ease;
+  }
+
+  .write-review-btn:hover {
+    background: #0b6b3a;
+    color: #fff;
+  }
+
+  .reviews-slider-area {
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .reviews-track {
+    display: flex;
+    gap: 16px;
+    transition: transform 0.45s ease;
+  }
+
+  .review-card {
+    min-width: calc((100% - 32px) / 3);
+    height: 235px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 28px 22px 22px;
+    box-sizing: border-box;
+    background: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .review-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-right: 26px;
+    margin-bottom: 15px;
+  }
+
+  .review-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #0b6b3a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    flex: 0 0 42px;
+  }
+
+  .review-user h4 {
+    margin: 0 0 3px;
+    font-size: 16px;
+    color: #000;
+    font-weight: 700;
+  }
+
+  .review-user span {
+    font-size: 14px;
+    color: #777;
+  }
+
+  .google-icon {
+    position: absolute;
+    right: 16px;
+    top: 14px;
+    text-decoration: none;
+    font-size: 22px;
+    font-weight: 800;
+    font-family: Arial, sans-serif;
+    line-height: 1;
+  }
+
+  .google-icon span:nth-child(1) { color: #4285f4; }
+  .review-stars {
+    color: #f4b400;
+    font-size: 20px;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .review-text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: #000;
+    margin: 0;
+  }
+
+  .review-empty-state {
+    width: 100%;
+    min-height: 235px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 34px 28px;
+    box-sizing: border-box;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .review-empty-state h4 {
+    margin: 0;
+    font-size: 20px;
+    color: #000;
+  }
+
+  .review-empty-state p {
+    margin: 0;
+    max-width: 640px;
+    color: #555;
+    line-height: 1.6;
+  }
+
+  .review-empty-state a {
+    color: #0b6b3a;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #ddd;
+    background: #fff;
+    color: #555;
+    font-size: 32px;
+    line-height: 25px;
+    cursor: pointer;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.25s ease;
+  }
+
+  .slider-btn:hover {
+    background: #f5f5f5;
+    color: #000;
+  }
+
+  .prev-btn {
+    left: 300px;
+  }
+
+  .next-btn {
+    right: -16px;
+  }
+
+  @media (max-width: 991px) {
+    .google-review-wrapper {
+      flex-direction: column;
+    }
+
+    .business-info {
+      width: 100%;
+      flex: auto;
+      padding: 0;
+    }
+
+    .review-card {
+      min-width: calc((100% - 16px) / 2);
+    }
+
+    .prev-btn {
+      left: -10px;
+      top: 68%;
+    }
+
+    .next-btn {
+      right: -10px;
+      top: 68%;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .review-card {
+      min-width: 100%;
+      height: auto;
+      min-height: 230px;
+    }
+
+    .slider-btn {
+      top: 72%;
+    }
+  }
+</style>
+
+<script>
+  var mwuGoogleMapsUrl = "https://www.google.com/maps/place/Madda+Walabu+University+Main+Campus+(%E1%88%98%E1%8B%B0+%E1%8B%88%E1%88%8B%E1%89%A1+%E1%8B%A9%E1%8A%92%E1%89%A8%E1%88%AD%E1%88%B2%E1%89%B2+%E1%8B%8B%E1%8A%93+%E1%8C%8D%E1%89%A2%EF%BC%89/@7.1427143,39.9945618,17z/data=!3m1!4b1!4m6!3m5!1s0x17ca074622243709:0x68807ba66bcb9c71!8m2!3d7.142709!4d39.9971367!16s%2Fm%2F0cp4ss8?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D";
+
+  window.reviewWidgetConfig = {
+    businessName: "Madda Walabu University Main Campus",
+    businessLogo: "assets/img/logo.png",
+    totalReviews: "View Google reviews",
+    averageRating: 0,
+    googleProfileUrl: mwuGoogleMapsUrl,
+    writeReviewUrl: mwuGoogleMapsUrl,
+    reviews: []
+  };
+
+  window.currentReviewIndex = 0;
+
+  function makeStars(rating) {
+    var stars = "";
+    for (var i = 1; i <= 5; i++) {
+      stars += i <= rating ? "&#9733;" : "&#9734;";
+    }
+    return stars;
+  }
+
+  function googleLogo() {
+    return "<span>G</span>";
+  }
+
+  function getInitial(name) {
+    return name ? name.charAt(0).toUpperCase() : "G";
+  }
+
+  function escapeReviewText(value) {
+    var element = document.createElement("div");
+    element.textContent = value || "";
+    return element.innerHTML;
+  }
+
+  function reviewAgeInDays(review) {
+    var time = String(review.time || "").toLowerCase();
+    var amountMatch = time.match(/\d+/);
+    var amount = amountMatch ? parseInt(amountMatch[0], 10) : 0;
+
+    if (time.indexOf("year") !== -1) return amount * 365;
+    if (time.indexOf("month") !== -1) return amount * 30;
+    if (time.indexOf("week") !== -1) return amount * 7;
+    if (time.indexOf("day") !== -1) return amount;
+    if (time.indexOf("hour") !== -1 || time.indexOf("minute") !== -1 || time.indexOf("just now") !== -1) return 0;
+
+    return 999999;
+  }
+
+  function initGoogleReviewWidget() {
+    var config = window.reviewWidgetConfig;
+    var track = document.getElementById("reviewsTrack");
+    var businessName = document.getElementById("businessName");
+    var businessLogo = document.getElementById("businessLogo");
+    var businessStars = document.getElementById("businessStars");
+    var businessCount = document.getElementById("businessCount");
+    var writeReviewBtn = document.getElementById("writeReviewBtn");
+
+    if (!config || !track || !businessName || !businessLogo || !businessStars || !businessCount || !writeReviewBtn) return;
+
+    businessName.innerText = config.businessName;
+    businessLogo.src = config.businessLogo;
+    businessStars.innerHTML = config.averageRating ? makeStars(Math.round(config.averageRating)) : "";
+    businessCount.innerText = config.totalReviews;
+    writeReviewBtn.href = config.writeReviewUrl;
+
+    if (!config.reviews.length) {
+      track.innerHTML = '<div class="review-empty-state">' +
+        '<h4>Read verified Google reviews</h4>' +
+        '<p>Live Google review text is available on the official Google Maps listing for Madda Walabu University Main Campus.</p>' +
+        '<a href="' + config.googleProfileUrl + '" target="_blank" rel="noopener">Open Google reviews</a>' +
+      '</div>';
+      return;
+    }
+
+    var latestReviews = config.reviews.slice().sort(function(a, b) {
+      return reviewAgeInDays(a) - reviewAgeInDays(b);
+    });
+
+    track.innerHTML = latestReviews.map(function(review) {
+      var reviewName = escapeReviewText(review.name);
+      var avatarHtml = review.avatar
+        ? '<img class="review-avatar" src="' + review.avatar + '" alt="' + reviewName + '">'
+        : '<div class="review-avatar">' + getInitial(review.name) + '</div>';
+
+      return '<div class="review-card">' +
+        '<a class="google-icon" href="' + config.googleProfileUrl + '" target="_blank" rel="noopener" title="View on Google">' + googleLogo() + '</a>' +
+        '<div class="review-head">' + avatarHtml +
+          '<div class="review-user"><h4>' + reviewName + '</h4><span>' + escapeReviewText(review.time) + '</span></div>' +
+        '</div>' +
+        '<div class="review-stars">' + makeStars(review.rating) + '</div>' +
+        '<p class="review-text">' + escapeReviewText(review.text) + '</p>' +
+      '</div>';
+    }).join("");
+
+    updateSlider();
+  }
+
+  function getVisibleCards() {
+    if (window.innerWidth <= 600) return 1;
+    if (window.innerWidth <= 991) return 2;
+    return 3;
+  }
+
+  function moveReviews(direction) {
+    var visibleCards = getVisibleCards();
+    var totalReviews = window.reviewWidgetConfig.reviews.length;
+    var maxIndex = Math.max(totalReviews - visibleCards, 0);
+
+    window.currentReviewIndex += direction;
+
+    if (window.currentReviewIndex < 0) {
+      window.currentReviewIndex = maxIndex;
+    }
+
+    if (window.currentReviewIndex > maxIndex) {
+      window.currentReviewIndex = 0;
+    }
+
+    updateSlider();
+  }
+
+  function updateSlider() {
+    var track = document.getElementById("reviewsTrack");
+    if (!track) return;
+
+    var card = track.querySelector(".review-card");
+    if (!card) return;
+
+    var gap = 16;
+    var cardWidth = card.offsetWidth + gap;
+    track.style.transform = "translateX(-" + (window.currentReviewIndex * cardWidth) + "px)";
+  }
+
+  window.addEventListener("resize", updateSlider);
+  initGoogleReviewWidget();
+</script>

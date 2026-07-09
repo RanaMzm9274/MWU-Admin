@@ -1,0 +1,992 @@
+<!doctype html>
+<html class="no-js " lang="zxx" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>MWU Programs | Campus and Department-wise Academic Programs</title>
+    <meta name="author" content="Madda Walabu University">
+    <meta name="description" content="Explore Madda Walabu University programs by campus, college, school, and department, including undergraduate, master, specialty, and PhD offerings.">
+    <meta name="keywords" content="MWU programs, Madda Walabu University departments, Bale Robe campus programs, Goba campus programs, Shashemene campus programs, Ethiopian university degrees">
+    <meta name="robots" content="INDEX,FOLLOW">
+
+    <!-- Mobile Specific Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Favicons - Place favicon.ico in the root directory -->
+    <link rel="apple-touch-icon" sizes="57x57" href="assets/img/favicons/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="assets/img/favicons/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="assets/img/favicons/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="assets/img/favicons/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="assets/img/favicons/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="assets/img/favicons/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="assets/img/favicons/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="assets/img/favicons/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/favicons/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/img/favicons/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="assets/img/favicons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicons/favicon-16x16.png">
+    <link rel="manifest" href="assets/img/favicons/manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="assets/img/favicons/ms-icon-144x144.png">
+    <meta name="theme-color" content="#ffffff">
+
+    <!--==============================
+	  Google Fonts
+	============================== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+    <!--==============================
+	    All CSS File
+	============================== -->
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <!-- Fontawesome Icon -->
+    <link rel="stylesheet" href="assets/css/fontawesome.min.css">
+    <!-- Magnific Popup -->
+    <link rel="stylesheet" href="assets/css/magnific-popup.min.css">
+    <!-- Swiper Js -->
+    <link rel="stylesheet" href="assets/css/swiper-bundle.min.css">
+    <!-- Theme Custom CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+
+            <style>
+        /* Programs accordion layout override */
+        #ugProgramsAccordion .accordion-collapse,
+        #pgProgramsAccordion .accordion-collapse,
+        #phdProgramsAccordion .accordion-collapse,
+        #ugProgramsAccordion .accordion-body,
+        #pgProgramsAccordion .accordion-body,
+        #phdProgramsAccordion .accordion-body {
+            background: #ffffff !important;
+            background-image: none !important;
+        }
+
+        #ugProgramsAccordion .accordion-body:before,
+        #pgProgramsAccordion .accordion-body:before,
+        #phdProgramsAccordion .accordion-body:before {
+            content: none !important;
+            display: none !important;
+        }
+
+        #ugProgramsAccordion .accordion-body .list,
+        #pgProgramsAccordion .accordion-body .list,
+        #phdProgramsAccordion .accordion-body .list {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px 28px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            position: relative;
+            background-image:
+                linear-gradient(to bottom, transparent, transparent),
+                linear-gradient(to bottom, #e4e7ef, #e4e7ef),
+                linear-gradient(to bottom, #e4e7ef, #e4e7ef);
+            background-size: 100% 100%, 1px 100%, 1px 100%;
+            background-position: 0 0, 33.333% 0, 66.666% 0;
+            background-repeat: no-repeat;
+        }
+
+        #ugProgramsAccordion .accordion-body .list li,
+        #pgProgramsAccordion .accordion-body .list li,
+        #phdProgramsAccordion .accordion-body .list li {
+            margin: 0;
+            padding: 0;
+        }
+
+        @media (max-width: 991.98px) {
+            #ugProgramsAccordion .accordion-body .list,
+            #pgProgramsAccordion .accordion-body .list,
+            #phdProgramsAccordion .accordion-body .list {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                background-image:
+                    linear-gradient(to bottom, transparent, transparent),
+                    linear-gradient(to bottom, #e4e7ef, #e4e7ef);
+                background-size: 100% 100%, 1px 100%;
+                background-position: 0 0, 50% 0;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            #ugProgramsAccordion .accordion-body .list,
+            #pgProgramsAccordion .accordion-body .list,
+            #phdProgramsAccordion .accordion-body .list {
+                grid-template-columns: 1fr;
+                background-image: none;
+            }
+        }
+
+        /* Undergraduate section refresh */
+        .ug-program-overview {
+            background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
+            border: 1px solid #d8e3f4;
+            border-radius: 24px;
+            padding: 28px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .ug-program-overview .sec-title {
+            margin-bottom: 0;
+        }
+
+        .ug-program-overview .sec-text {
+            margin-bottom: 0;
+            max-width: 760px;
+        }
+
+        .ug-program-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ug-program-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #d8e3f4;
+            border-radius: 999px;
+            background: #ffffff;
+            color: #081933;
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 1;
+            padding: 10px 14px;
+        }
+
+        .ug-program-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .ug-program-count {
+            color: #4b5a70;
+            font-weight: 500;
+        }
+
+        .ug-program-search {
+            width: 100%;
+            max-width: 360px;
+        }
+
+        .ug-program-search input {
+            width: 100%;
+            border: 1px solid #d8e3f4;
+            border-radius: 12px;
+            padding: 12px 14px;
+            background: #ffffff;
+            color: #081933;
+            transition: all 0.3s ease;
+        }
+
+        .ug-program-search input:focus {
+            outline: none;
+            border-color: #1A4B96;
+            box-shadow: 0 0 0 3px rgba(26, 75, 150, 0.15);
+        }
+
+        #ugProgramsAccordion .accordion-card.ug-program-shell,
+        #pgProgramsAccordion .accordion-card.ug-program-shell,
+        #phdProgramsAccordion .accordion-card.ug-program-shell {
+            border: 1px solid #d8e3f4;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 12px 30px rgba(8, 25, 51, 0.08);
+        }
+
+        #ugProgramsAccordion .ug-program-shell .accordion-button,
+        #pgProgramsAccordion .ug-program-shell .accordion-button,
+        #phdProgramsAccordion .ug-program-shell .accordion-button {
+            font-size: 24px;
+            padding: 22px 24px;
+        }
+
+        #ugProgramsAccordion .ug-program-shell .accordion-body,
+        #pgProgramsAccordion .ug-program-shell .accordion-body,
+        #phdProgramsAccordion .ug-program-shell .accordion-body {
+            padding: 24px;
+        }
+
+        #ugProgramsAccordion .accordion-body .ug-program-grid,
+        #pgProgramsAccordion .accordion-body .ug-program-grid,
+        #phdProgramsAccordion .accordion-body .ug-program-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            background-image: none;
+        }
+
+        #ugProgramsAccordion .accordion-body .ug-program-grid li a,
+        #pgProgramsAccordion .accordion-body .ug-program-grid li a,
+        #phdProgramsAccordion .accordion-body .ug-program-grid li a {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 66px;
+            border: 1px solid #d8e3f4;
+            border-radius: 14px;
+            background: #f8fbff;
+            color: #081933;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.4;
+            padding: 12px 14px;
+            transition: all 0.25s ease;
+        }
+
+        #ugProgramsAccordion .accordion-body .ug-program-grid li a:after,
+        #pgProgramsAccordion .accordion-body .ug-program-grid li a:after,
+        #phdProgramsAccordion .accordion-body .ug-program-grid li a:after {
+            content: ">";
+            font-size: 18px;
+            color: #1A4B96;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        #ugProgramsAccordion .accordion-body .ug-program-grid li a:hover,
+        #pgProgramsAccordion .accordion-body .ug-program-grid li a:hover,
+        #phdProgramsAccordion .accordion-body .ug-program-grid li a:hover {
+            border-color: #1A4B96;
+            background: #ffffff;
+            color: #1A4B96;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(8, 25, 51, 0.08);
+        }
+
+        .ug-program-empty {
+            display: none;
+            margin: 18px 0 0;
+            border: 1px dashed #d8e3f4;
+            border-radius: 12px;
+            background: #f8fbff;
+            color: #4b5a70;
+            font-weight: 500;
+            padding: 12px 14px;
+        }
+
+        .ug-program-empty.is-visible {
+            display: block;
+        }
+
+        @media (max-width: 991.98px) {
+            #ugProgramsAccordion .accordion-body .ug-program-grid,
+            #pgProgramsAccordion .accordion-body .ug-program-grid,
+            #phdProgramsAccordion .accordion-body .ug-program-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                background-image: none;
+            }
+
+            #ugProgramsAccordion .ug-program-shell .accordion-button,
+            #pgProgramsAccordion .ug-program-shell .accordion-button,
+            #phdProgramsAccordion .ug-program-shell .accordion-button {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .ug-program-overview {
+                padding: 20px;
+            }
+
+            #ugProgramsAccordion .accordion-body .ug-program-grid,
+            #pgProgramsAccordion .accordion-body .ug-program-grid,
+            #phdProgramsAccordion .accordion-body .ug-program-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!--[if lte IE 9]>
+    	<p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+  	<![endif]-->
+
+
+    <!--********************************
+   		Code Start From Here 
+	******************************** -->
+
+    
+    </div><div id="mwu-universal-header"></div>
+<script src="assets/js/universal-header.js"></script> <!--==============================
+    Breadcumb
+============================== -->
+    <div class="breadcumb-wrapper position-relative " data-bg-src="assets/img/shape/breadcrumb-shep.png">
+        <div class="breadcumb-banner">
+            <img src="assets/img/program/programs-banner.jpg" alt="bg-banner">
+        </div>
+        <div class="breadcumb-shape">
+            <img src="assets/img/shape/triangle-light.png" alt="shape" class="jump">
+        </div>
+        <div class="container th-container4">
+            <div class="row">
+                <div class="col-xxl-5">
+                    <div class="breadcumb-content">
+                        <h1 class="breadcumb-title">All Programs</h1>
+                        <ul class="breadcumb-menu">
+                            <li><a href="home-university.html">Home</a></li>
+                            <li>All Programs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div><!--==============================
+Program Area Home 2 
+==============================-->
+    <section class="program-area2 position-relative overflow-hidden space overflow-hidden" id="program-sec">
+        <div class="container th-container4">
+            <div class="row justify-content-between">
+                <div class="col-xl-6 col-xxl-6">
+                    <div class="title-area pe-xl-4">
+                        <h2 class="sec-title text-anim2">Explore MWU Programs by <span class="d-block">Campus and Department</span></h2>
+                        <p class="mt-20 wow fadeInUp" data-wow-delay=".3s">MWU offers 47 undergraduate, 40 master's, 2 specialty, and 4 PhD programs across Bale Robe Main Campus, Goba Campus, and Shashemene Campus. Programs are aligned with national development and global competitiveness.</p>
+                        <span><a href="faq.html"> Have more questions? </a> Check our help center or contact our <a href="contact.html"> support team </a></span>
+                    </div>
+                </div>
+                <div class="col-xl-4 col-xxl-3">
+                    <div class="title-area">
+                        <h2 class="sec-title">Degree & Majors</h2>
+                        <div class="program-btn mt-25">
+                            <a href="#undergraduate-programs" class="th-btn style-border2">Undergraduate Programs</a>
+                            <a href="#graduate-programs" class="th-btn style-border2">Master's Programs</a>
+                            <a href="#phd-programs" class="th-btn style-border2">PhD Programs</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row gy-4">
+                <div class="col-md-2">
+                    <div class="program-image global-img">
+                        <img src="assets/img/program/programs-left-1.jpg" alt="">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="program-image global-img">
+                        <img src="assets/img/program/program-left2.jpg" alt="">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="program-image global-img">
+                        <img src="assets/img/program/program-center-3.jpg" alt="">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="program-image global-img">
+                        <img src="assets/img/program/program-right2.jpg" alt="">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="program-image global-img">
+                        <img src="assets/img/program/program-right-1.jpg" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="shape-mockup movingX d-none d-xl-inline-block" data-bottom="0%" data-right="0%">
+            <img src="assets/img/shape/shape-9.png" alt="MWU">
+        </div>
+    </section>
+    <section class="space-bottom">
+        <div class="container th-container4">
+            <div class="title-area">
+                <h2 class="sec-title">Campus and Department-wise Programs</h2>
+                <p class="sec-text">The following highlights are based on MWU's current academic structure and the university brief profile.</p>
+            </div>
+            <div class="row gy-4">
+                <div class="col-lg-4">
+                    <div class="contact-feature">
+                        <div class="media-body">
+                            <h3 class="box-title">Bale Robe Main Campus</h3>
+                            <p class="box-text">Engineering, Computing, Natural and Computational Sciences, Agriculture and Natural Resources, Business and Economics, Education and Behavioral Sciences, and Social Sciences and Humanities.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="contact-feature">
+                        <div class="media-body">
+                            <h3 class="box-title">Goba Campus</h3>
+                            <p class="box-text">Health and Medicine programs including Nursing, Public Health, Midwifery, Medicine, Pharmacy, Medical Laboratory Science, plus health-focused MSc and specialty programs.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="contact-feature">
+                        <div class="media-body">
+                            <h3 class="box-title">Shashemene Campus</h3>
+                            <p class="box-text">Nursing, Public Health, Midwifery, Accounting and Finance, Economics, Management, and Marketing programs.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+        <section class="faq-area-3 position-relative overflow-hidden space-bottom overflow-hidden" id="faq-sec">
+  <div class="container th-container4">
+    <div class="row">
+      <div class="col-12">
+        <div class="ug-program-overview">
+          <div class="ug-program-intro">
+            <h2 class="sec-title" id="undergraduate-programs">Undergraduate Programs</h2>
+            <p class="sec-text mt-10">Browse all undergraduate degree options and open any program to view details, curriculum focus, and admission pathways.</p>
+          </div>
+          <div class="ug-program-meta">
+            <span class="ug-program-pill"><span id="ugProgramTotal">46</span> Programs</span>
+            <span class="ug-program-pill">Bachelor-Level Degrees</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="ug-program-toolbar">
+          <p class="ug-program-count mb-0">Showing <span id="ugProgramVisible">46</span> of <span id="ugProgramTotalInline">46</span> undergraduate programs</p>
+          <div class="ug-program-search">
+            <label class="visually-hidden" for="ugProgramSearch">Search undergraduate programs</label>
+            <input type="search" id="ugProgramSearch" placeholder="Search undergraduate programs..." aria-label="Search undergraduate programs">
+          </div>
+        </div>
+        <div class="accordion" id="ugProgramsAccordion">
+          <div class="accordion-card style3 wow fadeInUp ug-program-shell" data-wow-delay=".1s">
+            <div class="accordion-header" id="ugProgramsHeading">
+              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#ugProgramsCollapse" aria-expanded="true" aria-controls="ugProgramsCollapse">Undergraduate Degree Programs</button>
+            </div>
+            <div id="ugProgramsCollapse" class="accordion-collapse collapse show" aria-labelledby="ugProgramsHeading" data-bs-parent="#ugProgramsAccordion">
+              <div class="accordion-body" data-bg-src="assets/img/faq/faq-2-1.jpg">
+                <ul class="list ug-program-grid"><li><a href="program-ug-accounting-and-finance.html">Accounting and Finance</a></li><li><a href="program-ug-adult-education.html">Adult Education</a></li><li><a href="program-ug-afan-oromo-and-literature.html">Afan Oromo and Literature</a></li><li><a href="program-ug-agricultural-economics.html">Agricultural Economics</a></li><li><a href="program-ug-amharic-language-and-literature.html">Amharic Language and Literature</a></li><li><a href="program-ug-animal-and-range-sciences.html">Animal and Range Sciences</a></li><li><a href="program-ug-biology.html">Biology</a></li><li><a href="program-ug-chemistry.html">Chemistry</a></li><li><a href="program-ug-civics-and-ethical-education.html">Civics and Ethical Education</a></li><li><a href="program-ug-civil-engineering.html">Civil Engineering</a></li><li><a href="program-ug-computer-science.html">Computer Science</a></li><li><a href="program-ug-construction-technology-and-management.html">Construction Technology and Management</a></li><li><a href="program-ug-economics.html">Economics</a></li><li><a href="program-ug-ecotourism-and-biodiversity-conservation.html">Ecotourism and Biodiversity Conservation</a></li><li><a href="program-ug-edpm.html">EDPM</a></li><li><a href="program-ug-electrical-and-computer-engineering.html">Electrical and Computer Engineering</a></li><li><a href="program-ug-english-language-and-literature.html">English Language and Literature</a></li><li><a href="program-ug-environmental-science.html">Environmental Science</a></li><li><a href="program-ug-forestry.html">Forestry</a></li><li><a href="program-ug-geography-and-environmental-studies.html">Geography and Environmental Studies</a></li><li><a href="program-ug-history-and-heritage-management.html">History and Heritage Management</a></li><li><a href="program-ug-information-science.html">Information Science</a></li><li><a href="program-ug-information-systems.html">Information Systems</a></li><li><a href="program-ug-journalism-and-communication.html">Journalism and Communication</a></li><li><a href="program-ug-law.html">Law</a></li><li><a href="program-ug-management.html">Management</a></li><li><a href="program-ug-marketing-management.html">Marketing Management</a></li><li><a href="program-ug-mathematics.html">Mathematics</a></li><li><a href="program-ug-mechanical-engineering.html">Mechanical Engineering</a></li><li><a href="program-ug-medical-laboratory-science.html">Medical Laboratory Science</a></li><li><a href="program-ug-medicine.html">Medicine</a></li><li><a href="program-ug-midwifery.html">Midwifery</a></li><li><a href="program-ug-natural-resource-management.html">Natural Resource Management</a></li><li><a href="program-ug-nursing.html">Nursing</a></li><li><a href="program-ug-pharmacy.html">Pharmacy</a></li><li><a href="program-ug-physics.html">Physics</a></li><li><a href="program-ug-plant-science.html">Plant Science</a></li><li><a href="program-ug-psychology.html">Psychology</a></li><li><a href="program-ug-public-health.html">Public Health</a></li><li><a href="program-ug-rural-development-and-agri-extension.html">Rural Development and Agri Extension</a></li><li><a href="program-ug-sociology.html">Sociology</a></li><li><a href="program-ug-sport-science.html">Sport Science</a></li><li><a href="program-ug-statistics.html">Statistics</a></li><li><a href="program-ug-survey-engineering.html">Survey Engineering</a></li><li><a href="program-ug-tourism-management.html">Tourism Management</a></li><li><a href="program-ug-water-resource-and-irrigation-engineering.html">Water Resource and Irrigation Engineering</a></li></ul>
+                <p class="ug-program-empty" id="ugProgramEmpty">No matching undergraduate program found. Try another keyword.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row mt-4"><h2 class="sec-title" id="graduate-programs">Graduate Programs</h2><div class="col-12"><div class="accordion" id="pgProgramsAccordion"><div class="accordion-card style3 wow fadeInUp ug-program-shell" data-wow-delay=".1s"><div class="accordion-header" id="pgProgramsHeading"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#pgProgramsCollapse" aria-expanded="true" aria-controls="pgProgramsCollapse">Graduate Degree Programs</button></div><div id="pgProgramsCollapse" class="accordion-collapse collapse show" aria-labelledby="pgProgramsHeading" data-bs-parent="#pgProgramsAccordion"><div class="accordion-body" data-bg-src="assets/img/faq/faq-2-2.jpg"><ul class="list ug-program-grid"><li><a href="program-pg-ma-in-accounting-and-finance.html">MA in Accounting and Finance</a></li><li><a href="program-pg-ma-in-afan-oromo-and-literature.html">MA in Afan Oromo and Literature</a></li><li><a href="program-pg-ma-in-applied-linguistics-in-teaching-amharic.html">MA in Applied Linguistics in Teaching Amharic</a></li><li><a href="program-pg-ma-in-curriculum-and-teachers-professional-development.html">MA in Curriculum and Teachers Professional Development</a></li><li><a href="program-pg-ma-in-developmental-economics.html">MA in Developmental Economics</a></li><li><a href="program-pg-ma-in-developmental-psychology.html">MA in Developmental Psychology</a></li><li><a href="program-pg-ma-in-geography-and-environmental-studies.html">MA in Geography and Environmental Studies</a></li><li><a href="program-pg-ma-in-marketing-and-management.html">MA in Marketing and Management</a></li><li><a href="program-pg-ma-in-tefl.html">MA in TEFL</a></li><li><a href="program-pg-ma-in-urban-planning-and-management.html">MA in Urban Planning and Management</a></li><li><a href="program-pg-mba.html">MBA</a></li><li><a href="program-pg-msc-in-adult-health-nursing.html">MSc in Adult Health Nursing</a></li><li><a href="program-pg-msc-in-agronomy.html">MSc in Agronomy</a></li><li><a href="program-pg-msc-in-analytical-chemistry.html">MSc in Analytical Chemistry</a></li><li><a href="program-pg-msc-in-animal-production.html">MSc in Animal Production</a></li><li><a href="program-pg-msc-in-applied-microbiology.html">MSc in Applied Microbiology</a></li><li><a href="program-pg-msc-in-athletics-coaching.html">MSc in Athletics Coaching</a></li><li><a href="program-pg-msc-in-biology.html">MSc in Biology</a></li><li><a href="program-pg-msc-in-chemistry.html">MSc in Chemistry</a></li><li><a href="program-pg-msc-in-ecological-and-biodiversity-conservation.html">MSc in Ecological and Biodiversity Conservation</a></li><li><a href="program-pg-msc-in-environmental-science.html">MSc in Environmental Science</a></li><li><a href="program-pg-msc-in-football-coaching.html">MSc in Football Coaching</a></li><li><a href="program-pg-msc-in-general-public-health.html">MSc in General Public Health</a></li><li><a href="program-pg-msc-in-gis-land-use-planning-and-management.html">MSc in GIS, Land Use Planning and Management</a></li><li><a href="program-pg-msc-in-mathematics.html">MSc in Mathematics</a></li><li><a href="program-pg-msc-in-mathematics-algebra.html">MSc in Mathematics (Algebra)</a></li><li><a href="program-pg-msc-in-mathematics-analysis.html">MSc in Mathematics (Analysis)</a></li><li><a href="program-pg-msc-in-mathematics-differential.html">MSc in Mathematics (Differential)</a></li><li><a href="program-pg-msc-in-organic-chemistry.html">MSc in Organic Chemistry</a></li><li><a href="program-pg-msc-in-physics.html">MSc in Physics</a></li><li><a href="program-pg-msc-in-physics-quantum-optics.html">MSc in Physics (Quantum Optics)</a></li><li><a href="program-pg-msc-in-physics-solid-state-physics.html">MSc in Physics (Solid State Physics)</a></li><li><a href="program-pg-msc-in-plant-pathology.html">MSc in Plant Pathology</a></li><li><a href="program-pg-msc-in-public-health-in-epidemiology.html">MSc in Public Health in Epidemiology</a></li><li><a href="program-pg-msc-in-range-ecology-and-biodiversity.html">MSc in Range Ecology and Biodiversity</a></li><li><a href="program-pg-medical-microbiology.html">Medical Microbiology</a></li><li><a href="program-pg-msc-in-reproductive-public-health.html">MSc in Reproductive Public Health</a></li><li><a href="program-pg-msc-in-sport-science.html">MSc in Sport Science</a></li><li><a href="program-pg-specialty-in-gynecology-and-obstetrics.html">Specialty in Gynecology and Obstetrics</a></li><li><a href="program-pg-specialty-in-surgery.html">Specialty in Surgery</a></li></ul></div></div></div></div></div>
+    <div class="row mt-4"><h2 class="sec-title" id="phd-programs">PhD Programs</h2><div class="col-12"><div class="accordion" id="phdProgramsAccordion"><div class="accordion-card style3 wow fadeInUp ug-program-shell" data-wow-delay=".1s"><div class="accordion-header" id="phdProgramsHeading"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#phdProgramsCollapse" aria-expanded="true" aria-controls="phdProgramsCollapse">PhD Degree Programs</button></div><div id="phdProgramsCollapse" class="accordion-collapse collapse show" aria-labelledby="phdProgramsHeading" data-bs-parent="#phdProgramsAccordion"><div class="accordion-body" data-bg-src="assets/img/faq/faq-2-3.jpg"><ul class="list ug-program-grid"><li><a href="program-phd-phd-in-accounting-and-finance.html">PhD in Accounting and Finance</a></li><li><a href="program-phd-phd-in-curriculum-design-and-development.html">PhD in Curriculum Design and Development</a></li><li><a href="program-phd-phd-in-english-language-teaching.html">PhD in English Language Teaching</a></li><li><a href="program-phd-phd-in-geography-and-environment.html">PhD in Geography and Environment</a></li><li><a href="program-phd-phd-in-microbiology.html">PhD in Microbiology</a></li><li><a href="program-phd-phd-in-public-health.html">PhD in Public Health</a></li></ul></div></div></div></div></div></div>
+  </div>
+</section><section class="process-area space overflow-hidden position-relative space-bottom overflow-hidden">
+        <div class="container th-container4">
+            <div class="title-area text-center">
+                <span class="sub-title">ADDMISSION PROCESS</span>
+                <h2 class="sec-title">Apply to Madda Walabu University in 3 Easy Steps</h2>
+            </div>
+            <div class="process-card_wrapp">
+                <div class="process-card">
+                    <div class="process-card_icon">
+                        <span class="number">01 <span class="step">Step</span></span>
+                    </div>
+                    <div class="process-card_content">
+                        <h2 class="box-title">Apply through online form</h2>
+                        <p class="process-card_text">Tell us a little about yourself and we’ll help with the rest. Our convenient online application tool only takes 5 minutes to complete.</p>
+                        <a class="th-btn style-border1 th-icon" href="/admission-apply">Apply Now</a>
+                    </div>
+                    <div class="process-card_img">
+                        <img src="assets/img/icon/process_1_1.svg" alt="Process">
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-card_icon">
+                        <span class="number">02 <span class="step">Step</span></span>
+                    </div>
+                    <div class="process-card_content">
+                        <h2 class="box-title">Participate in online exam</h2>
+                        <p class="process-card_text">After you submit your application, an admissions representative will contact you and will help you to participate in the online exam.</p>
+                        <a class="th-btn style-border1 th-icon" href="/admission-apply">Apply Now</a>
+                    </div>
+                    <div class="process-card_img">
+                        <img src="assets/img/icon/process_1_2.svg" alt="Process">
+                    </div>
+                </div>
+                <div class="process-card">
+                    <div class="process-card_icon">
+                        <span class="number">03 <span class="step">Step</span></span>
+                    </div>
+                    <div class="process-card_content">
+                        <h2 class="box-title">Get ready for the journey</h2>
+                        <p class="process-card_text">Once you’ve completed your application and connected with an admissions representative, you’re ready to create your schedule.</p>
+                        <a class="th-btn style-border1 th-icon" href="/admission-apply">Apply Now</a>
+                    </div>
+                    <div class="process-card_img">
+                        <img src="assets/img/icon/process_1_3.svg" alt="Process">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="shape-mockup movingX d-none d-xl-block" data-bottom="2%" data-right="3%">
+            <img src="assets/img/shape/shape-10.png" alt="shape">
+        </div>
+    </section> <!--==============================
+Team Area  
+==============================-->
+    <section class="team-area3 space" id="instr-sec">
+        <div class="instr-shape1 shape-mockup movingX d-none d-xl-block" data-right="14%" data-top="8%"><img src="assets/img/shape/cat-3-1.png" alt="MWU"></div>
+        <div class="container th-container4">
+            <div class="row justify-content-between">
+                <div class="col-xxl-4 col-xl-9 col-lg-8 col-md-10">
+                    <div class="title-area">
+                        <span class="sub-title text-anim">PROFESSORS</span>
+                        <h2 class="sec-title text-anim2">University Professors</h2>
+                    </div>
+                </div>
+                <div class="col-auto align-self-end">
+                    <div class="sec-btn">
+                        <div class="icon-box d-none d-lg-flex">
+                            <button data-slider-prev="#teamSlider3" class="slider-arrow style3 default"><i class="far fa-arrow-left"></i></button>
+                            <button data-slider-next="#teamSlider3" class="slider-arrow style3 default"><i class="far fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slider-area">
+                <div class="swiper th-slider instr-slider1" id="teamSlider3" data-slider-options='{"breakpoints": {"0":{"slidesPerView": 1, "autoplay" : "true"},"768":{"slidesPerView": 2},
+                    "992":{"slidesPerView": 3},"1299":   {"slidesPerView": 3},"1300":{"slidesPerView": 4}},"slidesPerView" : "4","spaceBetween": "24","loop": "true","autoplay" : "false"}'>
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/faculty/Dr.berhanemeskel-tena.png" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="#" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="teacher.html">Berhanemeskel Tena (PhD)</a></h3>
+                                        <span class="instr-desig">President</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/faculty/Dr.bezabih-wendimu.png" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="#" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="#">Dr Bezabih Wendimu</a></h3>
+                                        <span class="instr-desig">Academic Vice President</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div> -->
+
+                        <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/faculty/Mr.issa-hassan-M.png" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="#" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="#">Issa Hassen (Ass.Pro)</a></h3>
+                                        <span class="instr-desig">Vice President for Administration and Development</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/faculty/Dr.biftu-geda.png" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="#" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="#">Dr. Biftu Geda Morkie</a></h3>
+                                        <span class="instr-desig">Dean of Shashemene Campus</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/faculty/Mr.mohammedman.png" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="#" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="#">Mr. Mohammedaman Mama Hussen</a></h3>
+                                        <span class="instr-desig">Associate Professor of Medical Microbiology</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/mentor/mentor.jpg" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="teacher-details.html" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="teacher.html">Dr Bezabih Wendimu</a></h3>
+                                        <span class="instr-desig">Academic Vice President</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/mentor/mentor.jpg" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="teacher-details.html" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="teacher.html">Issa Hassen (Ass.Pro)</a></h3>
+                                        <span class="instr-desig">Vice President for Administration and Development</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="swiper-slide">
+                            <div class="instr-card style2">
+                                <div class="instr-img global-img">
+                                    <img src="assets/img/mentor/mentor.jpg" alt="MWU">
+                                </div>
+                                <div class="box-content">
+                                    <a href="teacher-details.html" class="card-icon"><i class="fa-light fa-angle-right"></i></a>
+                                    <div class="media-body">
+                                        <h3 class="box-title"><a href="teacher.html">Ifa Gereshu Dabi</a></h3>
+                                        <span class="instr-desig">Assistant Professor, English Language and Literature</span>
+                                    </div>
+                                    <div class="th-social style3">
+                                        <a target="_blank" href="https://www.facebook.com/MaddaWalabuUniversityPages"><i class="fab fa-facebook-f"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://t.me/s/Maddawalabuofficial/"><i class="fab fa-telegram"></i></a>
+                                        <div class="line"></div>
+                                        <a target="_blank" href="https://www.linkedin.com/company/madda-walabu-university-page//"><i class="fa-brands fa-linkedin-in"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div> -->
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <span class="instr-shape2 shape-mockup spin d-none d-xl-block" data-right="4%" data-bottom="6%"><img src="assets/img/shape/instr-3-1.png" alt="MWU"></span>
+    </section><!--==============================
+Marquee Area  
+==============================-->
+    <div class="marquee-area space-bottom  overflow-hidden">
+        <div class="container-fluid p-0">
+            <div class="swiper th-slider marquee-slider1" data-slider-options='{"breakpoints":{"0":{"slidesPerView":"auto"}},"autoplay":{"delay":0,"disableOnInteraction":false},"noSwiping":"true","speed":10000,"spaceBetween":40}'>
+                <div class="swiper-wrapper">
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">CREATION</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/scollarship.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">DISCOVER</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">INNOVATE</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">EDUCATION</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/scollarship.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">CASE STUDIES</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">CREATION</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/open-book.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">DISCOVER</a>
+                        </div>
+                    </div>
+                    <div class="swiper-slide">
+                        <div class="marquee-card">
+                            <div class="color-masking">
+                                <img src="assets/img/icon/scollarship.svg" alt="icon">
+                            </div>
+                            <a target="_blank" href="#">INNOVATE</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="mwu-universal-footer"></div>
+<script src="assets/js/universal-footer.js"></script>
+
+    <!--********************************
+			Code End  Here 
+	******************************** -->
+
+    <!-- Scroll To Top -->
+    <div class="scroll-top">
+        <svg class="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
+            <path d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98" style="transition: stroke-dashoffset 10ms linear 0s; stroke-dasharray: 307.919, 307.919; stroke-dashoffset: 307.919;">
+            </path>
+        </svg>
+    </div>
+    <!--==============================
+modal Area  
+==============================-->
+    <div id="login-form" class="popup-login-register mfp-hide">
+        <ul class="nav" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-menu" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="false">Login</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-menu active" id="pills-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-profile" type="button" role="tab" aria-controls="pills-profile" aria-selected="true">Register</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="pills-tabContent">
+            <div class="tab-pane fade" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab">
+                <h3 class="box-title mb-30">Sign in to your account</h3>
+                <div class="th-login-form">
+                    <form action="mail.php" method="POST" class="login-form ajax-contact">
+                        <div class="row">
+                            <div class="form-group col-12">
+                                <label>Username or email</label>
+                                <input type="text" class="form-control" name="email" id="email" required="required">
+                            </div>
+                            <div class="form-group col-12">
+                                <label>Password</label>
+                                <input type="password" class="form-control" name="pasword" id="pasword" required="required">
+                            </div>
+
+                            <div class="form-btn mb-20 col-12">
+                                <button class="th-btn btn-fw th-radius2 ">Send Message</button>
+                            </div>
+                        </div>
+                        <div id="forgot_url">
+                            <a href="my-account.html">Forgot password?</a>
+                        </div>
+                        <p class="form-messages mb-0 mt-3"></p>
+                    </form>
+                </div>
+            </div>
+            <div class="tab-pane fade active show" id="pills-profile" role="tabpanel" aria-labelledby="pills-profile-tab">
+                <h3 class="th-form-title mb-30">Sign in to your account</h3>
+                <form action="mail.php" method="POST" class="login-form ajax-contact">
+                    <div class="row">
+                        <div class="form-group col-12">
+                            <label>Username*</label>
+                            <input type="text" class="form-control" name="usename" id="usename" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label>First name*</label>
+                            <input type="text" class="form-control" name="firstname" id="firstname" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label>Last name*</label>
+                            <input type="text" class="form-control" name="lastname" id="lastname" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label for="new_email">Your email*</label>
+                            <input type="text" class="form-control" name="new_email" id="new_email" required="required">
+                        </div>
+                        <div class="form-group col-12">
+                            <label for="new_email_confirm">Confirm email*</label>
+                            <input type="text" class="form-control" name="new_email_confirm" id="new_email_confirm" required="required">
+                        </div>
+                        <div class="statement">
+                            <span class="register-notes">A password will be emailed to you.</span>
+                        </div>
+
+                        <div class="form-btn mt-20 col-12">
+                            <button class="th-btn btn-fw th-radius2 ">Sign up</button>
+                        </div>
+                    </div>
+                    <p class="form-messages mb-0 mt-3"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!--==============================
+    All Js File
+============================== -->
+    <!-- Jquery -->
+    <script src="assets/js/vendor/jquery-3.7.1.min.js"></script>
+    <!-- Swiper Js -->
+    <script src="assets/js/swiper-bundle.min.js"></script>
+    <!-- Bootstrap -->
+    <script src="assets/js/bootstrap.min.js"></script>
+    <!-- Magnific Popup -->
+    <script src="assets/js/jquery.magnific-popup.min.js"></script>
+    <!-- Counter Up -->
+    <script src="assets/js/jquery.counterup.min.js"></script>
+    <!-- Range Slider -->
+    <script src="assets/js/jquery-ui.min.js"></script>
+    <!-- Isotope Filter -->
+    <script src="assets/js/imagesloaded.pkgd.min.js"></script>
+    <script src="assets/js/isotope.pkgd.min.js"></script>
+    <!-- Wow Js -->
+    <script src="assets/js/wow.min.js"></script>
+
+    <!-- Gsap Animation -->
+    <script src="assets/js/gsap.min.js"></script>
+    <!-- ScrollTrigger -->
+    <script src="assets/js/ScrollTrigger.min.js"></script>
+    <!-- SplitText -->
+    <script src="assets/js/SplitText.min.js"></script>
+    <!-- Lenis Js -->
+    <script src="assets/js/lenis.min.js"></script>
+    <!-- Main Js File -->
+    <script src="assets/js/main.js"></script>
+    <script>
+        (function () {
+            var searchInput = document.getElementById("ugProgramSearch");
+            var list = document.querySelector("#ugProgramsAccordion .ug-program-grid");
+            var visibleCounter = document.getElementById("ugProgramVisible");
+            var totalCounter = document.getElementById("ugProgramTotal");
+            var totalInline = document.getElementById("ugProgramTotalInline");
+            var emptyState = document.getElementById("ugProgramEmpty");
+
+            if (!searchInput || !list) return;
+
+            var items = Array.prototype.slice.call(list.querySelectorAll("li"));
+            var total = items.length;
+
+            if (totalCounter) totalCounter.textContent = String(total);
+            if (totalInline) totalInline.textContent = String(total);
+
+            var applyFilter = function () {
+                var query = searchInput.value.toLowerCase().trim();
+                var visible = 0;
+
+                items.forEach(function (item) {
+                    var link = item.querySelector("a");
+                    var label = link ? link.textContent.toLowerCase() : "";
+                    var show = !query || label.indexOf(query) !== -1;
+                    item.style.display = show ? "" : "none";
+                    if (show) visible += 1;
+                });
+
+                if (visibleCounter) visibleCounter.textContent = String(visible);
+                if (emptyState) emptyState.classList.toggle("is-visible", visible === 0);
+            };
+
+            searchInput.addEventListener("input", applyFilter);
+            applyFilter();
+        })();
+    </script>
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
