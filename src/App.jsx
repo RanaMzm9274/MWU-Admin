@@ -51,6 +51,7 @@ const PROGRAM_CATEGORIES_KEY = "mwu-crm-program-categories-v1";
 const PROGRAMS_KEY = "mwu-crm-programs-v1";
 const ADMIN_TOKEN_KEY = "mwu_admin_token";
 const ADMIN_ACTIVITY_KEY = "mwu_admin_last_activity";
+const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
@@ -80,6 +81,13 @@ const readApiError = async (response, fallback) => {
       return `${prefix}: ${fallback}`;
     }
   }
+};
+
+const dismissNoticeMessage = (notice, setNotice) => {
+  if (/^Loaded \d+ pages from Admin API\.$/i.test(String(notice || "").trim())) {
+    window.sessionStorage.setItem(ADMIN_PAGES_LOADED_NOTICE_KEY, "1");
+  }
+  setNotice("");
 };
 
 const extractToken = (payload) =>
@@ -207,13 +215,16 @@ const mediaLibrary = [
 ];
 
 const pageTypes = [
+  "Static Page",
   "Home Section",
   "Academic Program",
   "Admission Page",
   "News Article",
   "Event",
   "Research Page",
-  "Campus Page"
+  "Campus Page",
+  "Site Header",
+  "Site Footer"
 ];
 
 const menuGroups = [
@@ -223,7 +234,8 @@ const menuGroups = [
   "Admissions",
   "Events",
   "Blogs",
-  "Contact Us"
+  "Contact Us",
+  "Layout"
 ];
 
 const statusOptions = ["Draft", "Review", "Scheduled", "Published", "Archived"];
@@ -322,22 +334,53 @@ const templateOptions = [
   "Admission Guide",
   "News Article",
   "Event Detail",
-  "Research Profile"
+  "Research Profile",
+  "Site Chrome"
 ];
 
 const visibilityOptions = ["Public", "Private", "Password Protected"];
+const getMenuGroupChoices = (pages = []) => {
+  const dynamicGroups = pages
+    .map((page) => String(page?.menu || page?.menu_group || page?.menuGroup || "").trim())
+    .filter(Boolean);
+  const mergedGroups = Array.from(new Set([...menuGroups, ...dynamicGroups, ...Object.values(SITE_CHROME_CONFIGS).map((config) => config.menu)]));
+  return [{ label: "Not in menu", value: "" }, ...mergedGroups.map((group) => ({ label: group, value: group }))];
+};
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "pages", label: "Pages", icon: FileText },
+  { id: "page-editor", label: "Page Editor", icon: Pencil },
+  { id: "menus", label: "Menus", icon: ListChecks },
+  { id: "site-chrome", label: "Header & Footer", icon: LayoutTemplate },
   { id: "programs", label: "Programs", icon: GraduationCap },
   { id: "blogs", label: "Blogs", icon: MessageSquare },
   { id: "events", label: "Events", icon: CalendarDays },
-  { id: "builder", label: "Page Builder", icon: PanelRight },
   { id: "media", label: "Media", icon: Image },
   { id: "crm", label: "CRM Leads", icon: Users },
   { id: "settings", label: "Settings", icon: Settings }
 ];
+
+const SITE_CHROME_CONFIGS = {
+  header: {
+    kind: "header",
+    slug: "site-header",
+    title: "Website Header",
+    type: "Site Header",
+    menu: "Layout",
+    sourceUrl: "/assets/partials/inner-header.html",
+    summary: "Global website header markup used across the public site."
+  },
+  footer: {
+    kind: "footer",
+    slug: "site-footer",
+    title: "Website Footer",
+    type: "Site Footer",
+    menu: "Layout",
+    sourceUrl: "/assets/partials/universal-footer.html",
+    summary: "Global website footer markup used across the public site."
+  }
+};
 
 const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -347,7 +390,14 @@ const slugify = (value) =>
     .trim()
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "new-page";
+  .replace(/^-+|-+$/g, "") || "new-page";
+
+const normalizeIncomingPageType = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) return "Static Page";
+  if (raw.toLowerCase() === "static") return "Static Page";
+  return raw;
+};
 
 const todayIso = () => new Date().toISOString();
 
@@ -586,8 +636,154 @@ const sectionCanvasStyle = (section = {}) => {
   };
 };
 
+const escapeHtml = (value = "") =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const buildStructuredBodyMarkup = (value = "") => {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  const listItems = text
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (listItems.length > 1) {
+    return `<ul class="mwu-generated-chip-list">${listItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  }
+
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+    .join("");
+};
+
+const buildStructuredSectionMarkup = (section = {}, page = {}) => {
+  const sectionStyles = getSectionStyles(section);
+  const imageUrl = section.image || page.heroImage || "";
+  const sectionHtml = section.html || section.rawHtml || section.raw_html || "";
+  const sectionBody = section.body || section.content || "";
+  const isRawHtmlSection = section.type === "Raw HTML" || section.layout === "Legacy HTML" || Boolean(sectionHtml);
+  const sectionTitle = section.title || "Section";
+  const sectionEyebrow = section.eyebrow || "";
+  const sectionUrl = section.ctaUrl || "#";
+  const sectionLabel = section.ctaLabel || "";
+  const textHtml = buildStructuredBodyMarkup(sectionBody);
+
+  if (isRawHtmlSection) {
+    const safeHtml = stripDangerousHtml(sectionHtml || sectionBody);
+    if (safeHtml.trim()) {
+      return `<section class="mwu-generated-section mwu-generated-raw">${safeHtml}</section>`;
+    }
+  }
+
+  return `
+    <section
+      class="mwu-generated-section"
+      style="
+        background:${sectionStyles.backgroundColor};
+        color:${sectionStyles.textColor};
+        padding:${toCssUnit(sectionStyles.paddingTop, defaultSectionStyles.paddingTop)} ${toCssUnit(sectionStyles.paddingRight, defaultSectionStyles.paddingRight)} ${toCssUnit(sectionStyles.paddingBottom, defaultSectionStyles.paddingBottom)} ${toCssUnit(sectionStyles.paddingLeft, defaultSectionStyles.paddingLeft)};
+        margin:${toCssUnit(sectionStyles.marginTop, defaultSectionStyles.marginTop)} auto ${toCssUnit(sectionStyles.marginBottom, defaultSectionStyles.marginBottom)};
+        border-radius:${toCssUnit(sectionStyles.borderRadius, defaultSectionStyles.borderRadius)};
+        border:1px solid rgba(8,25,51,0.08);
+        box-shadow:${sectionStyles.shadow ? "0 22px 48px rgba(8, 25, 51, 0.12)" : "none"};
+      "
+    >
+      <div class="mwu-generated-section-grid ${section.layout === "Image first" || section.layout === "Split media" ? "image-first" : ""}">
+        <div class="mwu-generated-copy" style="text-align:${sectionStyles.align || "left"};">
+          ${sectionEyebrow ? `<span class="mwu-generated-eyebrow" style="color:${sectionStyles.accentColor};">${escapeHtml(sectionEyebrow)}</span>` : ""}
+          <h2 style="color:${sectionStyles.headingColor};">${escapeHtml(sectionTitle)}</h2>
+          ${textHtml || `<p>${escapeHtml(page.summary || "This section is managed from the admin editor.")}</p>`}
+          ${sectionLabel ? `<a class="mwu-generated-button" href="${escapeHtml(sectionUrl)}">${escapeHtml(sectionLabel)}</a>` : ""}
+        </div>
+        ${imageUrl ? `<div class="mwu-generated-media"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(sectionTitle)}" style="border-radius:${toCssUnit(sectionStyles.imageRadius, defaultSectionStyles.imageRadius)};" /></div>` : ""}
+      </div>
+    </section>
+  `;
+};
+
+const buildStructuredPageBodyMarkup = (page = {}) => {
+  const pageStyles = getPageStyles(page);
+  const visibleSections = (page.sections || []).filter((section) => section.visible !== false);
+  const heroImage = page.heroImage || assets.hero;
+
+  return `
+    <main class="mwu-generated-page" style="background:${pageStyles.backgroundColor};color:${pageStyles.textColor};font-family:${pageStyles.fontFamily};">
+      <section class="mwu-generated-hero" style="background-image:linear-gradient(90deg, rgba(8, 25, 51, 0.92), rgba(26, 75, 150, 0.68)), url('${escapeHtml(heroImage)}');">
+        <div class="mwu-generated-hero-copy">
+          <span>${escapeHtml(page.heroTag || "Website Page")}</span>
+          <h1>${escapeHtml(page.heroHeadline || page.title || "Untitled Page")}</h1>
+          <p>${escapeHtml(page.summary || "This page is managed from the admin editor.")}</p>
+          ${page.ctaLabel ? `<a class="mwu-generated-button" href="${escapeHtml(page.ctaUrl || "#")}">${escapeHtml(page.ctaLabel)}</a>` : ""}
+        </div>
+      </section>
+      <div class="mwu-generated-sections">
+        ${visibleSections.length
+          ? visibleSections.map((section) => buildStructuredSectionMarkup(section, page)).join("")
+          : `<section class="mwu-generated-section"><div class="mwu-generated-copy"><h2>${escapeHtml(page.title || "Untitled Page")}</h2><p>${escapeHtml(page.summary || "No sections are saved for this page yet.")}</p></div></section>`}
+      </div>
+    </main>
+  `;
+};
+
 const hasLegacyHtml = (page = {}) =>
-  Boolean(page.rawHtml || page.bodyHtml || page.body_html || (page.sections || []).some((section) => section.html || section.rawHtml));
+  Boolean(
+    page.rawHtml ||
+    page.bodyHtml ||
+    page.body_html ||
+    (page.sections || []).some((section) => section.html || section.rawHtml || section.body || section.content)
+  );
+
+const hasPersistedEditableMarkup = (page = {}) =>
+  Boolean(
+    page.rawHtml ||
+    page.raw_html ||
+    page.bodyHtml ||
+    page.body_html ||
+    (page.sections || []).some((section) => section.html || section.rawHtml || section.raw_html)
+  );
+
+const getStoredEditableDocument = (page = {}) => {
+  const storedHtml = page.rawHtml || page.raw_html || "";
+  const storedBody = page.bodyHtml || page.body_html || "";
+  const sectionHtml = (page.sections || [])
+    .map((section) => section?.html || section?.rawHtml || section?.raw_html || "")
+    .filter(Boolean)
+    .join("\n");
+  const generatedBody =
+    sectionHtml ||
+    ((page.sections || []).some((section) => section?.body || section?.content || section?.title) ? buildStructuredPageBodyMarkup(page) : "");
+  const fallbackBody = storedBody || generatedBody;
+
+  if (storedHtml && looksLikeUsableHtmlDocument(storedHtml)) {
+    return {
+      fullHtml: storedHtml,
+      bodyHtml: extractBodyHtml(storedHtml)
+    };
+  }
+
+  if (fallbackBody) {
+    return {
+      fullHtml: mergeBodyIntoHtml("", fallbackBody),
+      bodyHtml: fallbackBody
+    };
+  }
+
+  return {
+    fullHtml: "",
+    bodyHtml: ""
+  };
+};
 
 const getLivePageUrl = (page = {}) => {
   const explicitUrl = page.sourceUrl || page.source_url || page.url || page.liveUrl || page.live_url || "";
@@ -625,13 +821,42 @@ const extractBodyHtml = (html = "") => {
   return bodyMatch ? bodyMatch[1] : String(html || "");
 };
 
+const generatedEditableBaseCss = `
+  body { margin: 0; background: #f4f8fb; color: #18212f; font-family: Inter, "Segoe UI", Arial, sans-serif; }
+  img { max-width: 100%; height: auto; display: block; }
+  .mwu-generated-page { min-height: 100vh; }
+  .mwu-generated-hero { padding: 72px 24px; background-size: cover; background-position: center; color: #ffffff; }
+  .mwu-generated-hero-copy,
+  .mwu-generated-sections { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+  .mwu-generated-hero-copy span,
+  .mwu-generated-eyebrow { color: #d6a128; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
+  .mwu-generated-hero-copy h1 { margin: 10px 0 14px; color: #ffffff; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.08; }
+  .mwu-generated-hero-copy p { max-width: 780px; margin: 0; color: #edf4ff; line-height: 1.7; }
+  .mwu-generated-sections { padding: 28px 0 48px; display: grid; gap: 20px; }
+  .mwu-generated-section-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 0.48fr); gap: 24px; align-items: center; }
+  .mwu-generated-section-grid.image-first .mwu-generated-copy { order: 2; }
+  .mwu-generated-section-grid.image-first .mwu-generated-media { order: 1; }
+  .mwu-generated-copy h2 { margin: 8px 0 14px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.6rem, 2vw, 2.4rem); line-height: 1.12; }
+  .mwu-generated-copy p { margin: 0 0 14px; line-height: 1.7; }
+  .mwu-generated-chip-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .mwu-generated-chip-list li { padding: 10px 14px; border-radius: 999px; background: rgba(26, 75, 150, 0.08); color: #1a4b96; font-weight: 700; }
+  .mwu-generated-button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 18px; border-radius: 8px; background: #1a4b96; color: #ffffff; font-weight: 800; text-decoration: none; }
+  .mwu-generated-media img { width: 100%; object-fit: cover; box-shadow: 0 20px 45px rgba(8, 25, 51, 0.12); }
+  @media (max-width: 820px) {
+    .mwu-generated-section-grid { grid-template-columns: 1fr; }
+    .mwu-generated-hero { padding: 56px 18px; }
+    .mwu-generated-hero-copy,
+    .mwu-generated-sections { width: min(100%, calc(100% - 20px)); }
+  }
+`;
+
 const mergeBodyIntoHtml = (html = "", bodyHtml = "") => {
   const safeBody = bodyHtml || "";
   if (/<body[\s>]/i.test(html)) {
     return String(html).replace(/<body([^>]*)>[\s\S]*?<\/body>/i, `<body$1>${safeBody}</body>`);
   }
 
-  return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1" />\n<base href="/" />\n<link rel="stylesheet" href="/assets/css/bootstrap.min.css" />\n<link rel="stylesheet" href="/assets/css/main.css" />\n<link rel="stylesheet" href="/assets/css/style.css" />\n</head>\n<body>${safeBody}</body>\n</html>`;
+  return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1" />\n<base href="/" />\n<link rel="stylesheet" href="/assets/css/bootstrap.min.css" />\n<link rel="stylesheet" href="/assets/css/main.css" />\n<link rel="stylesheet" href="/assets/css/style.css" />\n<style>${generatedEditableBaseCss}</style>\n</head>\n<body>${safeBody}</body>\n</html>`;
 };
 
 const ensureEditableDocumentShell = (html = "", page = {}) => {
@@ -1410,6 +1635,28 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
             return;
           }
 
+          if (data.type === 'MWU_REPLACE_IMAGE_SOURCE') {
+            var imageElement = null;
+            if (data.elementId) {
+              var imageCandidates = document.querySelectorAll('[data-mwu-editor-id]');
+              for (var ic = 0; ic < imageCandidates.length; ic += 1) {
+                if (imageCandidates[ic].getAttribute('data-mwu-editor-id') === String(data.elementId)) {
+                  imageElement = imageCandidates[ic];
+                  break;
+                }
+              }
+            }
+            imageElement = imageElement || selectedElement || activeImage;
+            if (!imageElement || !data.src) return;
+            activeImage = imageElement;
+            selectedElement = imageElement;
+            setMediaSource(imageElement, data.src);
+            showImageToolbar(imageElement);
+            notifyElementSelected(imageElement);
+            sendUpdate('image-file-replace');
+            return;
+          }
+
           if (data.type !== 'MWU_APPLY_ELEMENT_STYLE') return;
           var element = null;
           if (data.elementId) {
@@ -1613,29 +1860,11 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
         function openImageFilePicker(img) {
           if (!img) return;
           activeImage = img;
-          if (!fileInput) {
-            fileInput = document.createElement('input');
-            fileInput.id = 'mwu-image-file-input';
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.style.position = 'fixed';
-            fileInput.style.left = '-9999px';
-            fileInput.setAttribute('contenteditable', 'false');
-            document.body.appendChild(fileInput);
-            fileInput.addEventListener('change', function () {
-              var file = fileInput.files && fileInput.files[0];
-              if (!file || !activeImage) return;
-              var reader = new FileReader();
-              reader.onload = function () {
-                setMediaSource(activeImage, reader.result);
-                showImageToolbar(activeImage);
-                sendUpdate('image-file-replace');
-                fileInput.value = '';
-              };
-              reader.readAsDataURL(file);
-            });
-          }
-          fileInput.click();
+          ensureEditorElementId(img);
+          window.parent.postMessage({
+            type: 'MWU_REQUEST_IMAGE_PICKER',
+            elementId: img.getAttribute('data-mwu-editor-id')
+          }, '*');
         }
 
         function bootEditor() {
@@ -1742,7 +1971,8 @@ const getEditableFetchCandidates = (page = {}) =>
   Array.from(new Set([getLegacyFetchPath(page), getLiveFetchPath(page)].filter(Boolean)));
 
 const buildPreviewDocument = (page = {}) => {
-  const fullHtml = page.rawHtml || page.raw_html || "";
+  const storedDocument = getStoredEditableDocument(page);
+  const fullHtml = storedDocument.fullHtml || page.rawHtml || page.raw_html || "";
   if (fullHtml && /<html[\s>]/i.test(fullHtml)) {
     const customCss = page.customCss || page.custom_css || "";
     const safeFullHtml = rewriteHtmlForLocalEditing(fullHtml);
@@ -1754,7 +1984,7 @@ const buildPreviewDocument = (page = {}) => {
       : withBase;
   }
 
-  const bodyHtml = page.bodyHtml || page.body_html || page.sections?.find((section) => section.html)?.html || "";
+  const bodyHtml = storedDocument.bodyHtml || page.bodyHtml || page.body_html || "";
   const styles = getPageStyles(page);
   return `<!doctype html>
 <html lang="en">
@@ -1774,6 +2004,82 @@ const buildPreviewDocument = (page = {}) => {
 </style>
 </head>
 <body>${stripDangerousHtml(bodyHtml)}</body>
+</html>`;
+};
+
+const buildSiteChromePreviewDocument = (kind = "header", snippetHtml = "") => {
+  const config = getSiteChromeConfig(kind);
+  const trimmedHtml = String(snippetHtml || "").trim();
+  const previewBody =
+    kind === "header"
+      ? `
+        ${trimmedHtml}
+        <main class="mwu-snippet-preview-main">
+          <section>
+            <span>Preview Content</span>
+            <h1>Header preview context</h1>
+            <p>This canvas shows how the saved global header sits above website content.</p>
+          </section>
+        </main>
+      `
+      : `
+        <main class="mwu-snippet-preview-main">
+          <section>
+            <span>Preview Content</span>
+            <h1>Footer preview context</h1>
+            <p>This canvas shows how the saved global footer sits below website content.</p>
+          </section>
+        </main>
+        ${trimmedHtml}
+      `;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${config.title}</title>
+<base href="/" />
+<link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/bootstrap.min.css" />
+<link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/style.css" />
+<style>
+  body {
+    margin: 0;
+    background: #f4f8fb;
+    color: #18212f;
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+  }
+  .mwu-snippet-preview-main {
+    padding: 56px 24px 80px;
+  }
+  .mwu-snippet-preview-main section {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px;
+    border: 1px solid #d9e2dc;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 18px 40px rgba(8, 25, 51, 0.06);
+  }
+  .mwu-snippet-preview-main span {
+    color: #d6a128;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .mwu-snippet-preview-main h1 {
+    margin: 8px 0 12px;
+    color: #081933;
+    font-size: 34px;
+  }
+  .mwu-snippet-preview-main p {
+    margin: 0;
+    color: #667085;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>${trimmedHtml ? stripDangerousHtml(previewBody) : `<main class="mwu-snippet-preview-main"><section><span>${config.title}</span><h1>No markup saved yet</h1><p>Paste or edit the HTML in the CRM, then save to create the global ${kind} content.</p></section></main>`}</body>
 </html>`;
 };
 
@@ -1988,8 +2294,9 @@ const titleCaseStatus = (status = "Draft") => {
 
 const normalizePage = (page) => {
   const pageTitle = page?.title || page?.page_title || page?.name || "Untitled Page";
-  const pageType = page?.type || page?.page_type || page?.pageType || "Campus Page";
-  const menuGroup = page?.menu || page?.menu_group || page?.menuGroup || "";
+  const pageType = normalizeIncomingPageType(page?.type || page?.page_type || page?.pageType || "Static Page");
+  const rawMenuGroup = page?.menu ?? page?.menu_group ?? page?.menuGroup ?? "";
+  const menuGroup = rawMenuGroup == null ? "" : String(rawMenuGroup).trim();
   const pageSections = page?.sections || page?.page_sections || page?.pageSections || [];
 
   return {
@@ -1999,7 +2306,7 @@ const normalizePage = (page) => {
     title: pageTitle,
     slug: slugify(page?.slug || pageTitle),
     type: pageType,
-    menu: menuGroup || (pageType === "Admission Page" ? "Admissions" : pageType === "Research Page" ? "About Us" : "About Us"),
+    menu: menuGroup,
     status: titleCaseStatus(page?.status),
     template: page?.template || page?.page_template || page?.pageTemplate || "Standard Page",
     visibility: page?.visibility || "Public",
@@ -2028,6 +2335,37 @@ const normalizePage = (page) => {
         ? [normalizeSection({ type: "Raw HTML", title: pageTitle, html: page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html, layout: "Legacy HTML" })]
         : [createSection()]
   };
+};
+
+const extractFirstImageFromMarkup = (html = "") => {
+  const source = String(html || "");
+  if (!source) return "";
+
+  const imgMatch = source.match(/<img[^>]+src=["']([^"']+)["']/i);
+  if (imgMatch?.[1]) return imgMatch[1];
+
+  const dataBgMatch = source.match(/data-bg-src=["']([^"']+)["']/i);
+  if (dataBgMatch?.[1]) return dataBgMatch[1];
+
+  const backgroundMatch = source.match(/background-image\s*:\s*url\((['"]?)([^)'"]+)\1\)/i);
+  if (backgroundMatch?.[2]) return backgroundMatch[2];
+
+  return "";
+};
+
+const getAutoThumbnailForPage = (page = {}) => {
+  const sectionImage = (page.sections || []).find((section) => section?.image)?.image;
+  if (sectionImage) return sectionImage;
+
+  const sectionMarkupImage = (page.sections || [])
+    .map((section) => extractFirstImageFromMarkup(section?.html || section?.rawHtml || section?.raw_html || section?.body || section?.content || ""))
+    .find(Boolean);
+  if (sectionMarkupImage) return sectionMarkupImage;
+
+  const pageMarkupImage = extractFirstImageFromMarkup(page.bodyHtml || page.body_html || page.rawHtml || page.raw_html || "");
+  if (pageMarkupImage) return pageMarkupImage;
+
+  return page.heroImage || assets.hero;
 };
 
 const toApiPagePayload = (page) => ({
@@ -2391,8 +2729,8 @@ const emptyPage = () => ({
   id: makeId(),
   title: "Untitled Page",
   slug: "untitled-page",
-  type: "Academic Program",
-  menu: "Programs",
+  type: "Static Page",
+  menu: "",
   status: "Draft",
   template: "Standard Page",
   visibility: "Public",
@@ -2420,6 +2758,93 @@ const emptyPage = () => ({
   revisions: [],
   sections: [createSection("Hero Banner"), createSection("Text Block"), createSection("CTA Banner")]
 });
+
+const getSiteChromeConfig = (kind = "header") => SITE_CHROME_CONFIGS[kind] || SITE_CHROME_CONFIGS.header;
+
+const isSiteChromePage = (page = {}) =>
+  Object.values(SITE_CHROME_CONFIGS).some((config) => config.slug === String(page?.slug || "").trim());
+
+const getSiteChromePageKind = (page = {}) => {
+  const slug = String(page?.slug || "").trim();
+  const match = Object.entries(SITE_CHROME_CONFIGS).find(([, config]) => config.slug === slug);
+  return match?.[0] || "";
+};
+
+const getSiteChromeHtml = (page = {}) =>
+  page?.bodyHtml ||
+  page?.body_html ||
+  page?.rawHtml ||
+  page?.raw_html ||
+  page?.sections?.find((section) => section?.html || section?.body || section?.content)?.html ||
+  page?.sections?.find((section) => section?.html || section?.body || section?.content)?.body ||
+  page?.sections?.find((section) => section?.html || section?.body || section?.content)?.content ||
+  "";
+
+const getAbsoluteLiveAssetUrl = (path = "") => {
+  const raw = String(path || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  try {
+    return new URL(raw.startsWith("/") ? raw : `/${raw}`, LIVE_SITE_ORIGIN).toString();
+  } catch {
+    return `${LIVE_SITE_ORIGIN}/${raw.replace(/^\/+/, "")}`;
+  }
+};
+
+const createSiteChromePage = (kind = "header", page = {}) => {
+  const config = getSiteChromeConfig(kind);
+  const snippetHtml = getSiteChromeHtml(page);
+
+  return normalizePage({
+    ...emptyPage(),
+    ...page,
+    title: page?.title || config.title,
+    slug: config.slug,
+    type: config.type,
+    page_type: config.type,
+    menu: config.menu,
+    menu_group: config.menu,
+    template: page?.template || "Site Chrome",
+    status: page?.status || "Published",
+    heroHeadline: page?.heroHeadline || config.title,
+    heroTag: page?.heroTag || "Global Layout",
+    summary: page?.summary || config.summary,
+    sourceUrl: page?.sourceUrl || page?.source_url || config.sourceUrl,
+    ctaLabel: "",
+    ctaUrl: "#",
+    rawHtml: "",
+    bodyHtml: snippetHtml,
+    sections: [
+      normalizeSection({
+        id: page?.sections?.[0]?.id,
+        type: "Raw HTML",
+        title: `${config.title} Markup`,
+        html: snippetHtml,
+        body: snippetHtml,
+        layout: "Legacy HTML",
+        visible: true
+      })
+    ]
+  });
+};
+
+const getMenuReferenceLabel = (page = {}, allPages = []) => {
+  const group = String(page?.menu || "").trim();
+  if (!group) {
+    return "Not in menu";
+  }
+
+  const parentSlug = String(page?.parentSlug || page?.parent_slug || "").trim();
+  const parentPage = parentSlug ? allPages.find((item) => item.slug === parentSlug) : null;
+  const order = Number(page?.menuOrder || page?.menu_order || 0) || 0;
+  const orderLabel = order > 0 ? `#${order}` : "";
+
+  if (parentPage?.title) {
+    return `${group} / ${parentPage.title}${orderLabel ? ` ${orderLabel}` : ""}`;
+  }
+
+  return `${group}${orderLabel ? ` ${orderLabel}` : ""}`;
+};
 
 const initialProgramCategories = [
   {
@@ -2628,6 +3053,10 @@ const isEventPage = (page) =>
 const isDedicatedPage = (page) => isProgramPage(page) || isBlogPage(page) || isEventPage(page);
 
 const isNormalWebsitePage = (page) => {
+  if (isSiteChromePage(page)) {
+    return false;
+  }
+
   if (isDedicatedPage(page)) {
     return false;
   }
@@ -2668,11 +3097,13 @@ function App() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [menuFilter, setMenuFilter] = useState("All");
   const [sortKey, setSortKey] = useState("updatedAt");
+  const [siteChromeTab, setSiteChromeTab] = useState("header");
   const [selectedPageIds, setSelectedPageIds] = useState([]);
-  const [editorTab, setEditorTab] = useState("content");
+  const [editorTab, setEditorTab] = useState("builder");
   const [notice, setNotice] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const importInputRef = useRef(null);
+  const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
 
   useEffect(() => {
     window.localStorage.removeItem("mwu-crm-pages-v1");
@@ -2741,7 +3172,9 @@ function App() {
         setFormPage((currentPage) =>
           apiPages.find((page) => String(page.id) === String(currentPage.id)) || firstNormalPage
         );
-        setNotice(`Loaded ${apiPages.length} pages from Admin API.`);
+        if (window.sessionStorage.getItem(ADMIN_PAGES_LOADED_NOTICE_KEY) !== "1") {
+          setNotice(`Loaded ${apiPages.length} pages from Admin API.`);
+        }
       } catch (error) {
         if (!cancelled) {
           if (String(error.message || "").includes("HTTP 401")) {
@@ -2780,43 +3213,54 @@ function App() {
     }
   }, [activePageId, pages]);
 
+  const contentManagedPages = useMemo(() => pages.filter((page) => !isSiteChromePage(page)), [pages]);
+
+  const activeSiteChromePage = useMemo(() => {
+    const config = getSiteChromeConfig(siteChromeTab);
+    const existing = pages.find((page) => page.slug === config.slug);
+    if (String(formPage.slug || "") === config.slug) {
+      return createSiteChromePage(siteChromeTab, formPage);
+    }
+    return createSiteChromePage(siteChromeTab, existing || {});
+  }, [formPage, pages, siteChromeTab]);
+
   const programPages = useMemo(
     () =>
-      pages
+      contentManagedPages
         .filter(isProgramPage)
         .sort((a, b) => {
           if (a.slug === "program" || a.slug?.startsWith("programs-")) return -1;
           if (b.slug === "program" || b.slug?.startsWith("programs-")) return 1;
           return a.title.localeCompare(b.title);
         }),
-    [pages]
+    [contentManagedPages]
   );
 
   const blogPages = useMemo(
     () =>
-      pages
+      contentManagedPages
         .filter(isBlogPage)
         .sort((a, b) => {
           if (a.slug === "blog") return -1;
           if (b.slug === "blog") return 1;
           return new Date(b.updatedAt) - new Date(a.updatedAt);
         }),
-    [pages]
+    [contentManagedPages]
   );
 
   const eventPages = useMemo(
     () =>
-      pages
+      contentManagedPages
         .filter(isEventPage)
         .sort((a, b) => {
           if (a.slug === "event") return -1;
           if (b.slug === "event") return 1;
           return new Date(b.updatedAt) - new Date(a.updatedAt);
         }),
-    [pages]
+    [contentManagedPages]
   );
 
-  const standardPages = useMemo(() => pages.filter(isNormalWebsitePage), [pages]);
+  const standardPages = useMemo(() => contentManagedPages.filter(isNormalWebsitePage), [contentManagedPages]);
 
   const filteredPages = useMemo(() => {
     return standardPages.filter((page) => {
@@ -2846,16 +3290,16 @@ function App() {
   }, [standardPages, query, statusFilter, typeFilter, menuFilter, sortKey]);
 
   const stats = useMemo(() => {
-    const published = pages.filter((page) => page.status === "Published").length;
-    const review = pages.filter((page) => page.status === "Review").length;
-    const scheduled = pages.filter((page) => page.status === "Scheduled").length;
-    const archived = pages.filter((page) => page.status === "Archived").length;
+    const published = contentManagedPages.filter((page) => page.status === "Published").length;
+    const review = contentManagedPages.filter((page) => page.status === "Review").length;
+    const scheduled = contentManagedPages.filter((page) => page.status === "Scheduled").length;
+    const archived = contentManagedPages.filter((page) => page.status === "Archived").length;
     const averageSeo = Math.round(
-      pages.reduce((sum, page) => sum + getSeoScore(page), 0) / Math.max(pages.length, 1)
+      contentManagedPages.reduce((sum, page) => sum + getSeoScore(page), 0) / Math.max(contentManagedPages.length, 1)
     );
 
     return { published, review, scheduled, archived, averageSeo };
-  }, [pages]);
+  }, [contentManagedPages]);
 
   const updateField = (field, value) => {
     setFormPage((current) => {
@@ -2931,13 +3375,118 @@ function App() {
     }));
   };
 
+  const openPageEditorView = (pageId, tab = "content") => {
+    const targetPage = pages.find((page) => String(page.id) === String(pageId));
+    if (targetPage) {
+      setFormPage(targetPage);
+      setActivePageId(targetPage.id);
+    }
+    setEditorTab(tab);
+    setActiveView("page-editor");
+  };
+
+  const loadSiteChromeSnippet = async (kind, page) => {
+    const currentPage = createSiteChromePage(kind, page || {});
+    if (getSiteChromeHtml(currentPage)) {
+      return currentPage;
+    }
+
+    const sourceUrl = getAbsoluteLiveAssetUrl(currentPage.sourceUrl || getSiteChromeConfig(kind).sourceUrl);
+    if (!sourceUrl) {
+      return currentPage;
+    }
+
+    try {
+      const response = await fetch(sourceUrl, { headers: { Accept: "text/html" } });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const html = await response.text();
+      return createSiteChromePage(kind, {
+        ...currentPage,
+        bodyHtml: html,
+        rawHtml: "",
+        sourceUrl
+      });
+    } catch {
+      return currentPage;
+    }
+  };
+
+  const openSiteChromeView = async (kind = "header") => {
+    const config = getSiteChromeConfig(kind);
+    const existing = pages.find((page) => page.slug === config.slug);
+    const nextPage = await loadSiteChromeSnippet(kind, existing || {});
+
+    setPages((current) => {
+      const existingIndex = current.findIndex((page) => page.slug === config.slug);
+      if (existingIndex >= 0) {
+        return current.map((page, index) => (index === existingIndex ? nextPage : page));
+      }
+      return [nextPage, ...current];
+    });
+
+    setSiteChromeTab(kind);
+    setActiveView("site-chrome");
+    setActivePageId(nextPage.id);
+    setFormPage(nextPage);
+    setNotice(`Editing ${config.title.toLowerCase()} content.`);
+  };
+
+  const updateSiteChromeHtml = (kind, value) => {
+    setFormPage((current) => {
+      const nextPage = createSiteChromePage(kind, current);
+      const sectionId = nextPage.sections?.[0]?.id || makeId();
+
+      return {
+        ...nextPage,
+        bodyHtml: value,
+        rawHtml: "",
+        sections: [
+          normalizeSection({
+            id: sectionId,
+            type: "Raw HTML",
+            title: `${getSiteChromeConfig(kind).title} Markup`,
+            html: value,
+            body: value,
+            layout: "Legacy HTML",
+            visible: true
+          })
+        ]
+      };
+    });
+  };
+
+  const saveSiteChromePage = (event, kind = siteChromeTab) => {
+    const chromePage = createSiteChromePage(kind, formPage);
+    const html = getSiteChromeHtml(chromePage);
+    const pageOverride = {
+      ...chromePage,
+      bodyHtml: html,
+      rawHtml: "",
+      sections: [
+        normalizeSection({
+          id: chromePage.sections?.[0]?.id,
+          type: "Raw HTML",
+          title: `${getSiteChromeConfig(kind).title} Markup`,
+          html,
+          body: html,
+          layout: "Legacy HTML",
+          visible: true
+        })
+      ]
+    };
+
+    savePage(event, pageOverride);
+  };
+
   const createNewPage = () => {
     const draft = { ...emptyPage(), isLocalDraft: true };
     setPages((current) => [draft, ...current]);
     setActivePageId(draft.id);
     setFormPage(draft);
-    setActiveView("pages");
     setEditorTab("content");
+    setActiveView("page-editor");
     setNotice("Draft page created.");
   };
 
@@ -3554,6 +4103,7 @@ function App() {
     return (
       <StandalonePageEditor
         allPages={pages}
+        menuGroupChoices={liveMenuGroupChoices}
         page={editableStandalonePage}
         isLoading={!pages.length}
         notFound={pages.length > 0 && !standalonePage}
@@ -3592,7 +4142,11 @@ function App() {
                 type="button"
                 className={activeView === item.id ? "active" : ""}
                 onClick={() => {
-                  setActiveView(item.id);
+                  if (item.id === "site-chrome") {
+                    openSiteChromeView(siteChromeTab);
+                  } else {
+                    setActiveView(item.id);
+                  }
                   setMobileNavOpen(false);
                 }}
               >
@@ -3642,7 +4196,7 @@ function App() {
           <div className="notice" role="status">
             <CheckCircle2 size={18} />
             <span>{notice}</span>
-            <button className="icon-button" type="button" onClick={() => setNotice("")}>
+            <button className="icon-button" type="button" onClick={() => dismissNoticeMessage(notice, setNotice)}>
               <X size={16} />
             </button>
           </div>
@@ -3650,10 +4204,11 @@ function App() {
 
         {activeView === "dashboard" && (
           <Dashboard
-            pages={pages}
+            pages={contentManagedPages}
             stats={stats}
             setActiveView={setActiveView}
             setActivePageId={setActivePageId}
+            setEditorTab={setEditorTab}
             createNewPage={createNewPage}
           />
         )}
@@ -3662,6 +4217,7 @@ function App() {
           <PagesView
             pages={filteredPages}
             allPages={standardPages}
+            menuGroupChoices={liveMenuGroupChoices}
             activePageId={activePageId}
             setActivePageId={setActivePageId}
             formPage={formPage}
@@ -3698,6 +4254,28 @@ function App() {
             duplicatePage={duplicatePage}
             deletePage={deletePage}
             deletePageById={deletePageById}
+            restoreRevision={restoreRevision}
+            exportPage={exportPage}
+            openPageEditorView={openPageEditorView}
+          />
+        )}
+
+        {activeView === "page-editor" && (
+          <PageEditor
+            page={formPage}
+            menuGroupChoices={liveMenuGroupChoices}
+            editorTab={editorTab}
+            setEditorTab={setEditorTab}
+            updateField={updateField}
+            updateSection={updateSection}
+            addSection={addSection}
+            duplicateSection={duplicateSection}
+            moveSection={moveSection}
+            removeSection={removeSection}
+            savePage={savePage}
+            updateActiveStatus={updateActiveStatus}
+            duplicatePage={duplicatePage}
+            deletePage={deletePage}
             restoreRevision={restoreRevision}
             exportPage={exportPage}
           />
@@ -3780,6 +4358,30 @@ function App() {
         {activeView === "crm" && <CrmView />}
 
         {activeView === "settings" && <SettingsView />}
+
+        {activeView === "menus" && (
+          <MenusView
+            pages={standardPages}
+            menuGroupChoices={liveMenuGroupChoices}
+            savePage={savePage}
+            setPages={setPages}
+            setFormPage={setFormPage}
+            setActivePageId={setActivePageId}
+            setActiveView={setActiveView}
+            setEditorTab={setEditorTab}
+          />
+        )}
+
+        {activeView === "site-chrome" && (
+          <SiteChromeView
+            kind={siteChromeTab}
+            page={activeSiteChromePage}
+            openSiteChromeView={openSiteChromeView}
+            updateField={updateField}
+            updateHtml={updateSiteChromeHtml}
+            savePage={saveSiteChromePage}
+          />
+        )}
       </main>
     </div>
   );
@@ -3853,7 +4455,7 @@ function LoginView({ onLogin }) {
   );
 }
 
-function Dashboard({ pages, stats, setActiveView, setActivePageId, createNewPage }) {
+function Dashboard({ pages, stats, setActiveView, setActivePageId, setEditorTab, createNewPage }) {
   const recentPages = [...pages]
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
     .slice(0, 4);
@@ -3864,6 +4466,16 @@ function Dashboard({ pages, stats, setActiveView, setActivePageId, createNewPage
     { label: "Scheduled", value: stats.scheduled, icon: CalendarDays, tone: "green" },
     { label: "SEO Score", value: `${stats.averageSeo}%`, icon: BarChart3, tone: "navy" }
   ];
+  const openRecentPage = (page) => {
+    if (!page) return;
+    if (!isLocalDraftPage(page)) {
+      openPageEditorTab(page.id);
+      return;
+    }
+    setActivePageId(page.id);
+    setEditorTab("content");
+    setActiveView("page-editor");
+  };
 
   return (
     <section className="dashboard-grid">
@@ -3925,12 +4537,9 @@ function Dashboard({ pages, stats, setActiveView, setActivePageId, createNewPage
               className="recent-card"
               type="button"
               key={page.id}
-              onClick={() => {
-                setActivePageId(page.id);
-                setActiveView("pages");
-              }}
+              onClick={() => openRecentPage(page)}
             >
-              <img src={page.heroImage} alt="" />
+              <img src={getAutoThumbnailForPage(page)} alt="" />
               <span className={`status-badge ${page.status.toLowerCase()}`}>{page.status}</span>
               <strong>{page.title}</strong>
               <small>{page.menu} / {page.type}</small>
@@ -3974,9 +4583,9 @@ function Dashboard({ pages, stats, setActiveView, setActivePageId, createNewPage
 function PagesView({
   pages,
   allPages,
+  menuGroupChoices,
   activePageId,
   setActivePageId,
-  formPage,
   query,
   setQuery,
   statusFilter,
@@ -3997,21 +4606,8 @@ function PagesView({
   importInputRef,
   importPages,
   createNewPage,
-  editorTab,
-  setEditorTab,
-  updateField,
-  updateSection,
-  addSection,
-  duplicateSection,
-  moveSection,
-  removeSection,
-  savePage,
-  updateActiveStatus,
-  duplicatePage,
-  deletePage,
   deletePageById,
-  restoreRevision,
-  exportPage
+  openPageEditorView
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -4024,7 +4620,6 @@ function PagesView({
   const pageStart = pages.length ? (safePage - 1) * pageSize : 0;
   const paginatedPages = pages.slice(pageStart, pageStart + pageSize);
   const pageEnd = Math.min(pageStart + paginatedPages.length, pages.length);
-  const editorRef = useRef(null);
   const visibleSelected =
     paginatedPages.length > 0 &&
     paginatedPages.every((page) => selectedPageIds.some((id) => String(id) === String(page.id)));
@@ -4039,56 +4634,53 @@ function PagesView({
     }
   }, [currentPage, totalPages]);
 
-  const scrollToEditor = () => {
-    window.requestAnimationFrame(() => {
-      editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  };
-
-  const selectPageInline = (pageId, tab = "content") => {
+  const selectPageRow = (pageId) => {
     setActivePageId(pageId);
-    setEditorTab(tab);
-    scrollToEditor();
   };
 
-  const openPageForEdit = (pageId) => {
-    openPageEditorTab(pageId);
+  const openPageForEdit = (page) => {
+    if (!page) return;
+    if (!isLocalDraftPage(page)) {
+      openPageEditorTab(page.id);
+      return;
+    }
+    openPageEditorView(page.id, "content");
   };
 
   const openPageSections = (pageId) => {
-    selectPageInline(pageId, "builder");
+    openPageEditorView(pageId, "builder");
   };
 
   return (
-    <section className="pages-workbench">
-      <div className="panel pages-command">
-        <div className="panel-head">
-          <div>
-            <span className="eyebrow">All Website Pages</span>
-            <h2>Editing and Management</h2>
-          </div>
-          <div className="editor-actions">
-            <button className="ghost-button" type="button" onClick={importLivePublishedPages}>
-              <Globe2 size={17} />
-              <span>Import Live Published</span>
-            </button>
-            <button className="ghost-button" type="button" onClick={() => importInputRef.current?.click()}>
-              <FolderOpen size={17} />
-              <span>Import</span>
-            </button>
-            <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={importPages} />
-            <button className="ghost-button" type="button" onClick={exportAllPages}>
-              <Download size={17} />
-              <span>Export All</span>
-            </button>
-            <button className="primary-button" type="button" onClick={createNewPage}>
-              <Plus size={17} />
-              <span>Add Page</span>
-            </button>
-          </div>
+    <section className="admin-view pages-redesign">
+      <div className="view-header">
+        <div>
+          <span className="eyebrow">All Website Pages</span>
+          <h2>Editing and Management</h2>
         </div>
+        <div className="header-actions">
+          <button className="ghost-button" type="button" onClick={importLivePublishedPages}>
+            <Globe2 size={17} />
+            <span>Import Live Published</span>
+          </button>
+          <button className="ghost-button" type="button" onClick={() => importInputRef.current?.click()}>
+            <FolderOpen size={17} />
+            <span>Import</span>
+          </button>
+          <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={importPages} />
+          <button className="ghost-button" type="button" onClick={exportAllPages}>
+            <Download size={17} />
+            <span>Export All</span>
+          </button>
+          <button className="primary-button" type="button" onClick={createNewPage}>
+            <Plus size={17} />
+            <span>Add Page</span>
+          </button>
+        </div>
+      </div>
 
-        <div className="manager-toolbar">
+      <div className="view-content">
+        <div className="filter-bar manager-toolbar">
           <label className="search-field">
             <Search size={17} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or slug" />
@@ -4118,8 +4710,10 @@ function PagesView({
             <ListChecks size={17} />
             <select value={menuFilter} onChange={(event) => setMenuFilter(event.target.value)}>
               <option>All</option>
-              {menuGroups.map((group) => (
-                <option key={group}>{group}</option>
+              {menuGroupChoices.map((group) => (
+                <option key={group.value || "not-in-menu"} value={group.value}>
+                  {group.label}
+                </option>
               ))}
             </select>
           </label>
@@ -4144,8 +4738,8 @@ function PagesView({
           </label>
         </div>
 
-        <div className="bulk-bar">
-          <span>{selectedPageIds.length} selected</span>
+        <div className={`bulk-bar ${selectedPageIds.length ? "show" : ""}`}>
+          <span className="count"><span>{selectedPageIds.length}</span> selected</span>
           <button className="ghost-button" type="button" onClick={() => bulkUpdateStatus("Published")}>
             <Send size={17} />
             <span>Publish</span>
@@ -4164,100 +4758,82 @@ function PagesView({
           </button>
         </div>
 
-        <div className="pages-table" role="table" aria-label="All website pages">
-          <div className="pages-row table-head" role="row">
-            <label className="check-cell">
-              <input
-                type="checkbox"
-                checked={visibleSelected}
-                onChange={() => toggleAllFiltered(paginatedPages.map((page) => page.id))}
-              />
-            </label>
-            <span>Page</span>
-            <span>Type</span>
-            <span>Menu</span>
-            <span>Status</span>
-            <span>SEO</span>
-            <span>Updated</span>
-            <span>Actions</span>
-          </div>
-
-          {paginatedPages.map((page) => (
-            <div className={`pages-row ${String(page.id) === String(activePageId) ? "active" : ""}`} role="row" key={page.id}>
+        <div className="table-panel panel">
+          <div className="pages-table" role="table" aria-label="All website pages">
+            <div className="pages-row table-head" role="row">
               <label className="check-cell">
                 <input
                   type="checkbox"
-                  checked={selectedPageIds.some((id) => String(id) === String(page.id))}
-                  onChange={() => toggleSelectedPage(page.id)}
+                  checked={visibleSelected}
+                  onChange={() => toggleAllFiltered(paginatedPages.map((page) => page.id))}
                 />
               </label>
-              <button className="page-title-cell" type="button" onClick={() => selectPageInline(page.id)}>
-                <img src={page.heroImage} alt="" />
-                <span>
-                  <strong>{page.title}</strong>
-                  <small>/{page.slug}</small>
-                </span>
-              </button>
-              <span>{page.type}</span>
-              <span>{page.menu} #{page.menuOrder}</span>
-              <StatusPill status={page.status} />
-              <span>{getSeoScore(page)}%</span>
-              <span>{formatDate(page.updatedAt)}</span>
-              <div className="table-actions">
-                <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageForEdit(page.id)}>
-                  <Pencil size={16} />
-                </button>
-                <button className="icon-button" type="button" aria-label="View sections" onClick={() => openPageSections(page.id)}>
-                  <ListTree size={16} />
-                </button>
-                <button className="icon-button danger" type="button" aria-label="Delete page" onClick={() => deletePageById(page.id)}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              <span>Page</span>
+              <span>Type</span>
+              <span>Menu</span>
+              <span>Status</span>
+              <span>SEO</span>
+              <span>Updated</span>
+              <span>Actions</span>
             </div>
-          ))}
-        </div>
 
-        <div className="pagination-bar">
-          <span>
-            Showing {pages.length ? pageStart + 1 : 0}-{pageEnd} of {pages.length} pages
-          </span>
-          <div className="pagination-actions">
-            <button className="ghost-button" type="button" aria-label="First page" disabled={safePage <= 1} onClick={() => setCurrentPage(1)}>
-              <ChevronsLeft size={16} />
-            </button>
-            <button className="ghost-button" type="button" aria-label="Previous page" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}>
-              <ArrowUp size={16} />
-            </button>
-            <strong>Page {safePage} of {totalPages}</strong>
-            <button className="ghost-button" type="button" aria-label="Next page" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}>
-              <ArrowDown size={16} />
-            </button>
-            <button className="ghost-button" type="button" aria-label="Last page" disabled={safePage >= totalPages} onClick={() => setCurrentPage(totalPages)}>
-              <ChevronsRight size={16} />
-            </button>
+            {paginatedPages.map((page) => (
+              <div className={`pages-row ${String(page.id) === String(activePageId) ? "active" : ""}`} role="row" key={page.id}>
+                <label className="check-cell">
+                  <input
+                    type="checkbox"
+                    checked={selectedPageIds.some((id) => String(id) === String(page.id))}
+                    onChange={() => toggleSelectedPage(page.id)}
+                  />
+                </label>
+                <button className="page-title-cell" type="button" onClick={() => selectPageRow(page.id)}>
+                  <img src={getAutoThumbnailForPage(page)} alt="" />
+                  <span>
+                    <strong>{page.title}</strong>
+                    <small>/{page.slug}</small>
+                  </span>
+                </button>
+                <span>{page.type}</span>
+                <span>{getMenuReferenceLabel(page, allPages)}</span>
+                <StatusPill status={page.status} />
+                <span>{getSeoScore(page)}%</span>
+                <span>{formatDate(page.updatedAt)}</span>
+                <div className="table-actions">
+                  <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageForEdit(page)}>
+                    <Pencil size={16} />
+                  </button>
+                  <button className="icon-button" type="button" aria-label="View sections" onClick={() => openPageSections(page.id)}>
+                    <ListTree size={16} />
+                  </button>
+                  <button className="icon-button danger" type="button" aria-label="Delete page" onClick={() => deletePageById(page.id)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pagination-bar">
+            <span>
+              Showing {pages.length ? pageStart + 1 : 0}-{pageEnd} of {pages.length} pages
+            </span>
+            <div className="pagination-actions">
+              <button className="ghost-button" type="button" aria-label="First page" disabled={safePage <= 1} onClick={() => setCurrentPage(1)}>
+                <ChevronsLeft size={16} />
+              </button>
+              <button className="ghost-button" type="button" aria-label="Previous page" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}>
+                <ArrowUp size={16} />
+              </button>
+              <strong>Page {safePage} of {totalPages}</strong>
+              <button className="ghost-button" type="button" aria-label="Next page" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}>
+                <ArrowDown size={16} />
+              </button>
+              <button className="ghost-button" type="button" aria-label="Last page" disabled={safePage >= totalPages} onClick={() => setCurrentPage(totalPages)}>
+                <ChevronsRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div ref={editorRef}>
-        <PageEditor
-          page={formPage}
-          editorTab={editorTab}
-          setEditorTab={setEditorTab}
-          updateField={updateField}
-          updateSection={updateSection}
-          addSection={addSection}
-          duplicateSection={duplicateSection}
-          moveSection={moveSection}
-          removeSection={removeSection}
-          savePage={savePage}
-          updateActiveStatus={updateActiveStatus}
-          duplicatePage={duplicatePage}
-          deletePage={deletePage}
-          restoreRevision={restoreRevision}
-          exportPage={exportPage}
-        />
       </div>
     </section>
   );
@@ -4265,6 +4841,7 @@ function PagesView({
 
 function StandalonePageEditor({
   allPages = [],
+  menuGroupChoices = [],
   page,
   isLoading,
   notFound,
@@ -4291,6 +4868,8 @@ function StandalonePageEditor({
   const editableFrameRef = useRef(null);
   const editedBodyRef = useRef("");
   const editedFullHtmlRef = useRef("");
+  const imageReplaceInputRef = useRef(null);
+  const pendingImageReplaceIdRef = useRef("");
   const livePageUrl = getLivePageUrl(page);
   const activeSection =
     (page.sections || []).find((section) => String(section.id) === String(activeSectionId)) ||
@@ -4309,14 +4888,13 @@ function StandalonePageEditor({
   }, [editableSourceHtml, page.id, page.title, page.customCss, page.custom_css]);
 
   const loadEditableHtml = async ({ force = false } = {}) => {
-    const storedHtml = page.rawHtml || page.raw_html || "";
-    const storedBody = page.bodyHtml || page.body_html || "";
-    const storedDocument = storedHtml || (storedBody ? mergeBodyIntoHtml("", storedBody) : "");
+    const storedDocument = getStoredEditableDocument(page);
+    const hasSavedEditableMarkup = hasPersistedEditableMarkup(page);
 
-    if (!force && storedDocument && looksLikeUsableHtmlDocument(storedDocument)) {
-      setEditableSourceHtml(storedDocument);
-      editedBodyRef.current = storedBody || extractBodyHtml(storedDocument);
-      editedFullHtmlRef.current = storedHtml || storedDocument;
+    if (!force && hasSavedEditableMarkup && storedDocument.fullHtml) {
+      setEditableSourceHtml(storedDocument.fullHtml);
+      editedBodyRef.current = storedDocument.bodyHtml;
+      editedFullHtmlRef.current = storedDocument.fullHtml;
       setEditableStatus("ready");
       setEditableError("");
       return;
@@ -4363,8 +4941,10 @@ function StandalonePageEditor({
       }
     }
 
-    if (storedDocument) {
-      setEditableSourceHtml(storedDocument);
+    if (hasSavedEditableMarkup && storedDocument.fullHtml) {
+      setEditableSourceHtml(storedDocument.fullHtml);
+      editedBodyRef.current = storedDocument.bodyHtml;
+      editedFullHtmlRef.current = storedDocument.fullHtml;
       setEditableStatus("ready");
       setEditableError(`Live/legacy fetch failed, using stored HTML. ${errors.join(" | ")}`);
       return;
@@ -4383,12 +4963,13 @@ function StandalonePageEditor({
   }, [activeSectionId, page.id, page.sections]);
 
   useEffect(() => {
+    const storedDocument = getStoredEditableDocument(page);
     setEditableSourceHtml("");
     setEditableStatus("idle");
     setEditableError("");
     setSelectedLiveElement(null);
-    editedBodyRef.current = page.bodyHtml || page.body_html || "";
-    editedFullHtmlRef.current = page.rawHtml || page.raw_html || "";
+    editedBodyRef.current = storedDocument.bodyHtml;
+    editedFullHtmlRef.current = storedDocument.fullHtml;
   }, [page.id]);
 
   useEffect(() => {
@@ -4410,6 +4991,17 @@ function StandalonePageEditor({
         return;
       }
 
+      if (data.type === "MWU_REQUEST_IMAGE_PICKER") {
+        const elementId = data.elementId || selectedLiveElement?.id || "";
+        if (!elementId) {
+          setNotice("Select an image inside Editable Blocks first.");
+          return;
+        }
+        pendingImageReplaceIdRef.current = String(elementId);
+        imageReplaceInputRef.current?.click();
+        return;
+      }
+
       if (data.type !== "MWU_LIVE_HTML_UPDATED") {
         return;
       }
@@ -4424,7 +5016,7 @@ function StandalonePageEditor({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [editableSourceHtml, page.rawHtml, page.raw_html, updateField]);
+  }, [editableSourceHtml, page.rawHtml, page.raw_html, selectedLiveElement?.id, updateField]);
 
   const applyLiveElementStyle = (field, value) => {
     if (!selectedLiveElement?.id) {
@@ -4480,6 +5072,39 @@ function StandalonePageEditor({
     setNotice("Deleted selected live element. Press Save to update the database.");
   };
 
+  const openImageReplacePicker = () => {
+    if (!selectedLiveElement?.id || selectedLiveElement?.type !== "image") {
+      setNotice("Select an image inside Editable Blocks first.");
+      return;
+    }
+    pendingImageReplaceIdRef.current = String(selectedLiveElement.id);
+    imageReplaceInputRef.current?.click();
+  };
+
+  const handleImageReplaceFile = (event) => {
+    const file = event.target.files?.[0];
+    const elementId = pendingImageReplaceIdRef.current || selectedLiveElement?.id || "";
+    if (!file || !elementId) {
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const nextSrc = String(reader.result || "");
+      if (!nextSrc) return;
+      setSelectedLiveElement((current) => current ? { ...current, src: nextSrc } : current);
+      editableFrameRef.current?.contentWindow?.postMessage({
+        type: "MWU_REPLACE_IMAGE_SOURCE",
+        elementId,
+        src: nextSrc
+      }, "*");
+      setNotice("Image replaced. Press Save to store it in the database.");
+      event.target.value = "";
+    };
+    reader.readAsDataURL(file);
+  };
+
   const addLayoutPreset = (preset) => {
     preset.sections.forEach((type) => addSection(type));
     setNotice(`Added ${preset.title} sections.`);
@@ -4528,6 +5153,13 @@ function StandalonePageEditor({
 
   return (
     <form className="standalone-editor" onSubmit={saveEditablePage}>
+      <input
+        ref={imageReplaceInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleImageReplaceFile}
+      />
       <header className="standalone-topbar">
         <div className="standalone-brand">
           <img src={assets.logoOfficial} alt="Madda Walabu University" />
@@ -4557,7 +5189,7 @@ function StandalonePageEditor({
         <div className="standalone-notice" role="status">
           <CheckCircle2 size={17} />
           <span>{notice}</span>
-          <button className="icon-button" type="button" onClick={() => setNotice("")}>
+          <button className="icon-button" type="button" onClick={() => dismissNoticeMessage(notice, setNotice)}>
             <X size={15} />
           </button>
         </div>
@@ -4642,9 +5274,9 @@ function StandalonePageEditor({
               <input value={page.sourceUrl || page.source_url || livePageUrl} onChange={(event) => updateField("sourceUrl", event.target.value)} />
             </Field>
             <Field label="Navigation Group">
-              <select value={page.menu || "About Us"} onChange={(event) => updateField("menu", event.target.value)}>
-                {menuGroups.map((group) => (
-                  <option key={group}>{group}</option>
+              <select value={page.menu || ""} onChange={(event) => updateField("menu", event.target.value)}>
+                {menuGroupChoices.map((group) => (
+                  <option key={group.value} value={group.value}>{group.label}</option>
                 ))}
               </select>
             </Field>
@@ -4699,6 +5331,7 @@ function StandalonePageEditor({
             onApplyStyle={applyLiveElementStyle}
             onDuplicateElement={duplicateLiveElement}
             onDeleteElement={deleteLiveElement}
+            onReplaceImage={openImageReplacePicker}
           />
 
           <div className="inspector-card">
@@ -4895,7 +5528,7 @@ function NumericStyleInput({ value, onChange, placeholder, fallback = "0px" }) {
   );
 }
 
-function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onRefreshHtml, onApplyStyle, onDuplicateElement, onDeleteElement }) {
+function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onRefreshHtml, onApplyStyle, onDuplicateElement, onDeleteElement, onReplaceImage }) {
   const styles = selectedElement?.styles || {};
   const valueOf = (field) => styles[field] || "";
   const apply = (field) => (event) => onApplyStyle(field, event.target.value);
@@ -4956,13 +5589,19 @@ function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onR
       <h3>{selectedElement.label || selectedElement.tagName || "Selected element"}</h3>
       <StatusPill status={selectedElement.type || "Widget"} />
       <div className="block-actions">
+        {isImage && (
+          <button className="ghost-button" type="button" onClick={onReplaceImage}>
+            <Image size={16} />
+            <span>Replace Image</span>
+          </button>
+        )}
         <button className="ghost-button" type="button" onClick={onDuplicateElement}>
           <Copy size={16} />
-          <span>Duplicate Selected</span>
+          <span>Duplicate</span>
         </button>
         <button className="danger-button" type="button" onClick={onDeleteElement}>
           <Trash2 size={16} />
-          <span>Delete Selected</span>
+          <span>Delete</span>
         </button>
       </div>
 
@@ -5177,6 +5816,7 @@ function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onR
 
 function PageEditor({
   page,
+  menuGroupChoices = [],
   editorTab,
   setEditorTab,
   updateField,
@@ -5197,6 +5837,7 @@ function PageEditor({
   const [inspectorTab, setInspectorTab] = useState("content");
   const [devicePreview, setDevicePreview] = useState("desktop");
   const [canvasMode, setCanvasMode] = useState("exact");
+  const [builderSidebarMode, setBuilderSidebarMode] = useState("elements");
   const activeBlock = page.sections.find((section) => section.id === activeBlockId) || page.sections[0];
   const activeBlockStyles = getSectionStyles(activeBlock);
   const pageStyles = getPageStyles(page);
@@ -5232,13 +5873,29 @@ function PageEditor({
     setCanvasMode("exact");
   }, [page.id]);
 
+  useEffect(() => {
+    setBuilderSidebarMode("elements");
+  }, [page.id]);
+
+  useEffect(() => {
+    if (editorTab === "content") {
+      setEditorTab("builder");
+    }
+  }, [editorTab, setEditorTab]);
+
+  const selectBuilderSection = (sectionId, nextInspectorTab = inspectorTab) => {
+    setActiveBlockId(sectionId);
+    setInspectorTab(nextInspectorTab);
+    setBuilderSidebarMode("style");
+  };
+
   const addLayoutPreset = (preset) => {
     preset.sections.forEach((type) => addSection(type));
   };
 
   return (
-    <form className="editor-shell" onSubmit={savePage}>
-      <div className="editor-main panel">
+    <form className="editor-shell editor-redesign" onSubmit={savePage}>
+      <div className="editor-main panel editor-surface">
         <div className="panel-head editor-head">
           <div>
             <span className="eyebrow">Editing</span>
@@ -5268,9 +5925,8 @@ function PageEditor({
           </div>
         </div>
 
-        <div className="editor-tabs" role="tablist" aria-label="Page editor tabs">
+        <div className="editor-tabs redesign-tabs" role="tablist" aria-label="Page editor tabs">
           {[
-            { id: "content", label: "Content", icon: FileText },
             { id: "builder", label: "Builder", icon: LayoutTemplate },
             { id: "seo", label: "SEO", icon: BarChart3 },
             { id: "settings", label: "Settings", icon: Settings },
@@ -5315,8 +5971,8 @@ function PageEditor({
               </Field>
               <Field label="Menu Group">
                 <select value={page.menu} onChange={(event) => updateField("menu", event.target.value)}>
-                  {menuGroups.map((group) => (
-                    <option key={group}>{group}</option>
+                  {menuGroupChoices.map((group) => (
+                    <option key={group.value} value={group.value}>{group.label}</option>
                   ))}
                 </select>
               </Field>
@@ -5491,49 +6147,223 @@ function PageEditor({
         )}
 
         {editorTab === "builder" && (
-          <div className="elementor-workspace elementor-workspace-pro">
-            <aside className="elementor-panel elementor-library-panel">
-              <div>
-                <span className="eyebrow">Elements</span>
-                <h3>Drag-style blocks</h3>
-                <p className="panel-help">Add blocks, then select any section on the canvas to edit content, style, spacing, visibility, and HTML.</p>
-              </div>
-              <div className="elementor-button-grid compact">
-                {sectionTypes.map((type) => (
-                  <button key={type} type="button" onClick={() => addSection(type)}>
-                    <LayoutTemplate size={15} />
-                    <span>{type}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="elementor-workspace elementor-workspace-pro redesign-workspace">
+            <aside className={`elementor-panel builder-sidebar-panel ${builderSidebarMode === "style" ? "style-mode" : "elements-mode"}`}>
+              {builderSidebarMode === "elements" ? (
+                <>
+                  <div className="builder-sidebar-head">
+                    <div>
+                      <span className="eyebrow">Elements</span>
+                      <h3>Drag-style blocks</h3>
+                      <p className="panel-help">Add blocks, then click any section on canvas to open its styling and content controls.</p>
+                    </div>
+                  </div>
+                  <div className="elementor-button-grid compact">
+                    {sectionTypes.map((type) => (
+                      <button key={type} type="button" onClick={() => addSection(type)}>
+                        <LayoutTemplate size={15} />
+                        <span>{type}</span>
+                      </button>
+                    ))}
+                  </div>
 
-              <div>
-                <span className="eyebrow">Layout Presets</span>
-                <div className="layout-preset-list compact">
-                  {layoutPresets.map((preset) => (
-                    <button key={preset.id} type="button" onClick={() => addLayoutPreset(preset)}>
-                      <strong>{preset.title}</strong>
-                      <small>{preset.detail}</small>
+                  <div>
+                    <span className="eyebrow">Layout Presets</span>
+                    <div className="layout-preset-list compact">
+                      {layoutPresets.map((preset) => (
+                        <button key={preset.id} type="button" onClick={() => addLayoutPreset(preset)}>
+                          <strong>{preset.title}</strong>
+                          <small>{preset.detail}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="navigator-panel">
+                    <span className="eyebrow">Navigator</span>
+                    {page.sections.map((section, index) => (
+                      <button
+                        key={section.id}
+                        type="button"
+                        className={activeBlock?.id === section.id ? "active" : ""}
+                        onClick={() => selectBuilderSection(section.id)}
+                      >
+                        <GripVertical size={14} />
+                        <span>{index + 1}. {section.title || section.type}</span>
+                        <small>{section.visible === false ? "Hidden" : section.type}</small>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="builder-sidebar-head builder-sidebar-style-head">
+                    <div>
+                      <span className="eyebrow">{inspectorTab === "page" ? "Page Settings" : "Selected Section"}</span>
+                      <h3>{inspectorTab === "page" ? page.title : (activeBlock?.title || "Select a section")}</h3>
+                    </div>
+                    <button
+                      className="icon-button builder-sidebar-toggle"
+                      type="button"
+                      aria-label="Show elements panel"
+                      title="Show elements"
+                      onClick={() => setBuilderSidebarMode("elements")}
+                    >
+                      <Plus size={16} />
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              <div className="navigator-panel">
-                <span className="eyebrow">Navigator</span>
-                {page.sections.map((section, index) => (
-                  <button
-                    key={section.id}
-                    type="button"
-                    className={activeBlock?.id === section.id ? "active" : ""}
-                    onClick={() => setActiveBlockId(section.id)}
-                  >
-                    <GripVertical size={14} />
-                    <span>{index + 1}. {section.title || section.type}</span>
-                    <small>{section.visible === false ? "Hidden" : section.type}</small>
-                  </button>
-                ))}
-              </div>
+                  <div className="inspector-tabs">
+                    {["content", "style", "advanced", "page"].map((tab) => (
+                      <button key={tab} type="button" className={inspectorTab === tab ? "active" : ""} onClick={() => setInspectorTab(tab)}>
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+
+                  {activeBlock && inspectorTab === "content" && (
+                    <div className="inspector-fields">
+                      <Field label="Section Type">
+                        <select value={activeBlock.type} onChange={(event) => updateSection(activeBlock.id, "type", event.target.value)}>
+                          {sectionTypes.map((type) => (
+                            <option key={type}>{type}</option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Layout">
+                        <select value={activeBlock.layout || "Text first"} onChange={(event) => updateSection(activeBlock.id, "layout", event.target.value)}>
+                          {layoutOptions.map((layout) => (
+                            <option key={layout}>{layout}</option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Eyebrow / Label">
+                        <input value={activeBlock.eyebrow || ""} onChange={(event) => updateSection(activeBlock.id, "eyebrow", event.target.value)} />
+                      </Field>
+                      <Field label="Heading">
+                        <input value={activeBlock.title || ""} onChange={(event) => updateSection(activeBlock.id, "title", event.target.value)} />
+                      </Field>
+                      <Field label="Content">
+                        <textarea rows="5" value={activeBlock.body || ""} onChange={(event) => updateSection(activeBlock.id, "body", event.target.value)} />
+                      </Field>
+                      <Field label="Raw HTML / Legacy Markup">
+                        <textarea rows="8" value={activeBlock.html || ""} onChange={(event) => updateSection(activeBlock.id, "html", event.target.value)} placeholder="Paste the original section HTML here" />
+                      </Field>
+                      <div className="field-grid one">
+                        <Field label="Image URL">
+                          <input value={activeBlock.image || ""} onChange={(event) => updateSection(activeBlock.id, "image", event.target.value)} />
+                        </Field>
+                        <Field label="CTA Label">
+                          <input value={activeBlock.ctaLabel || ""} onChange={(event) => updateSection(activeBlock.id, "ctaLabel", event.target.value)} />
+                        </Field>
+                        <Field label="CTA URL">
+                          <input value={activeBlock.ctaUrl || ""} onChange={(event) => updateSection(activeBlock.id, "ctaUrl", event.target.value)} />
+                        </Field>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeBlock && inspectorTab === "style" && (
+                    <div className="inspector-fields">
+                      <div className="style-preset-grid">
+                        {[
+                          ["clean", "Clean"],
+                          ["spotlight", "Spotlight"],
+                          ["dark", "Dark"],
+                          ["gold", "Gold"]
+                        ].map(([id, label]) => (
+                          <button key={id} type="button" onClick={() => applySectionPreset(id)}>{label}</button>
+                        ))}
+                      </div>
+                      <div className="field-grid one color-grid">
+                        <Field label="Background Color">
+                          <input type="color" value={activeBlockStyles.backgroundColor || "#ffffff"} onChange={(event) => updateBlockStyle("backgroundColor", event.target.value)} />
+                        </Field>
+                        <Field label="Heading Color">
+                          <input type="color" value={activeBlockStyles.headingColor || "#081933"} onChange={(event) => updateBlockStyle("headingColor", event.target.value)} />
+                        </Field>
+                        <Field label="Text Color">
+                          <input type="color" value={activeBlockStyles.textColor || "#667085"} onChange={(event) => updateBlockStyle("textColor", event.target.value)} />
+                        </Field>
+                        <Field label="Accent Color">
+                          <input type="color" value={activeBlockStyles.accentColor || "#d6a128"} onChange={(event) => updateBlockStyle("accentColor", event.target.value)} />
+                        </Field>
+                      </div>
+                      <Field label="Text Alignment">
+                        <select value={activeBlockStyles.align || "left"} onChange={(event) => updateBlockStyle("align", event.target.value)}>
+                          <option value="left">Left</option>
+                          <option value="center">Center</option>
+                          <option value="right">Right</option>
+                        </select>
+                      </Field>
+                      <label className="toggle-field">
+                        <input type="checkbox" checked={Boolean(activeBlockStyles.shadow)} onChange={(event) => updateBlockStyle("shadow", event.target.checked)} />
+                        <span>Box shadow</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {activeBlock && inspectorTab === "advanced" && (
+                    <div className="inspector-fields">
+                      <div className="spacing-grid">
+                        <Field label="Padding Top"><input value={activeBlockStyles.paddingTop} onChange={(event) => updateBlockStyle("paddingTop", event.target.value)} /></Field>
+                        <Field label="Padding Bottom"><input value={activeBlockStyles.paddingBottom} onChange={(event) => updateBlockStyle("paddingBottom", event.target.value)} /></Field>
+                        <Field label="Padding Left"><input value={activeBlockStyles.paddingLeft} onChange={(event) => updateBlockStyle("paddingLeft", event.target.value)} /></Field>
+                        <Field label="Padding Right"><input value={activeBlockStyles.paddingRight} onChange={(event) => updateBlockStyle("paddingRight", event.target.value)} /></Field>
+                        <Field label="Margin Top"><input value={activeBlockStyles.marginTop} onChange={(event) => updateBlockStyle("marginTop", event.target.value)} /></Field>
+                        <Field label="Margin Bottom"><input value={activeBlockStyles.marginBottom} onChange={(event) => updateBlockStyle("marginBottom", event.target.value)} /></Field>
+                        <Field label="Column Gap"><input value={activeBlockStyles.gap} onChange={(event) => updateBlockStyle("gap", event.target.value)} /></Field>
+                        <Field label="Border Radius"><input value={activeBlockStyles.borderRadius} onChange={(event) => updateBlockStyle("borderRadius", event.target.value)} /></Field>
+                        <Field label="Image Radius"><input value={activeBlockStyles.imageRadius} onChange={(event) => updateBlockStyle("imageRadius", event.target.value)} /></Field>
+                      </div>
+                      <Field label="CSS Class">
+                        <input value={activeBlock.className || ""} onChange={(event) => updateSection(activeBlock.id, "className", event.target.value)} placeholder="custom-section-class" />
+                      </Field>
+                      <label className="toggle-field">
+                        <input type="checkbox" checked={activeBlock.visible !== false} onChange={(event) => updateSection(activeBlock.id, "visible", event.target.checked)} />
+                        <span>Visible on website</span>
+                      </label>
+                      <div className="block-actions vertical">
+                        <button className="ghost-button" type="button" onClick={() => duplicateSection(activeBlock.id)}>
+                          <Copy size={16} />
+                          <span>Duplicate</span>
+                        </button>
+                        <button
+                          className="danger-button"
+                          type="button"
+                          onClick={() => {
+                            removeSection(activeBlock.id);
+                            setActiveBlockId(page.sections.find((section) => section.id !== activeBlock.id)?.id || "");
+                          }}
+                        >
+                          <Trash2 size={16} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {inspectorTab === "page" && (
+                    <div className="inspector-fields">
+                      <Field label="Page Title"><input value={page.title} onChange={(event) => updateField("title", event.target.value)} /></Field>
+                      <Field label="Slug"><input value={page.slug} onChange={(event) => updateField("slug", event.target.value)} /></Field>
+                      <Field label="Parent Slug"><input value={page.parentSlug || ""} onChange={(event) => updateField("parentSlug", event.target.value)} /></Field>
+                      <Field label="Source URL"><input value={page.sourceUrl || ""} onChange={(event) => updateField("sourceUrl", event.target.value)} /></Field>
+                      <Field label="Canvas Width"><input value={pageStyles.canvasWidth} onChange={(event) => updatePageStyle("canvasWidth", event.target.value)} /></Field>
+                      <Field label="Page Background"><input type="color" value={pageStyles.backgroundColor || "#ffffff"} onChange={(event) => updatePageStyle("backgroundColor", event.target.value)} /></Field>
+                      <Field label="Body HTML from legacy page">
+                        <textarea rows="8" value={page.bodyHtml || ""} onChange={(event) => updateField("bodyHtml", event.target.value)} placeholder="Full <body> HTML imported from the existing website" />
+                      </Field>
+                      <Field label="Full Raw HTML document">
+                        <textarea rows="8" value={page.rawHtml || ""} onChange={(event) => updateField("rawHtml", event.target.value)} placeholder="Optional full <!doctype html> document" />
+                      </Field>
+                      <Field label="Custom CSS">
+                        <textarea rows="6" value={page.customCss || ""} onChange={(event) => updateField("customCss", event.target.value)} placeholder="CSS to save with this page" />
+                      </Field>
+                    </div>
+                  )}
+                </>
+              )}
             </aside>
 
             <main className="elementor-canvas elementor-canvas-pro">
@@ -5642,7 +6472,7 @@ function PageEditor({
                         className={`elementor-section elementor-section-pro ${slugify(section.layout || "text-first")} ${section.className || ""} ${activeBlock?.id === section.id ? "active" : ""} ${section.visible === false ? "hidden" : ""}`}
                         style={sectionCanvasStyle(section)}
                         key={section.id}
-                        onClick={() => setActiveBlockId(section.id)}
+                        onClick={() => selectBuilderSection(section.id)}
                       >
                         <div className="elementor-section-bar floating">
                           <span>
@@ -5717,165 +6547,6 @@ function PageEditor({
               )}
             </main>
 
-            <aside className="elementor-panel elementor-inspector pro-inspector">
-              <div className="inspector-tabs">
-                {["content", "style", "advanced", "page"].map((tab) => (
-                  <button key={tab} type="button" className={inspectorTab === tab ? "active" : ""} onClick={() => setInspectorTab(tab)}>
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              {inspectorTab !== "page" && (
-                <>
-                  <span className="eyebrow">Selected Section</span>
-                  <h3>{activeBlock?.title || "Select a section"}</h3>
-                </>
-              )}
-
-              {activeBlock && inspectorTab === "content" && (
-                <div className="inspector-fields">
-                  <Field label="Section Type">
-                    <select value={activeBlock.type} onChange={(event) => updateSection(activeBlock.id, "type", event.target.value)}>
-                      {sectionTypes.map((type) => (
-                        <option key={type}>{type}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Layout">
-                    <select value={activeBlock.layout || "Text first"} onChange={(event) => updateSection(activeBlock.id, "layout", event.target.value)}>
-                      {layoutOptions.map((layout) => (
-                        <option key={layout}>{layout}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Eyebrow / Label">
-                    <input value={activeBlock.eyebrow || ""} onChange={(event) => updateSection(activeBlock.id, "eyebrow", event.target.value)} />
-                  </Field>
-                  <Field label="Heading">
-                    <input value={activeBlock.title || ""} onChange={(event) => updateSection(activeBlock.id, "title", event.target.value)} />
-                  </Field>
-                  <Field label="Content">
-                    <textarea rows="5" value={activeBlock.body || ""} onChange={(event) => updateSection(activeBlock.id, "body", event.target.value)} />
-                  </Field>
-                  <Field label="Raw HTML / Legacy Markup">
-                    <textarea rows="8" value={activeBlock.html || ""} onChange={(event) => updateSection(activeBlock.id, "html", event.target.value)} placeholder="Paste the original section HTML here" />
-                  </Field>
-                  <div className="field-grid one">
-                    <Field label="Image URL">
-                      <input value={activeBlock.image || ""} onChange={(event) => updateSection(activeBlock.id, "image", event.target.value)} />
-                    </Field>
-                    <Field label="CTA Label">
-                      <input value={activeBlock.ctaLabel || ""} onChange={(event) => updateSection(activeBlock.id, "ctaLabel", event.target.value)} />
-                    </Field>
-                    <Field label="CTA URL">
-                      <input value={activeBlock.ctaUrl || ""} onChange={(event) => updateSection(activeBlock.id, "ctaUrl", event.target.value)} />
-                    </Field>
-                  </div>
-                </div>
-              )}
-
-              {activeBlock && inspectorTab === "style" && (
-                <div className="inspector-fields">
-                  <div className="style-preset-grid">
-                    {[
-                      ["clean", "Clean"],
-                      ["spotlight", "Spotlight"],
-                      ["dark", "Dark"],
-                      ["gold", "Gold"]
-                    ].map(([id, label]) => (
-                      <button key={id} type="button" onClick={() => applySectionPreset(id)}>{label}</button>
-                    ))}
-                  </div>
-                  <div className="field-grid one color-grid">
-                    <Field label="Background Color">
-                      <input type="color" value={activeBlockStyles.backgroundColor || "#ffffff"} onChange={(event) => updateBlockStyle("backgroundColor", event.target.value)} />
-                    </Field>
-                    <Field label="Heading Color">
-                      <input type="color" value={activeBlockStyles.headingColor || "#081933"} onChange={(event) => updateBlockStyle("headingColor", event.target.value)} />
-                    </Field>
-                    <Field label="Text Color">
-                      <input type="color" value={activeBlockStyles.textColor || "#667085"} onChange={(event) => updateBlockStyle("textColor", event.target.value)} />
-                    </Field>
-                    <Field label="Accent Color">
-                      <input type="color" value={activeBlockStyles.accentColor || "#d6a128"} onChange={(event) => updateBlockStyle("accentColor", event.target.value)} />
-                    </Field>
-                  </div>
-                  <Field label="Text Alignment">
-                    <select value={activeBlockStyles.align || "left"} onChange={(event) => updateBlockStyle("align", event.target.value)}>
-                      <option value="left">Left</option>
-                      <option value="center">Center</option>
-                      <option value="right">Right</option>
-                    </select>
-                  </Field>
-                  <label className="toggle-field">
-                    <input type="checkbox" checked={Boolean(activeBlockStyles.shadow)} onChange={(event) => updateBlockStyle("shadow", event.target.checked)} />
-                    <span>Box shadow</span>
-                  </label>
-                </div>
-              )}
-
-              {activeBlock && inspectorTab === "advanced" && (
-                <div className="inspector-fields">
-                  <div className="spacing-grid">
-                    <Field label="Padding Top"><input value={activeBlockStyles.paddingTop} onChange={(event) => updateBlockStyle("paddingTop", event.target.value)} /></Field>
-                    <Field label="Padding Bottom"><input value={activeBlockStyles.paddingBottom} onChange={(event) => updateBlockStyle("paddingBottom", event.target.value)} /></Field>
-                    <Field label="Padding Left"><input value={activeBlockStyles.paddingLeft} onChange={(event) => updateBlockStyle("paddingLeft", event.target.value)} /></Field>
-                    <Field label="Padding Right"><input value={activeBlockStyles.paddingRight} onChange={(event) => updateBlockStyle("paddingRight", event.target.value)} /></Field>
-                    <Field label="Margin Top"><input value={activeBlockStyles.marginTop} onChange={(event) => updateBlockStyle("marginTop", event.target.value)} /></Field>
-                    <Field label="Margin Bottom"><input value={activeBlockStyles.marginBottom} onChange={(event) => updateBlockStyle("marginBottom", event.target.value)} /></Field>
-                    <Field label="Column Gap"><input value={activeBlockStyles.gap} onChange={(event) => updateBlockStyle("gap", event.target.value)} /></Field>
-                    <Field label="Border Radius"><input value={activeBlockStyles.borderRadius} onChange={(event) => updateBlockStyle("borderRadius", event.target.value)} /></Field>
-                    <Field label="Image Radius"><input value={activeBlockStyles.imageRadius} onChange={(event) => updateBlockStyle("imageRadius", event.target.value)} /></Field>
-                  </div>
-                  <Field label="CSS Class">
-                    <input value={activeBlock.className || ""} onChange={(event) => updateSection(activeBlock.id, "className", event.target.value)} placeholder="custom-section-class" />
-                  </Field>
-                  <label className="toggle-field">
-                    <input type="checkbox" checked={activeBlock.visible !== false} onChange={(event) => updateSection(activeBlock.id, "visible", event.target.checked)} />
-                    <span>Visible on website</span>
-                  </label>
-                  <div className="block-actions vertical">
-                    <button className="ghost-button" type="button" onClick={() => duplicateSection(activeBlock.id)}>
-                      <Copy size={16} />
-                      <span>Duplicate</span>
-                    </button>
-                    <button
-                      className="danger-button"
-                      type="button"
-                      onClick={() => {
-                        removeSection(activeBlock.id);
-                        setActiveBlockId(page.sections.find((section) => section.id !== activeBlock.id)?.id || "");
-                      }}
-                    >
-                      <Trash2 size={16} />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {inspectorTab === "page" && (
-                <div className="inspector-fields">
-                  <span className="eyebrow">Page Settings</span>
-                  <Field label="Page Title"><input value={page.title} onChange={(event) => updateField("title", event.target.value)} /></Field>
-                  <Field label="Slug"><input value={page.slug} onChange={(event) => updateField("slug", event.target.value)} /></Field>
-                  <Field label="Parent Slug"><input value={page.parentSlug || ""} onChange={(event) => updateField("parentSlug", event.target.value)} /></Field>
-                  <Field label="Source URL"><input value={page.sourceUrl || ""} onChange={(event) => updateField("sourceUrl", event.target.value)} /></Field>
-                  <Field label="Canvas Width"><input value={pageStyles.canvasWidth} onChange={(event) => updatePageStyle("canvasWidth", event.target.value)} /></Field>
-                  <Field label="Page Background"><input type="color" value={pageStyles.backgroundColor || "#ffffff"} onChange={(event) => updatePageStyle("backgroundColor", event.target.value)} /></Field>
-                  <Field label="Body HTML from legacy page">
-                    <textarea rows="8" value={page.bodyHtml || ""} onChange={(event) => updateField("bodyHtml", event.target.value)} placeholder="Full <body> HTML imported from the existing website" />
-                  </Field>
-                  <Field label="Full Raw HTML document">
-                    <textarea rows="8" value={page.rawHtml || ""} onChange={(event) => updateField("rawHtml", event.target.value)} placeholder="Optional full <!doctype html> document" />
-                  </Field>
-                  <Field label="Custom CSS">
-                    <textarea rows="6" value={page.customCss || ""} onChange={(event) => updateField("customCss", event.target.value)} placeholder="CSS to save with this page" />
-                  </Field>
-                </div>
-              )}
-            </aside>
           </div>
         )}
 
@@ -6030,16 +6701,6 @@ function PageEditor({
         )}
       </div>
 
-      <aside className="preview-panel panel">
-        <div className="panel-head compact">
-          <div>
-            <span className="eyebrow">Live Preview</span>
-            <h2>Website View</h2>
-          </div>
-          <StatusPill status={page.status} />
-        </div>
-        <PagePreview page={page} />
-      </aside>
     </form>
   );
 }
@@ -6341,7 +7002,7 @@ function ProgramsView({
           <div className="program-pages-grid">
             {filteredProgramPages.map((page) => (
               <article className="program-page-card" key={page.id}>
-                <img src={page.heroImage} alt="" />
+                <img src={getAutoThumbnailForPage(page)} alt="" />
                 <div>
                   <StatusPill status={page.status} />
                   <h3>{page.title}</h3>
@@ -6353,7 +7014,15 @@ function ProgramsView({
                     className="icon-button"
                     type="button"
                     aria-label="Edit page"
-                    onClick={() => openPageEditorTab(page.id)}
+                    onClick={() => {
+                      if (!isLocalDraftPage(page)) {
+                        openPageEditorTab(page.id);
+                        return;
+                      }
+                      setActivePageId(page.id);
+                      setEditorTab("content");
+                      setActiveView("page-editor");
+                    }}
                   >
                     <Pencil size={16} />
                   </button>
@@ -6364,7 +7033,7 @@ function ProgramsView({
                     onClick={() => {
                       setActivePageId(page.id);
                       setEditorTab("builder");
-                      setActiveView("pages");
+                      setActiveView("page-editor");
                     }}
                   >
                     <ListTree size={16} />
@@ -6645,14 +7314,13 @@ function ContentPagesView({
     );
 
   const openPage = (page, tab) => {
-    if (tab === "content") {
+    if (tab === "content" && !isLocalDraftPage(page)) {
       openPageEditorTab(page.id);
       return;
     }
-
     setActivePageId(page.id);
     setEditorTab(tab);
-    setActiveView("pages");
+    setActiveView("page-editor");
   };
 
   return (
@@ -6697,7 +7365,7 @@ function ContentPagesView({
         <div className="program-pages-grid">
           {filteredPages.map((page) => (
             <article className="program-page-card" key={page.id}>
-              <img src={page.heroImage} alt="" />
+              <img src={getAutoThumbnailForPage(page)} alt="" />
               <div>
                 <StatusPill status={page.status} />
                 <h3>{page.title}</h3>
@@ -6720,6 +7388,297 @@ function ContentPagesView({
           {!filteredPages.length && <p className="program-empty">{emptyLabel}</p>}
         </div>
       </section>
+    </section>
+  );
+}
+
+function MenusView({
+  pages,
+  menuGroupChoices = [],
+  savePage,
+  setPages,
+  setFormPage,
+  setActivePageId,
+  setActiveView,
+  setEditorTab
+}) {
+  const selectableGroups = menuGroupChoices.filter((group) => group.value);
+  const [activeGroup, setActiveGroup] = useState(selectableGroups[0]?.value || "");
+  const [availableQuery, setAvailableQuery] = useState("");
+  const sortedPages = useMemo(
+    () =>
+      [...pages].sort((a, b) => {
+        const orderDiff = Number(a.menuOrder || 0) - Number(b.menuOrder || 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.title.localeCompare(b.title);
+      }),
+    [pages]
+  );
+
+  useEffect(() => {
+    if (!selectableGroups.some((group) => group.value === activeGroup)) {
+      setActiveGroup(selectableGroups[0]?.value || "");
+    }
+  }, [activeGroup, selectableGroups]);
+
+  const activeMenuPages = useMemo(
+    () => sortedPages.filter((page) => page.menu === activeGroup),
+    [activeGroup, sortedPages]
+  );
+
+  const availablePages = useMemo(
+    () =>
+      sortedPages
+        .filter((page) => page.menu !== activeGroup)
+        .filter((page) => [page.title, page.slug].join(" ").toLowerCase().includes(availableQuery.toLowerCase()))
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    [activeGroup, availableQuery, sortedPages]
+  );
+
+  const rootPages = useMemo(
+    () => activeMenuPages.filter((page) => !page.parentSlug),
+    [activeMenuPages]
+  );
+
+  const syncLocalPages = (nextPages) => {
+    const updates = new Map(nextPages.map((page) => [String(page.id), normalizePage(page)]));
+    setPages((current) =>
+      current.map((page) => {
+        const replacement = updates.get(String(page.id));
+        return replacement || page;
+      })
+    );
+    setFormPage((current) => updates.get(String(current.id)) || current);
+  };
+
+  const persistPages = async (nextPages) => {
+    const normalizedPages = nextPages.map((page) => normalizePage(page));
+    syncLocalPages(normalizedPages);
+    for (const nextPage of normalizedPages) {
+      await savePage({ preventDefault() {} }, nextPage);
+    }
+  };
+
+  const openPageInEditor = (page, tab = "content") => {
+    if (tab === "content" && !isLocalDraftPage(page)) {
+      openPageEditorTab(page.id);
+      return;
+    }
+    setActivePageId(page.id);
+    setFormPage(page);
+    setEditorTab(tab);
+    setActiveView("page-editor");
+  };
+
+  const addPageToMenu = async (page) => {
+    const nextOrder = activeMenuPages.reduce((maxOrder, item) => Math.max(maxOrder, Number(item.menuOrder || 0)), 0) + 1;
+    await persistPages([
+      {
+        ...page,
+        menu: activeGroup,
+        parentSlug: "",
+        menuOrder: nextOrder
+      }
+    ]);
+  };
+
+  const removeFromMenu = async (page) => {
+    await persistPages([
+      {
+        ...page,
+        menu: "",
+        parentSlug: "",
+        menuOrder: 1
+      }
+    ]);
+  };
+
+  const updateMenuField = async (page, field, value) => {
+    if (field === "parentSlug" && value === page.slug) {
+      return;
+    }
+
+    await persistPages([
+      {
+        ...page,
+        [field]: field === "menuOrder" ? Math.max(1, Number(value || 1)) : value
+      }
+    ]);
+  };
+
+  const moveMenuPage = async (page, direction) => {
+    const siblings = activeMenuPages
+      .filter((item) => String(item.parentSlug || "") === String(page.parentSlug || ""))
+      .sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0));
+    const pageIndex = siblings.findIndex((item) => String(item.id) === String(page.id));
+    const swapIndex = direction === "up" ? pageIndex - 1 : pageIndex + 1;
+
+    if (pageIndex < 0 || swapIndex < 0 || swapIndex >= siblings.length) {
+      return;
+    }
+
+    const swapPage = siblings[swapIndex];
+    await persistPages([
+      {
+        ...page,
+        menuOrder: Number(swapPage.menuOrder || swapIndex + 1)
+      },
+      {
+        ...swapPage,
+        menuOrder: Number(page.menuOrder || pageIndex + 1)
+      }
+    ]);
+  };
+
+  return (
+    <section className="admin-view menu-builder-view">
+      <div className="view-header">
+        <div>
+          <span className="eyebrow">Navigation Builder</span>
+          <h2>Manage Website Menus</h2>
+          <p>Add pages into menus, set parent-child relationships, reorder items, and remove pages from navigation without touching their page content.</p>
+        </div>
+        <div className="view-stat-card">
+          <ListChecks size={22} />
+          <strong>{activeMenuPages.length}</strong>
+          <span>Items in {activeGroup || "menu"}</span>
+        </div>
+      </div>
+
+      <div className="view-content menu-builder-grid">
+        <section className="panel menu-builder-panel">
+          <div className="panel-head">
+            <div>
+              <span className="eyebrow">Menu Group</span>
+              <h2>Current Navigation</h2>
+            </div>
+          </div>
+
+          <div className="menu-select-row">
+            <Field label="Select Menu">
+              <select value={activeGroup} onChange={(event) => setActiveGroup(event.target.value)}>
+                {selectableGroups.map((group) => (
+                  <option key={group.value} value={group.value}>{group.label}</option>
+                ))}
+              </select>
+            </Field>
+            <span className="menu-builder-live-note">Changes save directly to the database.</span>
+          </div>
+
+          <div className="menu-builder-list">
+            {activeMenuPages.map((page) => {
+              const siblingPages = activeMenuPages
+                .filter((item) => String(item.parentSlug || "") === String(page.parentSlug || ""))
+                .sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0));
+              const siblingIndex = siblingPages.findIndex((item) => String(item.id) === String(page.id));
+
+              return (
+                <article className="menu-builder-item" key={page.id}>
+                  <div className="menu-builder-item-head">
+                    <div>
+                      <strong>{page.title}</strong>
+                      <small>/{page.slug}</small>
+                    </div>
+                    <div className="table-actions">
+                      <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageInEditor(page, "content")}>
+                        <Pencil size={16} />
+                      </button>
+                      <button className="icon-button" type="button" aria-label="Open builder" onClick={() => openPageInEditor(page, "builder")}>
+                        <ListTree size={16} />
+                      </button>
+                      <button className="icon-button danger" type="button" aria-label="Remove from menu" onClick={() => removeFromMenu(page)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="field-grid menu-builder-fields">
+                    <Field label="Parent Page">
+                      <select value={page.parentSlug || ""} onChange={(event) => updateMenuField(page, "parentSlug", event.target.value)}>
+                        <option value="">Top level page</option>
+                        {rootPages
+                          .filter((item) => String(item.id) !== String(page.id))
+                          .map((item) => (
+                            <option key={item.id} value={item.slug}>{item.title}</option>
+                          ))}
+                      </select>
+                    </Field>
+                    <Field label="Menu Order">
+                      <NumericStyleInput
+                        value={String(page.menuOrder || 1)}
+                        onChange={(value) => updateMenuField(page, "menuOrder", value)}
+                        placeholder="1"
+                        fallback="1"
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="menu-builder-row-actions">
+                    <button type="button" className="ghost-button" onClick={() => moveMenuPage(page, "up")} disabled={siblingIndex <= 0}>
+                      <ArrowUp size={16} />
+                      <span>Move Up</span>
+                    </button>
+                    <button type="button" className="ghost-button" onClick={() => moveMenuPage(page, "down")} disabled={siblingIndex === -1 || siblingIndex >= siblingPages.length - 1}>
+                      <ArrowDown size={16} />
+                      <span>Move Down</span>
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+
+            {!activeMenuPages.length && (
+              <div className="empty-state">
+                <ListChecks size={24} />
+                <strong>No pages linked to this menu</strong>
+                <span>Add pages from the right panel to start building this navigation group.</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="panel menu-builder-panel">
+          <div className="panel-head">
+            <div>
+              <span className="eyebrow">Available Pages</span>
+              <h2>Add or Move Pages</h2>
+            </div>
+          </div>
+
+          <div className="search-wrap">
+            <label className="search-field no-margin">
+              <Search size={16} />
+              <input value={availableQuery} onChange={(event) => setAvailableQuery(event.target.value)} placeholder="Search pages to add" />
+            </label>
+          </div>
+
+          <div className="menu-builder-list">
+            {availablePages.map((page) => (
+              <article className="menu-builder-item compact" key={page.id}>
+                <div className="menu-builder-item-head">
+                  <div>
+                    <strong>{page.title}</strong>
+                    <small>/{page.slug}</small>
+                  </div>
+                  <button className="ghost-button" type="button" onClick={() => addPageToMenu(page)}>
+                    <Plus size={16} />
+                    <span>{page.menu ? `Move to ${activeGroup}` : `Add to ${activeGroup}`}</span>
+                  </button>
+                </div>
+                <span className="menu-builder-meta">{page.menu ? `Currently in ${getMenuReferenceLabel(page, pages)}` : "Not currently linked to any menu"}</span>
+              </article>
+            ))}
+
+            {!availablePages.length && (
+              <div className="empty-state">
+                <FileText size={24} />
+                <strong>All pages are already assigned</strong>
+                <span>Use the left panel to reorder or remove menu items.</span>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </section>
   );
 }
@@ -6850,10 +7809,121 @@ function SettingsView() {
   );
 }
 
+function SiteChromeView({
+  kind,
+  page,
+  openSiteChromeView,
+  updateField,
+  updateHtml,
+  savePage
+}) {
+  const config = getSiteChromeConfig(kind);
+  const snippetHtml = getSiteChromeHtml(page);
+
+  return (
+    <section className="site-chrome-grid">
+      <form className="panel site-chrome-editor" onSubmit={(event) => savePage(event, kind)}>
+        <div className="panel-head">
+          <div>
+            <span className="eyebrow">Global Layout</span>
+            <h2>Header & Footer</h2>
+          </div>
+          <div className="mode-switcher">
+            <button type="button" className={kind === "header" ? "active" : ""} onClick={() => openSiteChromeView("header")}>Header</button>
+            <button type="button" className={kind === "footer" ? "active" : ""} onClick={() => openSiteChromeView("footer")}>Footer</button>
+          </div>
+        </div>
+
+        <div className="site-chrome-fields">
+          <p className="panel-help">
+            Edit the global {kind} HTML here. Saving creates or updates a dedicated DB page with slug <code>{config.slug}</code>.
+          </p>
+
+          <div className="field-grid">
+            <Field label="Title">
+              <input value={page.title} onChange={(event) => updateField("title", event.target.value)} />
+            </Field>
+            <Field label="Status">
+              <select value={page.status} onChange={(event) => updateField("status", event.target.value)}>
+                {statusOptions.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Source Path">
+              <input value={config.sourceUrl} readOnly />
+            </Field>
+            <Field label="Slug">
+              <input value={page.slug} readOnly />
+            </Field>
+          </div>
+
+          <Field label="Summary">
+            <textarea rows="3" value={page.summary} onChange={(event) => updateField("summary", event.target.value)} />
+          </Field>
+
+          <Field label={`${config.title} HTML`}>
+            <textarea
+              className="site-chrome-textarea"
+              rows="22"
+              value={snippetHtml}
+              onChange={(event) => updateHtml(kind, event.target.value)}
+              placeholder={`Paste ${config.title.toLowerCase()} markup here`}
+            />
+          </Field>
+
+          <div className="editor-actions">
+            <button className="primary-button" type="submit">
+              <Save size={17} />
+              <span>Save {kind === "header" ? "Header" : "Footer"}</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div className="panel site-chrome-preview-panel">
+        <div className="panel-head compact">
+          <div>
+            <span className="eyebrow">Live Preview</span>
+            <h2>{config.title}</h2>
+          </div>
+        </div>
+
+        <div className="website-preview website-preview-html site-chrome-preview">
+          <div className="preview-html-head">
+            <div>
+              <span className="eyebrow">Snippet Canvas</span>
+              <h3>{config.title}</h3>
+            </div>
+            <small>{config.sourceUrl}</small>
+          </div>
+          <iframe title={`${config.title} preview`} srcDoc={buildSiteChromePreviewDocument(kind, snippetHtml)} sandbox="" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PagePreview({ page }) {
   const visibleSections = page.sections.filter((section) => section.visible !== false);
   const pageStyles = getPageStyles(page);
   const livePageUrl = getLivePageUrl(page);
+  const storedDocument = getStoredEditableDocument(page);
+
+  if (storedDocument.fullHtml) {
+    return (
+      <div className="website-preview website-preview-html">
+        <div className="preview-html-head">
+          <div>
+            <span className="eyebrow">Saved Website Preview</span>
+            <h3>{page.title}</h3>
+          </div>
+          {livePageUrl ? <a className="ghost-button" href={livePageUrl} target="_blank" rel="noreferrer">Open</a> : <small>Stored in database</small>}
+        </div>
+        <iframe title={`${page.title} full HTML preview`} srcDoc={buildPreviewDocument(page)} sandbox="" />
+      </div>
+    );
+  }
 
   if (livePageUrl) {
     return (
@@ -6870,21 +7940,6 @@ function PagePreview({ page }) {
           src={livePageUrl}
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
         />
-      </div>
-    );
-  }
-
-  if (hasLegacyHtml(page)) {
-    return (
-      <div className="website-preview website-preview-html">
-        <div className="preview-html-head">
-          <div>
-            <span className="eyebrow">Stored HTML Preview</span>
-            <h3>{page.title}</h3>
-          </div>
-          <small>{page.sourceUrl || `/${page.slug}`}</small>
-        </div>
-        <iframe title={`${page.title} full HTML preview`} srcDoc={buildPreviewDocument(page)} sandbox="" />
       </div>
     );
   }
