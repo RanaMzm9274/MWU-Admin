@@ -49,14 +49,20 @@ import {
 
 const PROGRAM_CATEGORIES_KEY = "mwu-crm-program-categories-v1";
 const PROGRAMS_KEY = "mwu-crm-programs-v1";
+const MEDIA_LIBRARY_KEY = "mwu-crm-media-library-v1";
+const MEDIA_API_USERNAME_KEY = "mwu_media_api_username";
+const MEDIA_API_PASSWORD_KEY = "mwu_media_api_password";
 const ADMIN_TOKEN_KEY = "mwu_admin_token";
 const ADMIN_ACTIVITY_KEY = "mwu_admin_last_activity";
 const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const MEDIA_API_BASE_URL = (import.meta.env.VITE_MEDIA_API_BASE_URL || `${LIVE_SITE_ORIGIN}/api`).replace(/\/$/, "");
 const LIVE_ASSET_PROXY_PREFIX = "/__live_asset";
 const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+const MEDIA_API_PATH = "/admin/media";
+const mediaApiUrl = (path = MEDIA_API_PATH) => `${MEDIA_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
 const getAuthHeaders = (token) => {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -162,57 +168,238 @@ const assets = {
   stories: "/assets/img/student-stories.jpg"
 };
 
-const mediaLibrary = [
+const initialMediaLibrary = [
   {
     id: "hero",
     title: "Main Campus Hero",
     type: "Hero",
     path: assets.hero,
-    size: "1920 x 900"
+    size: "1920 x 900",
+    uploadedAt: "2026-07-01",
+    dimensions: "1920 x 900",
+    mimeType: "image/webp"
   },
   {
     id: "about",
     title: "About MWU",
     type: "About",
     path: assets.about,
-    size: "1280 x 820"
+    size: "1280 x 820",
+    uploadedAt: "2026-07-01",
+    dimensions: "1280 x 820",
+    mimeType: "image/jpeg"
   },
   {
     id: "agriculture",
     title: "Crop and Livestock",
     type: "Program",
     path: assets.agriculture,
-    size: "1200 x 780"
+    size: "1200 x 780",
+    uploadedAt: "2026-07-01",
+    dimensions: "1200 x 780",
+    mimeType: "image/jpeg"
   },
   {
     id: "health",
     title: "Public Health Sciences",
     type: "Program",
     path: assets.health,
-    size: "1200 x 780"
+    size: "1200 x 780",
+    uploadedAt: "2026-07-01",
+    dimensions: "1200 x 780",
+    mimeType: "image/jpeg"
   },
   {
     id: "campus",
     title: "Mentor Lecture",
     type: "Campus",
     path: assets.campus,
-    size: "1200 x 780"
+    size: "1200 x 780",
+    uploadedAt: "2026-07-01",
+    dimensions: "1200 x 780",
+    mimeType: "image/webp"
   },
   {
     id: "blog",
     title: "Research and Community Impact",
     type: "News",
     path: assets.blog,
-    size: "1200 x 780"
+    size: "1200 x 780",
+    uploadedAt: "2026-07-01",
+    dimensions: "1200 x 780",
+    mimeType: "image/jpeg"
   },
   {
     id: "stories",
     title: "Student Stories",
     type: "Story",
     path: assets.stories,
-    size: "1200 x 780"
+    size: "1200 x 780",
+    uploadedAt: "2026-07-01",
+    dimensions: "1200 x 780",
+    mimeType: "image/jpeg"
   }
 ];
+
+const formatMediaByteSize = (bytes) => {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(value < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+};
+
+const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+const todayIso = () => new Date().toISOString();
+
+const estimateDataUrlBytes = (value = "") => {
+  const match = String(value || "").match(/^data:.*?;base64,(.+)$/);
+  if (!match?.[1]) return 0;
+  return Math.floor((match[1].length * 3) / 4);
+};
+
+const buildMediaDimensions = (width, height, fallback = "") => {
+  const parsedWidth = Number(width || 0);
+  const parsedHeight = Number(height || 0);
+  if (parsedWidth > 0 && parsedHeight > 0) {
+    return `${parsedWidth} x ${parsedHeight}`;
+  }
+  return fallback;
+};
+
+const normalizeMediaItem = (media) => {
+  const path = String(media?.path || "");
+  const size = String(media?.size || "").trim();
+  const derivedByteSize = estimateDataUrlBytes(path);
+  return {
+    id: media?.id || makeId(),
+    title: media?.title || "Untitled media",
+    type: media?.type || "Image",
+    path,
+    size: size || formatMediaByteSize(media?.bytes || derivedByteSize),
+    bytes: Number(media?.bytes || derivedByteSize || 0),
+    uploadedAt: media?.uploadedAt || todayIso(),
+    dimensions: media?.dimensions || buildMediaDimensions(media?.width, media?.height, size),
+    width: Number(media?.width || 0),
+    height: Number(media?.height || 0),
+    mimeType: media?.mimeType || (path.startsWith("data:") ? path.slice(5, path.indexOf(";")) : "image/jpeg")
+  };
+};
+
+const normalizeMediaApiItem = (media = {}) =>
+  normalizeMediaItem({
+    id: media.id || media.media_id || media.file_id || media.uuid,
+    title: media.title || media.name || media.filename || media.original_name,
+    type: media.type || media.media_type || media.kind || "Image",
+    path: media.path || media.url || media.file_url || media.public_url || media.src,
+    size: media.size_label || media.size,
+    bytes: media.bytes || media.file_size || media.size_bytes,
+    uploadedAt: media.uploaded_at || media.created_at || media.updated_at,
+    dimensions: media.dimensions,
+    width: media.width,
+    height: media.height,
+    mimeType: media.mime_type || media.mimeType || media.content_type
+  });
+
+const mergeMediaLibraries = (...collections) => {
+  const seen = new Set();
+  const merged = [];
+  collections.flat().forEach((item) => {
+    const normalized = normalizeMediaItem(item);
+    const key = normalized.path || normalized.id;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(normalized);
+  });
+  return merged;
+};
+
+const getStoredMediaApiCredentials = () => ({
+  username: window.sessionStorage.getItem(MEDIA_API_USERNAME_KEY) || "",
+  password: window.sessionStorage.getItem(MEDIA_API_PASSWORD_KEY) || ""
+});
+
+const storeMediaApiCredentials = ({ username = "", password = "" } = {}) => {
+  if (username) {
+    window.sessionStorage.setItem(MEDIA_API_USERNAME_KEY, username);
+  } else {
+    window.sessionStorage.removeItem(MEDIA_API_USERNAME_KEY);
+  }
+  if (password) {
+    window.sessionStorage.setItem(MEDIA_API_PASSWORD_KEY, password);
+  } else {
+    window.sessionStorage.removeItem(MEDIA_API_PASSWORD_KEY);
+  }
+};
+
+const getMediaApiAuthHeaders = (credentials = getStoredMediaApiCredentials()) => {
+  if (!credentials.username || !credentials.password) {
+    return {};
+  }
+  const basicToken = window.btoa(`${credentials.username}:${credentials.password}`);
+  return { Authorization: `Basic ${basicToken}` };
+};
+
+const loadMediaLibrary = () => {
+  try {
+    const stored = window.localStorage.getItem(MEDIA_LIBRARY_KEY);
+    const parsed = stored ? JSON.parse(stored) : initialMediaLibrary;
+    const normalized = Array.isArray(parsed) ? parsed.map(normalizeMediaItem) : initialMediaLibrary.map(normalizeMediaItem);
+    const existingIds = new Set(normalized.map((item) => item.id));
+    const missingSeedItems = initialMediaLibrary
+      .map(normalizeMediaItem)
+      .filter((item) => !existingIds.has(item.id));
+    return [...normalized, ...missingSeedItems];
+  } catch {
+    return initialMediaLibrary.map(normalizeMediaItem);
+  }
+};
+
+let mediaLibrary = loadMediaLibrary();
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
+
+const readImageDimensions = (src) =>
+  new Promise((resolve) => {
+    const image = new window.Image();
+    image.onload = () => resolve({ width: image.naturalWidth || 0, height: image.naturalHeight || 0 });
+    image.onerror = () => resolve({ width: 0, height: 0 });
+    image.src = src;
+  });
+
+const normalizeLiveAssetUrl = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("/")) return `${LIVE_SITE_ORIGIN}${raw}`;
+  if (raw.startsWith("assets/")) return `${LIVE_SITE_ORIGIN}/${raw}`;
+  return "";
+};
+
+const canLoadRemoteImage = (url) =>
+  new Promise((resolve) => {
+    if (!url) {
+      resolve(false);
+      return;
+    }
+    const image = new window.Image();
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    image.onload = () => finish(true);
+    image.onerror = () => finish(false);
+    image.src = `${url}${url.includes("?") ? "&" : "?"}mwu_asset_check=${Date.now()}`;
+    window.setTimeout(() => finish(false), 5000);
+  });
 
 const pageTypes = [
   "Static Page",
@@ -382,8 +569,6 @@ const SITE_CHROME_CONFIGS = {
   }
 };
 
-const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-
 const slugify = (value) =>
   value
     .toLowerCase()
@@ -399,7 +584,22 @@ const normalizeIncomingPageType = (value = "") => {
   return raw;
 };
 
-const todayIso = () => new Date().toISOString();
+const getApiPageType = (value = "") => {
+  const normalized = normalizeIncomingPageType(value).toLowerCase();
+
+  if (normalized === "static page") return "static";
+  if (normalized === "home section") return "home";
+  if (normalized === "academic program") return "program";
+  if (normalized === "admission page") return "admission";
+  if (normalized === "news article") return "blog";
+  if (normalized === "event") return "event";
+  if (normalized === "research page") return "research";
+  if (normalized === "campus page") return "campus";
+  if (normalized === "site header") return "header";
+  if (normalized === "site footer") return "footer";
+
+  return normalized.replace(/\s+/g, "_").slice(0, 32) || "static";
+};
 
 const defaultPageStyles = {
   canvasWidth: "1200",
@@ -643,6 +843,131 @@ const escapeHtml = (value = "") =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+const THUMBNAIL_PALETTE = [
+  ["#081933", "#1a4b96", "#d6a128"],
+  ["#0f2749", "#2b6cb0", "#f3c969"],
+  ["#12325d", "#2563eb", "#f6ad55"],
+  ["#11243f", "#1d4ed8", "#facc15"],
+  ["#1b2b4f", "#0f766e", "#f4b942"],
+  ["#1f2937", "#7c3aed", "#f59e0b"]
+];
+
+const GENERATED_THUMBNAIL_CACHE = new Map();
+
+const hashString = (value = "") => {
+  let hash = 0;
+  const input = String(value || "");
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) - hash) + input.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+const clampText = (value = "", maxLength = 40) => {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  if (!text) return "";
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`;
+};
+
+const splitTextLines = (value = "", maxCharsPerLine = 20, maxLines = 2) => {
+  const words = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const lines = [];
+  let currentLine = "";
+
+  words.forEach((word) => {
+    if (lines.length >= maxLines) return;
+
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    if (nextLine.length <= maxCharsPerLine || !currentLine) {
+      currentLine = nextLine;
+      return;
+    }
+
+    lines.push(currentLine);
+    currentLine = word;
+  });
+
+  if (lines.length < maxLines && currentLine) {
+    lines.push(currentLine);
+  }
+
+  if (words.length && lines.length === maxLines) {
+    const consumedCharacters = lines.join(" ").length;
+    const originalText = words.join(" ");
+    if (originalText.length > consumedCharacters) {
+      lines[maxLines - 1] = clampText(lines[maxLines - 1], maxCharsPerLine);
+    }
+  }
+
+  return lines.slice(0, maxLines);
+};
+
+const getGeneratedThumbnailForPage = (page = {}) => {
+  const title = String(page?.title || "Untitled Page").trim() || "Untitled Page";
+  const slug = `/${String(page?.slug || slugify(title) || "untitled-page").replace(/^\/+/, "")}`;
+  const type = String(page?.type || "Static Page").trim() || "Static Page";
+  const menu = String(page?.menu || "Website Page").trim() || "Website Page";
+  const status = titleCaseStatus(page?.status || "Draft");
+  const cacheKey = JSON.stringify([
+    page?.id || "",
+    title,
+    slug,
+    type,
+    menu,
+    status
+  ]);
+
+  if (GENERATED_THUMBNAIL_CACHE.has(cacheKey)) {
+    return GENERATED_THUMBNAIL_CACHE.get(cacheKey);
+  }
+
+  const palette = THUMBNAIL_PALETTE[hashString(`${menu}:${type}:${slug}`) % THUMBNAIL_PALETTE.length];
+  const [baseColor, accentColor, highlightColor] = palette;
+  const titleLines = splitTextLines(title, 18, 2);
+  const metaLabel = clampText(menu, 22).toUpperCase();
+  const detailLabel = clampText(type, 26);
+  const safeSlug = clampText(slug, 26);
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="${escapeHtml(title)}">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${baseColor}" />
+          <stop offset="100%" stop-color="${accentColor}" />
+        </linearGradient>
+        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="${highlightColor}" stop-opacity="0.95" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.22" />
+        </linearGradient>
+      </defs>
+      <rect width="640" height="360" fill="url(#bg)" rx="28" />
+      <circle cx="560" cy="82" r="112" fill="#ffffff" opacity="0.08" />
+      <circle cx="504" cy="312" r="160" fill="#ffffff" opacity="0.06" />
+      <path d="M0 286 C132 220 248 340 394 274 C490 232 566 162 640 176 L640 360 L0 360 Z" fill="#ffffff" opacity="0.08" />
+      <rect x="34" y="32" width="132" height="28" rx="14" fill="#ffffff" fill-opacity="0.14" />
+      <text x="52" y="51" fill="${highlightColor}" font-size="18" font-family="Arial, Helvetica, sans-serif" font-weight="700" letter-spacing="1.2">${escapeHtml(metaLabel)}</text>
+      <rect x="34" y="282" width="572" height="1" fill="#ffffff" fill-opacity="0.2" />
+      <text x="36" y="116" fill="#ffffff" font-size="44" font-family="Georgia, Times New Roman, serif" font-weight="700">${escapeHtml(titleLines[0] || "Untitled Page")}</text>
+      <text x="36" y="164" fill="#ffffff" font-size="44" font-family="Georgia, Times New Roman, serif" font-weight="700">${escapeHtml(titleLines[1] || "")}</text>
+      <text x="36" y="222" fill="#e7eefb" font-size="20" font-family="Arial, Helvetica, sans-serif">${escapeHtml(detailLabel)}</text>
+      <text x="36" y="252" fill="#d7e5ff" font-size="18" font-family="Arial, Helvetica, sans-serif">${escapeHtml(safeSlug)}</text>
+      <rect x="474" y="38" width="132" height="34" rx="17" fill="#ffffff" fill-opacity="0.16" />
+      <text x="540" y="60" text-anchor="middle" fill="#ffffff" font-size="18" font-family="Arial, Helvetica, sans-serif" font-weight="700">${escapeHtml(status)}</text>
+      <rect x="36" y="300" width="152" height="10" rx="5" fill="url(#glow)" />
+      <rect x="36" y="322" width="88" height="8" rx="4" fill="#ffffff" fill-opacity="0.22" />
+      <rect x="132" y="322" width="118" height="8" rx="4" fill="#ffffff" fill-opacity="0.14" />
+    </svg>
+  `.trim();
+
+  const dataUri = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  GENERATED_THUMBNAIL_CACHE.set(cacheKey, dataUri);
+  return dataUri;
+};
 
 const buildStructuredBodyMarkup = (value = "") => {
   const text = String(value || "").trim();
@@ -1363,6 +1688,8 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
           if (!element || !value) return;
           if (isImageElement(element)) {
             element.setAttribute('src', value);
+            element.setAttribute('data-mwu-admin-image-url', value);
+            element.setAttribute('data-mwu-image-updated', 'true');
             element.removeAttribute('srcset');
             element.removeAttribute('data-src');
             element.removeAttribute('data-srcset');
@@ -1377,6 +1704,8 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
             element.style.backgroundPosition = element.style.backgroundPosition || '50% 50%';
             element.style.backgroundSize = element.style.backgroundSize || 'cover';
             element.setAttribute('data-mwu-background-editable', 'true');
+            element.setAttribute('data-mwu-admin-image-url', value);
+            element.setAttribute('data-mwu-image-updated', 'true');
           }
         }
 
@@ -1729,7 +2058,7 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
           imageToolbar.innerHTML = '' +
             '<button type="button" class="mwu-toolbar-close" data-img-action="close">×</button>' +
             '<strong>Image crop & adjustment</strong>' +
-            '<small>Single-click an image to adjust it. Double-click any image to replace it from your computer.</small>' +
+            '<small>Single-click an image to adjust it. Double-click any image to replace it from Media Library.</small>' +
             '<div class="mwu-toolbar-actions"><button type="button" class="primary" data-img-action="replace">Replace Image</button><button type="button" data-img-action="reset">Reset</button></div>' +
             '<div class="mwu-toolbar-row"><label><span class="mwu-control-head"><span>Crop mode</span></span><select data-img-control="fit"><option value="cover">Crop / Cover</option><option value="contain">Fit / Contain</option></select></label>' + rangeControl('Height', 'height', 80, 900, 320, ['80', '490', '900'], 'px') + '</div>' +
             '<div class="mwu-toolbar-row">' + rangeControl('Position X', 'posX', -100, 100, 0, ['-100', '0', '100'], '') + rangeControl('Position Y', 'posY', -100, 100, 0, ['-100', '0', '100'], '') + '</div>' +
@@ -1877,7 +2206,7 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
           var helper = document.createElement('div');
           helper.className = 'mwu-editor-help';
           helper.setAttribute('contenteditable', 'false');
-          helper.innerHTML = '<strong>Editable live page</strong>Click a child element to edit it. Shift-click to select its parent section/container. Single-click images for crop/adjustments. Double-click images to replace them.';
+          helper.innerHTML = '<strong>Editable live page</strong>Click a child element to edit it. Shift-click to select its parent section/container. Single-click images for crop/adjustments. Double-click images to replace them from Media Library.';
           document.body.appendChild(helper);
           document.addEventListener('input', function () { sendUpdate('input'); }, true);
           document.addEventListener('click', function (event) {
@@ -2312,6 +2641,8 @@ const normalizePage = (page) => {
     visibility: page?.visibility || "Public",
     parentSlug: page?.parentSlug || page?.parent_slug || page?.parent || "",
     menuOrder: Number.isFinite(Number(page?.menuOrder ?? page?.menu_order)) ? Number(page?.menuOrder ?? page?.menu_order) : 1,
+    showInHeader: Number(page?.showInHeader ?? page?.show_in_header ?? (menuGroup ? 1 : 0)) ? 1 : 0,
+    showInFooter: Number(page?.showInFooter ?? page?.show_in_footer ?? 1) ? 1 : 0,
     heroHeadline: page?.heroHeadline || page?.hero_headline || pageTitle,
     heroTag: page?.heroTag || page?.hero_tag || "Website Page",
     summary: page?.summary || page?.excerpt || page?.seo_description || "Website page imported from the live database.",
@@ -2337,83 +2668,82 @@ const normalizePage = (page) => {
   };
 };
 
-const extractFirstImageFromMarkup = (html = "") => {
-  const source = String(html || "");
-  if (!source) return "";
-
-  const imgMatch = source.match(/<img[^>]+src=["']([^"']+)["']/i);
-  if (imgMatch?.[1]) return imgMatch[1];
-
-  const dataBgMatch = source.match(/data-bg-src=["']([^"']+)["']/i);
-  if (dataBgMatch?.[1]) return dataBgMatch[1];
-
-  const backgroundMatch = source.match(/background-image\s*:\s*url\((['"]?)([^)'"]+)\1\)/i);
-  if (backgroundMatch?.[2]) return backgroundMatch[2];
-
-  return "";
-};
-
 const getAutoThumbnailForPage = (page = {}) => {
-  const sectionImage = (page.sections || []).find((section) => section?.image)?.image;
-  if (sectionImage) return sectionImage;
-
-  const sectionMarkupImage = (page.sections || [])
-    .map((section) => extractFirstImageFromMarkup(section?.html || section?.rawHtml || section?.raw_html || section?.body || section?.content || ""))
-    .find(Boolean);
-  if (sectionMarkupImage) return sectionMarkupImage;
-
-  const pageMarkupImage = extractFirstImageFromMarkup(page.bodyHtml || page.body_html || page.rawHtml || page.raw_html || "");
-  if (pageMarkupImage) return pageMarkupImage;
-
-  return page.heroImage || assets.hero;
+  return getGeneratedThumbnailForPage(page);
 };
 
-const toApiPagePayload = (page) => ({
-  title: page.title,
-  slug: page.slug,
-  type: page.type,
-  page_type: page.type,
-  menu: page.menu,
-  menu_group: page.menu,
-  status: page.status,
-  template: page.template,
-  visibility: page.visibility,
-  parent_slug: page.parentSlug,
-  menu_order: page.menuOrder,
-  hero_headline: page.heroHeadline,
-  hero_tag: page.heroTag,
-  summary: page.summary,
-  hero_image: page.heroImage,
-  cta_label: page.ctaLabel,
-  cta_url: page.ctaUrl,
-  seo_title: page.seoTitle,
-  seo_description: page.seoDescription,
-  source_url: page.sourceUrl,
-  raw_html: page.rawHtml,
-  body_html: page.bodyHtml,
-  custom_css: page.customCss,
-  styles: page.styles || defaultPageStyles,
-  owner: page.owner,
-  priority: page.priority,
-  scheduled_at: page.scheduledAt || null,
-  sections: (page.sections || []).map((section, index) => ({
-    id: section.id,
-    sort_order: index + 1,
-    type: section.type,
-    section_type: section.type,
-    title: section.title,
-    eyebrow: section.eyebrow,
-    body: section.body,
-    html: section.html || "",
-    image: section.image,
-    cta_label: section.ctaLabel,
-    cta_url: section.ctaUrl,
-    layout: section.layout,
-    class_name: section.className || "",
-    styles: section.styles || defaultSectionStyles,
-    visible: section.visible !== false
-  }))
-});
+const getPageBodyHtmlForSave = (page = {}) =>
+  page.bodyHtml ||
+  page.body_html ||
+  extractBodyHtml(page.rawHtml || page.raw_html || "") ||
+  "";
+
+const hasHtmlBackedPageMarkup = (page = {}) =>
+  Boolean(
+    String(getPageBodyHtmlForSave(page) || "").trim() ||
+    String(page.rawHtml || page.raw_html || "").trim()
+  );
+
+const hasEmbeddedImageData = (html = "") =>
+  /(?:src|href)=["']data:image\/|url\(\s*["']?data:image\//i.test(String(html || ""));
+
+const toApiPagePayload = (page) => {
+  const bodyHtml = getPageBodyHtmlForSave(page);
+  const isHtmlBacked = hasHtmlBackedPageMarkup(page);
+
+  return {
+    title: page.title,
+    slug: page.slug,
+    type: page.type,
+    page_type: getApiPageType(page.type),
+    menu: page.menu,
+    menu_group: page.menu,
+    status: page.status,
+    template: page.template,
+    visibility: page.visibility,
+    parent_slug: page.parentSlug,
+    menu_order: page.menuOrder,
+    sort_order: page.menuOrder,
+    show_in_header: page.showInHeader ?? (page.menu ? 1 : 0),
+    show_in_footer: page.showInFooter ?? 1,
+    hero_headline: page.heroHeadline,
+    hero_tag: page.heroTag,
+    summary: page.summary,
+    hero_image: page.heroImage,
+    cta_label: page.ctaLabel,
+    cta_url: page.ctaUrl,
+    seo_title: page.seoTitle,
+    seo_description: page.seoDescription,
+    source_url: page.sourceUrl,
+    // Avoid sending the same large document multiple times; body_html is enough to rebuild editable pages locally.
+    raw_html: isHtmlBacked ? "" : page.rawHtml,
+    body_html: bodyHtml,
+    custom_css: page.customCss,
+    styles: page.styles || defaultPageStyles,
+    owner: page.owner,
+    priority: page.priority,
+    scheduled_at: page.scheduledAt || null,
+    sections: isHtmlBacked
+      ? []
+      : (page.sections || []).map((section, index) => ({
+          id: section.id,
+          sort_order: index + 1,
+          type: section.type,
+          section_type: section.type,
+          title: section.title,
+          eyebrow: section.eyebrow,
+          body: section.body,
+          html: section.html || "",
+          image: section.image,
+          cta_label: section.ctaLabel,
+          cta_url: section.ctaUrl,
+          layout: section.layout,
+          class_name: section.className || "",
+          styles: section.styles || defaultSectionStyles,
+          visible: section.visible !== false
+        }))
+  };
+};
 
 const readOptionalJson = async (response) => {
   const text = await response.text();
@@ -2762,11 +3092,62 @@ const emptyPage = () => ({
 const getSiteChromeConfig = (kind = "header") => SITE_CHROME_CONFIGS[kind] || SITE_CHROME_CONFIGS.header;
 
 const isSiteChromePage = (page = {}) =>
-  Object.values(SITE_CHROME_CONFIGS).some((config) => config.slug === String(page?.slug || "").trim());
+  Object.keys(SITE_CHROME_CONFIGS).some((kind) => isMatchingSiteChromePage(page, kind));
+
+const normalizeComparablePath = (value = "") => String(value || "").trim().replace(/^https?:\/\/[^/]+/i, "");
+
+const isTruthySiteChromeFlag = (value) => value === true || value === 1 || String(value || "").toLowerCase() === "true";
+
+const isMatchingSiteChromePage = (page = {}, kind = "header") => {
+  const config = getSiteChromeConfig(kind);
+  const slug = String(page?.slug || "").trim();
+  const title = String(page?.title || page?.page_title || page?.name || "").trim().toLowerCase();
+  const type = normalizeIncomingPageType(page?.type || page?.page_type || page?.pageType || "").toLowerCase();
+  const sourceUrl = normalizeComparablePath(page?.sourceUrl || page?.source_url || page?.url || "");
+  const configSourceUrl = normalizeComparablePath(config.sourceUrl);
+
+  return (
+    slug === config.slug ||
+    type === String(config.type || "").toLowerCase() ||
+    title === String(config.title || "").toLowerCase() ||
+    title === String(config.slug || "").replace(/-/g, " ").toLowerCase() ||
+    sourceUrl === configSourceUrl
+  );
+};
+
+const getSiteChromePageRank = (page = {}, kind = "header") => {
+  const config = getSiteChromeConfig(kind);
+  const slug = String(page?.slug || "").trim();
+  const type = normalizeIncomingPageType(page?.type || page?.page_type || page?.pageType || "");
+  const title = String(page?.title || page?.page_title || page?.name || "").trim();
+  const sourceUrl = normalizeComparablePath(page?.sourceUrl || page?.source_url || page?.url || "");
+  const configSourceUrl = normalizeComparablePath(config.sourceUrl);
+
+  let score = 0;
+  if (slug === config.slug) score += 100;
+  if (type === config.type) score += 60;
+  if (title.toLowerCase() === config.title.toLowerCase()) score += 30;
+  if (sourceUrl === configSourceUrl) score += 15;
+  if (isTruthySiteChromeFlag(page?.active) || isTruthySiteChromeFlag(page?.is_active) || isTruthySiteChromeFlag(page?.isActive)) {
+    score += 120;
+  }
+  if (String(page?.status || "").toLowerCase() === "published") {
+    score += 20;
+  }
+  return score;
+};
+
+const findSiteChromePage = (pages = [], kind = "header") =>
+  [...pages]
+    .filter((page) => isMatchingSiteChromePage(page, kind))
+    .sort((a, b) => {
+      const rankDiff = getSiteChromePageRank(b, kind) - getSiteChromePageRank(a, kind);
+      if (rankDiff !== 0) return rankDiff;
+      return new Date(b?.updatedAt || b?.updated_at || 0) - new Date(a?.updatedAt || a?.updated_at || 0);
+    })[0] || null;
 
 const getSiteChromePageKind = (page = {}) => {
-  const slug = String(page?.slug || "").trim();
-  const match = Object.entries(SITE_CHROME_CONFIGS).find(([, config]) => config.slug === slug);
+  const match = Object.keys(SITE_CHROME_CONFIGS).find((kind) => isMatchingSiteChromePage(page, kind));
   return match?.[0] || "";
 };
 
@@ -2780,6 +3161,8 @@ const getSiteChromeHtml = (page = {}) =>
   page?.sections?.find((section) => section?.html || section?.body || section?.content)?.content ||
   "";
 
+const hasMeaningfulSiteChromeHtml = (page = {}) => Boolean(String(getSiteChromeHtml(page) || "").trim());
+
 const getAbsoluteLiveAssetUrl = (path = "") => {
   const raw = String(path || "").trim();
   if (!raw) return "";
@@ -2789,6 +3172,261 @@ const getAbsoluteLiveAssetUrl = (path = "") => {
   } catch {
     return `${LIVE_SITE_ORIGIN}/${raw.replace(/^\/+/, "")}`;
   }
+};
+
+const getFetchableLiveAssetUrl = (path = "") => {
+  const raw = String(path || "").trim();
+  if (!raw) return "";
+
+  const liveOrigin = (() => {
+    try {
+      return new URL(LIVE_SITE_ORIGIN).origin;
+    } catch {
+      return LIVE_SITE_ORIGIN.replace(/\/$/, "");
+    }
+  })();
+
+  try {
+    const absoluteUrl = /^https?:\/\//i.test(raw)
+      ? new URL(raw)
+      : new URL(raw.startsWith("/") ? raw : `/${raw}`, liveOrigin);
+
+    if (absoluteUrl.origin !== liveOrigin) {
+      return absoluteUrl.toString();
+    }
+
+    const relativePath = `${absoluteUrl.pathname}${absoluteUrl.search}${absoluteUrl.hash}`;
+    if (typeof window !== "undefined" && window.location?.origin && window.location.origin !== liveOrigin) {
+      return `${LIVE_ASSET_PROXY_PREFIX}${relativePath}`;
+    }
+    return relativePath;
+  } catch {
+    return getAbsoluteLiveAssetUrl(raw);
+  }
+};
+
+const normalizeNavigationHrefToSlug = (href = "") => {
+  const value = String(href || "").trim();
+  if (!value || value === "#") return "";
+
+  let pathname = value;
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      pathname = new URL(value).pathname || "";
+    } catch {
+      return "";
+    }
+  }
+
+  pathname = pathname.split("?")[0].split("#")[0].trim();
+  if (!pathname) return "";
+  if (pathname === "/") return "home";
+
+  const fileName = pathname.split("/").filter(Boolean).pop() || "";
+  const normalized = fileName.replace(/\.html$/i, "");
+  if (!normalized) return "";
+  if (normalized === "index" || normalized === "home-university") return "home";
+  return slugify(normalized);
+};
+
+const parseStaticHeaderNavigation = (html = "") => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) {
+    return [];
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const root = doc.querySelector(".main-menu > ul");
+    if (!root) return [];
+
+    return Array.from(root.children)
+      .map((item, index) => {
+        const directLink = Array.from(item.children).find((child) => child.tagName?.toLowerCase() === "a");
+        if (!directLink) return null;
+        const subMenu = Array.from(item.children).find((child) => child.tagName?.toLowerCase() === "ul");
+        const children = subMenu
+          ? Array.from(subMenu.children)
+              .map((child, childIndex) => {
+                const childLink = child.querySelector("a");
+                if (!childLink) return null;
+                return {
+                  id: `static-header-child-${index}-${childIndex}`,
+                  title: String(childLink.textContent || "").trim(),
+                  slug: normalizeNavigationHrefToSlug(childLink.getAttribute("href") || ""),
+                  custom_url: childLink.getAttribute("href") || "",
+                  sort_order: childIndex + 1,
+                  parent_id: `static-header-parent-${index}`
+                };
+              })
+              .filter(Boolean)
+          : [];
+
+        return {
+          id: `static-header-parent-${index}`,
+          title: String(directLink.textContent || "").trim(),
+          slug: normalizeNavigationHrefToSlug(directLink.getAttribute("href") || ""),
+          custom_url: directLink.getAttribute("href") || "",
+          sort_order: index + 1,
+          parent_id: null,
+          children
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+const parseHeaderVisualModel = (html = "") => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) {
+    return { menuItems: [], ctaLabel: "", ctaUrl: "" };
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const menuRoot = doc.querySelector(".main-menu > ul");
+    const cta = doc.querySelector(".header-action .th-btn");
+    const menuItems = menuRoot
+      ? Array.from(menuRoot.children).map((item, index) => {
+          const directLink = Array.from(item.children).find((child) => child.tagName?.toLowerCase() === "a");
+          const subMenu = Array.from(item.children).find((child) => child.tagName?.toLowerCase() === "ul" && child.classList.contains("sub-menu"));
+          const isMega = item.classList.contains("mega-menu-wrap") || item.classList.contains("mwu-programs-mega") || item.querySelector(".mwu-mega-programs");
+          return {
+            id: `header-menu-${index}`,
+            sourceIndex: index,
+            title: String(directLink?.textContent || "").trim(),
+            href: directLink?.getAttribute("href") || "#",
+            isMega,
+            children: isMega || !subMenu
+              ? []
+              : Array.from(subMenu.children).map((child, childIndex) => {
+                  const childLink = child.querySelector("a");
+                  return {
+                    id: `header-menu-${index}-child-${childIndex}`,
+                    title: String(childLink?.textContent || "").trim(),
+                    href: childLink?.getAttribute("href") || "#"
+                  };
+                }).filter((child) => child.title || child.href)
+          };
+        }).filter((item) => item.title || item.href)
+      : [];
+
+    return {
+      menuItems,
+      ctaLabel: String(cta?.textContent || "").trim(),
+      ctaUrl: cta?.getAttribute("href") || "#"
+    };
+  } catch {
+    return { menuItems: [], ctaLabel: "", ctaUrl: "" };
+  }
+};
+
+const buildVisualHeaderMenuItemHtml = (item = {}) => {
+  const title = escapeHtml(item.title || "Menu Item");
+  const href = escapeHtml(item.href || "#");
+  const children = Array.isArray(item.children) ? item.children.filter((child) => child.title || child.href) : [];
+
+  if (!children.length) {
+    return `<li><a href="${href}">${title}</a></li>`;
+  }
+
+  return `
+    <li class="menu-item-has-children">
+      <a href="${href}">${title}</a>
+      <ul class="sub-menu">
+        ${children.map((child) => `<li><a href="${escapeHtml(child.href || "#")}">${escapeHtml(child.title || "Submenu Item")}</a></li>`).join("\n")}
+      </ul>
+    </li>
+  `;
+};
+
+const updateHeaderHtmlFromVisualModel = (html = "", model = {}) => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) {
+    return String(html || "");
+  }
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const menuRoot = doc.querySelector(".main-menu > ul");
+    const cta = doc.querySelector(".header-action .th-btn");
+    const nextItems = Array.isArray(model.menuItems) ? model.menuItems : [];
+
+    if (menuRoot) {
+      const originalItems = Array.from(menuRoot.children);
+      const nextHtml = nextItems.map((item) => {
+        if (item.isMega) {
+          const original = originalItems[item.sourceIndex];
+          if (!original) {
+            return buildVisualHeaderMenuItemHtml(item);
+          }
+          const clone = original.cloneNode(true);
+          const directLink = Array.from(clone.children).find((child) => child.tagName?.toLowerCase() === "a");
+          if (directLink) {
+            directLink.textContent = item.title || "Programs";
+            directLink.setAttribute("href", item.href || "#");
+          }
+          return clone.outerHTML;
+        }
+        return buildVisualHeaderMenuItemHtml(item);
+      }).join("\n");
+
+      menuRoot.innerHTML = nextHtml;
+    }
+
+    if (cta) {
+      cta.textContent = ` ${model.ctaLabel || "Apply Now"}`;
+      cta.setAttribute("href", model.ctaUrl || "#");
+    }
+
+    return doc.body.innerHTML.trim();
+  } catch {
+    return String(html || "");
+  }
+};
+
+const applyNavigationSnapshotToPages = (pages = [], menu = []) => {
+  if (!Array.isArray(pages) || !pages.length || !Array.isArray(menu) || !menu.length) {
+    return pages;
+  }
+
+  const nextPages = pages.map((page) => ({ ...page }));
+  const indexBySlug = new Map(
+    nextPages.map((page, index) => [slugify(page.slug || page.title || ""), index])
+  );
+
+  const applyToPage = (slug, updater) => {
+    const index = indexBySlug.get(slugify(slug));
+    if (index === undefined) return;
+    nextPages[index] = updater(nextPages[index]);
+  };
+
+  menu.forEach((item, menuIndex) => {
+    const itemTitle = String(item?.title || item?.page_title || "").trim();
+    const itemSlug = slugify(item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || ""));
+    const children = Array.isArray(item?.children) ? item.children : [];
+
+    if (itemSlug) {
+      applyToPage(itemSlug, (page) => ({
+        ...page,
+        menu: itemTitle || page.menu,
+        menuOrder: Number(item?.sort_order || menuIndex + 1) || page.menuOrder,
+        parentSlug: ""
+      }));
+    }
+
+    children.forEach((child, childIndex) => {
+      const childSlug = slugify(child?.slug || normalizeNavigationHrefToSlug(child?.custom_url || ""));
+      if (!childSlug) return;
+      applyToPage(childSlug, (page) => ({
+        ...page,
+        menu: itemTitle || page.menu,
+        menuOrder: Number(child?.sort_order || childIndex + 1) || page.menuOrder,
+        parentSlug: itemSlug || page.parentSlug || ""
+      }));
+    });
+  });
+
+  return nextPages;
 };
 
 const createSiteChromePage = (kind = "header", page = {}) => {
@@ -3097,11 +3735,16 @@ function App() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [menuFilter, setMenuFilter] = useState("All");
   const [sortKey, setSortKey] = useState("updatedAt");
+  const [mediaLibraryVersion, setMediaLibraryVersion] = useState(0);
+  const [mediaStorageMode, setMediaStorageMode] = useState("local");
   const [siteChromeTab, setSiteChromeTab] = useState("header");
+  const [navigationSource, setNavigationSource] = useState("");
   const [selectedPageIds, setSelectedPageIds] = useState([]);
   const [editorTab, setEditorTab] = useState("builder");
   const [notice, setNotice] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [dangerDialog, setDangerDialog] = useState(null);
   const importInputRef = useRef(null);
   const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
 
@@ -3144,6 +3787,7 @@ function App() {
       setActivePageId("");
       setFormPage(emptyPage());
       setSelectedPageIds([]);
+      setNavigationSource("");
       return;
     }
 
@@ -3159,13 +3803,72 @@ function App() {
         }
 
         const payload = await response.json();
-        const apiPages = (payload.data || payload.pages || []).map(normalizePage);
+        let apiPages = (payload.data || payload.pages || []).map(normalizePage);
+
+        let resolvedNavigationSource = "";
+        try {
+          let menu = [];
+          const adminNavigationResponse = await fetch(apiUrl("/admin/navigation/header"), {
+            headers: getAuthHeaders(adminToken)
+          });
+
+          if (adminNavigationResponse.ok) {
+            const adminNavigationPayload = await readOptionalJson(adminNavigationResponse);
+            menu = Array.isArray(adminNavigationPayload?.menu)
+              ? adminNavigationPayload.menu
+              : Array.isArray(adminNavigationPayload?.data?.menu)
+                ? adminNavigationPayload.data.menu
+                : [];
+            if (menu.length) {
+              resolvedNavigationSource = "api";
+            }
+          }
+
+          if (!menu.length) {
+            const publicNavigationResponse = await fetch(apiUrl("/navigation/header"), {
+              headers: { Accept: "application/json" }
+            });
+            if (publicNavigationResponse.ok) {
+              const publicNavigationPayload = await readOptionalJson(publicNavigationResponse);
+              menu = Array.isArray(publicNavigationPayload?.menu)
+                ? publicNavigationPayload.menu
+                : Array.isArray(publicNavigationPayload?.data?.menu)
+                  ? publicNavigationPayload.data.menu
+                  : [];
+              if (menu.length) {
+                resolvedNavigationSource = "public-api";
+              }
+            }
+          }
+
+          if (!menu.length) {
+            const staticHeaderResponse = await fetch(getFetchableLiveAssetUrl(SITE_CHROME_CONFIGS.header.sourceUrl), {
+              headers: { Accept: "text/html" },
+              cache: "no-store"
+            });
+            if (staticHeaderResponse.ok) {
+              const staticHeaderHtml = await staticHeaderResponse.text();
+              menu = parseStaticHeaderNavigation(staticHeaderHtml);
+              if (menu.length) {
+                resolvedNavigationSource = "static-header";
+              }
+            }
+          }
+
+          if (menu.length) {
+            apiPages = applyNavigationSnapshotToPages(apiPages, menu);
+          }
+        } catch {
+          resolvedNavigationSource = "";
+        }
+
         if (cancelled) {
           return;
         }
 
         const firstNormalPage = apiPages.find(isNormalWebsitePage) || apiPages[0] || emptyPage();
         setPages(apiPages);
+        setNavigationSource(resolvedNavigationSource);
         setActivePageId((currentId) =>
           apiPages.some((page) => String(page.id) === String(currentId)) ? currentId : firstNormalPage.id || ""
         );
@@ -3173,7 +3876,15 @@ function App() {
           apiPages.find((page) => String(page.id) === String(currentPage.id)) || firstNormalPage
         );
         if (window.sessionStorage.getItem(ADMIN_PAGES_LOADED_NOTICE_KEY) !== "1") {
-          setNotice(`Loaded ${apiPages.length} pages from Admin API.`);
+          const sourceLabel =
+            resolvedNavigationSource === "api"
+              ? " Header navigation loaded from Admin API."
+              : resolvedNavigationSource === "public-api"
+                ? " Header navigation loaded from the public API."
+                : resolvedNavigationSource === "static-header"
+                  ? " Header navigation was inferred from the live header file because the API menu was empty."
+                  : "";
+          setNotice(`Loaded ${apiPages.length} pages from Admin API.${sourceLabel}`);
         }
       } catch (error) {
         if (!cancelled) {
@@ -3207,6 +3918,46 @@ function App() {
   }, [programs]);
 
   useEffect(() => {
+    window.localStorage.setItem(MEDIA_LIBRARY_KEY, JSON.stringify(mediaLibrary));
+  }, [mediaLibraryVersion]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRemoteMediaLibrary = async () => {
+      try {
+        const response = await fetch(mediaApiUrl(), {
+          headers: { Accept: "application/json" },
+          cache: "no-store"
+        });
+        if (!response.ok) {
+          throw new Error(await readApiError(response, "Media API is not available."));
+        }
+        const payload = await readOptionalJson(response);
+        const remoteItems = Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.data?.items)
+            ? payload.data.items
+            : [];
+        if (cancelled) {
+          return;
+        }
+        commitMediaLibrary(mergeMediaLibraries(remoteItems, initialMediaLibrary));
+        setMediaStorageMode("api");
+      } catch {
+        if (!cancelled) {
+          setMediaStorageMode("local");
+        }
+      }
+    };
+
+    loadRemoteMediaLibrary();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const selected = pages.find((page) => String(page.id) === String(activePageId));
     if (selected) {
       setFormPage(selected);
@@ -3216,9 +3967,8 @@ function App() {
   const contentManagedPages = useMemo(() => pages.filter((page) => !isSiteChromePage(page)), [pages]);
 
   const activeSiteChromePage = useMemo(() => {
-    const config = getSiteChromeConfig(siteChromeTab);
-    const existing = pages.find((page) => page.slug === config.slug);
-    if (String(formPage.slug || "") === config.slug) {
+    const existing = findSiteChromePage(pages, siteChromeTab);
+    if (isMatchingSiteChromePage(formPage, siteChromeTab)) {
       return createSiteChromePage(siteChromeTab, formPage);
     }
     return createSiteChromePage(siteChromeTab, existing || {});
@@ -3300,6 +4050,249 @@ function App() {
 
     return { published, review, scheduled, archived, averageSeo };
   }, [contentManagedPages]);
+
+  const commitMediaLibrary = (nextLibrary) => {
+    mediaLibrary = nextLibrary.map(normalizeMediaItem);
+    setMediaLibraryVersion((current) => current + 1);
+    return mediaLibrary;
+  };
+
+  const requestDangerConfirmation = ({
+    title,
+    message,
+    details = [],
+    verificationText = "DELETE",
+    continueLabel = "Continue",
+    finalLabel = "Delete Permanently"
+  }) => new Promise((resolve) => {
+    setDangerDialog({
+      title,
+      message,
+      details,
+      verificationText,
+      continueLabel,
+      finalLabel,
+      resolve
+    });
+  });
+
+  const resolveDangerConfirmation = (accepted) => {
+    setDangerDialog((current) => {
+      current?.resolve?.(accepted);
+      return null;
+    });
+  };
+
+  const requestMediaApiCredentials = () => {
+    const stored = getStoredMediaApiCredentials();
+    const username = window.prompt("Website media username", stored.username || "");
+    if (!username) {
+      return null;
+    }
+    const password = window.prompt("Website media password", stored.password || "");
+    if (!password) {
+      return null;
+    }
+    const credentials = { username: username.trim(), password };
+    storeMediaApiCredentials(credentials);
+    return credentials;
+  };
+
+  const uploadMediaFilesLocally = async (files) => {
+    const fileList = Array.from(files || []).filter(Boolean);
+    if (!fileList.length) {
+      return [];
+    }
+
+    const uploadedItems = [];
+    for (const file of fileList) {
+      const path = await readFileAsDataUrl(file);
+      const { width, height } = await readImageDimensions(path);
+      uploadedItems.push(normalizeMediaItem({
+        id: makeId(),
+        title: file.name.replace(/\.[^.]+$/, "") || "Uploaded media",
+        type: "Upload",
+        path,
+        bytes: file.size,
+        size: formatMediaByteSize(file.size),
+        uploadedAt: todayIso(),
+        dimensions: buildMediaDimensions(width, height),
+        width,
+        height,
+        mimeType: file.type || "image/jpeg"
+      }));
+    }
+
+    commitMediaLibrary([...uploadedItems, ...mediaLibrary]);
+    setMediaStorageMode("local");
+    setNotice(`Uploaded ${uploadedItems.length} media item${uploadedItems.length === 1 ? "" : "s"} to the browser media library.`);
+    return uploadedItems;
+  };
+
+  const uploadMediaFiles = async (files) => {
+    const fileList = Array.from(files || []).filter(Boolean);
+    if (!fileList.length) {
+      return [];
+    }
+
+    if (mediaStorageMode === "api") {
+      let credentials = getStoredMediaApiCredentials();
+      if (!credentials.username || !credentials.password) {
+        credentials = requestMediaApiCredentials() || {};
+      }
+      if (!credentials.username || !credentials.password) {
+        setNotice("Upload cancelled. Website media credentials are required to store images on the live website.");
+        return [];
+      }
+
+      const uploadedItems = [];
+      for (const file of fileList) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const { width, height } = await readImageDimensions(dataUrl);
+        const response = await fetch(mediaApiUrl(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...getMediaApiAuthHeaders(credentials)
+          },
+          body: JSON.stringify({
+            title: file.name.replace(/\.[^.]+$/, "") || "Uploaded media",
+            type: "Upload",
+            width,
+            height,
+            dimensions: buildMediaDimensions(width, height),
+            upload: {
+              name: file.name,
+              type: file.type,
+              dataUrl
+            }
+          })
+        });
+        if (response.status === 401) {
+          storeMediaApiCredentials({});
+          throw new Error("Media API authorization failed. Re-enter website media credentials.");
+        }
+        if (!response.ok) {
+          throw new Error(await readApiError(response, "Media upload failed."));
+        }
+        const payload = await readOptionalJson(response);
+        const item = normalizeMediaApiItem(payload?.item || payload?.data?.item || {});
+        uploadedItems.push(item);
+        const nextItems = Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.data?.items)
+            ? payload.data.items
+            : null;
+        if (nextItems) {
+          commitMediaLibrary(mergeMediaLibraries(nextItems, initialMediaLibrary));
+        }
+      }
+      if (uploadedItems.length) {
+        if (!mediaLibrary.some((entry) => uploadedItems.some((uploaded) => uploaded.path === entry.path))) {
+          commitMediaLibrary(mergeMediaLibraries(uploadedItems, mediaLibrary, initialMediaLibrary));
+        }
+        setNotice(`Uploaded ${uploadedItems.length} media item${uploadedItems.length === 1 ? "" : "s"} to the website media library.`);
+        return uploadedItems;
+      }
+
+      return [];
+    }
+
+    return uploadMediaFilesLocally(fileList);
+  };
+
+  const deleteMediaItem = async (mediaId) => {
+    const removedItem = mediaLibrary.find((item) => String(item.id) === String(mediaId)) || null;
+    if (!removedItem) {
+      return false;
+    }
+
+    const confirmed = await requestDangerConfirmation({
+      title: "Delete media item?",
+      message: "This permanently removes the selected media item and may affect pages that reference it.",
+      details: [
+        `Media: ${removedItem.title || "Untitled media"}`,
+        `Path: ${removedItem.path || "No media path available"}`
+      ],
+      verificationText: removedItem.title || "DELETE MEDIA",
+      finalLabel: "Delete Media"
+    });
+    if (!confirmed) {
+      setNotice("Media delete cancelled.");
+      return false;
+    }
+
+    if (mediaStorageMode === "api") {
+      let credentials = getStoredMediaApiCredentials();
+      if (!credentials.username || !credentials.password) {
+        credentials = requestMediaApiCredentials() || {};
+      }
+      if (!credentials.username || !credentials.password) {
+        setNotice("Delete cancelled. Website media credentials are required to remove stored images.");
+        return false;
+      }
+    }
+    const nextLibrary = mediaLibrary.filter((item) => String(item.id) !== String(mediaId));
+    if (nextLibrary.length === mediaLibrary.length) {
+      return false;
+    }
+
+    if (mediaStorageMode === "api") {
+      return fetch(mediaApiUrl(`/admin/media/${encodeURIComponent(mediaId)}`), {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          ...getMediaApiAuthHeaders()
+        }
+      }).then(async (response) => {
+        if (response.status === 401) {
+          storeMediaApiCredentials({});
+          setNotice("Website media credentials expired. Enter them again before deleting media.");
+          return false;
+        }
+        if (!response.ok) {
+          setNotice(await readApiError(response, "Media delete failed."));
+          return false;
+        }
+        const payload = await readOptionalJson(response);
+        const remoteItems = Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload?.data?.items)
+            ? payload.data.items
+            : [];
+        commitMediaLibrary(mergeMediaLibraries(remoteItems, initialMediaLibrary));
+        if (formPage.heroImage && removedItem?.path === formPage.heroImage) {
+          updateField("heroImage", remoteItems[0]?.path || initialMediaLibrary[0]?.path || "");
+        }
+        setNotice("Media item deleted from the website media library.");
+        return true;
+      }).catch((error) => {
+        setNotice(error.message || "Media delete failed.");
+        return false;
+      });
+    }
+
+    commitMediaLibrary(nextLibrary);
+    if (formPage.heroImage && removedItem?.path === formPage.heroImage) {
+      updateField("heroImage", nextLibrary[0]?.path || "");
+    }
+    setNotice("Media item deleted from the browser media library.");
+    return true;
+  };
+
+  const copyMediaUrl = async (url) => {
+    if (!url) return false;
+    try {
+      const copyValue = normalizeLiveAssetUrl(url) || url;
+      await navigator.clipboard.writeText(copyValue);
+      setNotice("Media URL copied.");
+      return true;
+    } catch {
+      setNotice("Clipboard copy failed. Copy the media URL manually.");
+      return false;
+    }
+  };
 
   const updateField = (field, value) => {
     setFormPage((current) => {
@@ -3387,11 +4380,12 @@ function App() {
 
   const loadSiteChromeSnippet = async (kind, page) => {
     const currentPage = createSiteChromePage(kind, page || {});
-    if (getSiteChromeHtml(currentPage)) {
+    if (hasMeaningfulSiteChromeHtml(currentPage)) {
       return currentPage;
     }
 
-    const sourceUrl = getAbsoluteLiveAssetUrl(currentPage.sourceUrl || getSiteChromeConfig(kind).sourceUrl);
+    const sourcePath = currentPage.sourceUrl || getSiteChromeConfig(kind).sourceUrl;
+    const sourceUrl = getFetchableLiveAssetUrl(sourcePath);
     if (!sourceUrl) {
       return currentPage;
     }
@@ -3406,20 +4400,126 @@ function App() {
         ...currentPage,
         bodyHtml: html,
         rawHtml: "",
-        sourceUrl
+        sourceUrl: sourcePath
       });
     } catch {
       return currentPage;
     }
   };
 
+  const persistPageToApi = async (pageToSave, previousPageOverride = null) => {
+    const previousPage = previousPageOverride || pages.find((page) => String(page.id) === String(pageToSave.id));
+    const nextPage = {
+      ...pageToSave,
+      slug: slugify(pageToSave.slug || pageToSave.title),
+      menuOrder: Number(pageToSave.menuOrder || 1),
+      updatedAt: todayIso(),
+      updatedBy: "Content Editor",
+      revisions: previousPage
+        ? [makeRevision(previousPage), ...(previousPage.revisions || [])].slice(0, 8)
+        : pageToSave.revisions || []
+    };
+
+    const pageExistsInDatabase = previousPage && !isLocalDraftPage(previousPage) && !isLocalDraftPage(nextPage);
+    const payload = toApiPagePayload(nextPage);
+    const apiPayload = pageExistsInDatabase ? withPageApiIdentifiers(nextPage, payload) : payload;
+    const body = JSON.stringify(apiPayload);
+    const identifiers = getPageApiIdentifiers(nextPage);
+    const updateAttempts = identifiers.flatMap((identifier) => [
+      { method: "PUT", path: `/admin/pages/${encodeURIComponent(identifier)}` },
+      { method: "PATCH", path: `/admin/pages/${encodeURIComponent(identifier)}` },
+      { method: "POST", path: `/admin/pages/${encodeURIComponent(identifier)}` }
+    ]);
+    const createAttempts = [
+      { method: "POST", path: "/admin/pages" },
+      { method: "PUT", path: "/admin/pages" }
+    ];
+    const attempts = pageExistsInDatabase
+      ? [...updateAttempts, { method: "POST", path: "/admin/pages", onlyAfterMissingRoute: true }]
+      : createAttempts;
+    let result = null;
+    let finalError = "";
+    let sawMissingMutationRoute = !pageExistsInDatabase;
+
+    for (const attempt of attempts) {
+      if (attempt.onlyAfterMissingRoute && !sawMissingMutationRoute) {
+        continue;
+      }
+
+      const response = await fetch(apiUrl(attempt.path), {
+        method: attempt.method,
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(adminToken)
+        },
+        body
+      });
+
+      if (response.ok) {
+        result = await readOptionalJson(response);
+        finalError = "";
+        break;
+      }
+
+      finalError = await readApiError(response, "Page save failed.");
+      if ([404, 405].includes(response.status)) {
+        sawMissingMutationRoute = true;
+      }
+      if (response.status === 401 || !shouldTryNextMutationRoute(response.status)) {
+        break;
+      }
+    }
+
+    if (finalError) {
+      throw new Error(finalError);
+    }
+
+    const savedPage = result?.data || result?.page
+      ? normalizePage(result.data || result.page)
+      : withoutLocalPageMarkers(nextPage);
+
+    return { savedPage, pageExistsInDatabase };
+  };
+
   const openSiteChromeView = async (kind = "header") => {
     const config = getSiteChromeConfig(kind);
-    const existing = pages.find((page) => page.slug === config.slug);
-    const nextPage = await loadSiteChromeSnippet(kind, existing || {});
+    let existing = findSiteChromePage(pages, kind);
+    if (existing?.id && !hasMeaningfulSiteChromeHtml(existing)) {
+      try {
+        const detailResponse = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(existing.id)}`), {
+          headers: getAuthHeaders(adminToken)
+        });
+        if (detailResponse.ok) {
+          const detailPayload = await readOptionalJson(detailResponse);
+          const detailedPage = normalizePage({
+            ...(detailPayload?.page || detailPayload?.data?.page || {}),
+            sections: detailPayload?.sections || detailPayload?.data?.sections || []
+          });
+          if (isMatchingSiteChromePage(detailedPage, kind)) {
+            existing = detailedPage;
+          }
+        }
+      } catch {
+        // Fall back to source-file import below if the detailed page lookup fails.
+      }
+    }
+    let nextPage = await loadSiteChromeSnippet(kind, existing || {});
+    const shouldImportSourceMarkup = !existing || !hasMeaningfulSiteChromeHtml(existing);
+    let importPersisted = false;
+    let importErrorMessage = "";
+
+    if (shouldImportSourceMarkup && hasMeaningfulSiteChromeHtml(nextPage)) {
+      try {
+        const persisted = await persistPageToApi(nextPage, existing || null);
+        nextPage = persisted.savedPage;
+        importPersisted = true;
+      } catch (error) {
+        importErrorMessage = `${config.title} markup loaded from source file, but database import failed: ${error.message || "Unknown error."}`;
+      }
+    }
 
     setPages((current) => {
-      const existingIndex = current.findIndex((page) => page.slug === config.slug);
+      const existingIndex = current.findIndex((page) => isMatchingSiteChromePage(page, kind));
       if (existingIndex >= 0) {
         return current.map((page, index) => (index === existingIndex ? nextPage : page));
       }
@@ -3430,7 +4530,15 @@ function App() {
     setActiveView("site-chrome");
     setActivePageId(nextPage.id);
     setFormPage(nextPage);
-    setNotice(`Editing ${config.title.toLowerCase()} content.`);
+    if (importErrorMessage) {
+      setNotice(importErrorMessage);
+    } else if (importPersisted) {
+      setNotice(`${config.title} markup imported from ${config.sourceUrl} and saved to Admin API.`);
+    } else if (!hasMeaningfulSiteChromeHtml(nextPage)) {
+      setNotice(`${config.title} is missing both database markup and source-file markup.`);
+    } else {
+      setNotice(`Editing ${config.title.toLowerCase()} content.`);
+    }
   };
 
   const updateSiteChromeHtml = (kind, value) => {
@@ -3493,78 +4601,11 @@ function App() {
   const savePage = async (event, pageOverride = null) => {
     event?.preventDefault?.();
     const pageToSave = pageOverride ? { ...formPage, ...pageOverride } : formPage;
-    const previousPage = pages.find((page) => String(page.id) === String(pageToSave.id));
-    const nextPage = {
-      ...pageToSave,
-      slug: slugify(pageToSave.slug || pageToSave.title),
-      menuOrder: Number(pageToSave.menuOrder || 1),
-      updatedAt: todayIso(),
-      updatedBy: "Content Editor",
-      revisions: previousPage
-        ? [makeRevision(previousPage), ...(previousPage.revisions || [])].slice(0, 8)
-        : pageToSave.revisions || []
-    };
 
     try {
-      const pageExistsInDatabase = previousPage && !isLocalDraftPage(previousPage) && !isLocalDraftPage(nextPage);
-      const payload = toApiPagePayload(nextPage);
-      const apiPayload = pageExistsInDatabase ? withPageApiIdentifiers(nextPage, payload) : payload;
-      const body = JSON.stringify(apiPayload);
-      const identifiers = getPageApiIdentifiers(nextPage);
-      const updateAttempts = identifiers.flatMap((identifier) => [
-        { method: "PUT", path: `/admin/pages/${encodeURIComponent(identifier)}` },
-        { method: "PATCH", path: `/admin/pages/${encodeURIComponent(identifier)}` },
-        { method: "POST", path: `/admin/pages/${encodeURIComponent(identifier)}` }
-      ]);
-      const createAttempts = [
-        { method: "POST", path: "/admin/pages" },
-        { method: "PUT", path: "/admin/pages" }
-      ];
-      const attempts = pageExistsInDatabase
-        ? [...updateAttempts, { method: "POST", path: "/admin/pages", onlyAfterMissingRoute: true }]
-        : createAttempts;
-      let result = null;
-      let finalError = "";
-      let sawMissingMutationRoute = !pageExistsInDatabase;
+      const { savedPage, pageExistsInDatabase } = await persistPageToApi(pageToSave);
 
-      for (const attempt of attempts) {
-        if (attempt.onlyAfterMissingRoute && !sawMissingMutationRoute) {
-          continue;
-        }
-
-        const response = await fetch(apiUrl(attempt.path), {
-          method: attempt.method,
-          headers: {
-            "Content-Type": "application/json",
-            ...getAuthHeaders(adminToken)
-          },
-          body
-        });
-
-        if (response.ok) {
-          result = await readOptionalJson(response);
-          finalError = "";
-          break;
-        }
-
-        finalError = await readApiError(response, "Page save failed.");
-        if ([404, 405].includes(response.status)) {
-          sawMissingMutationRoute = true;
-        }
-        if (response.status === 401 || !shouldTryNextMutationRoute(response.status)) {
-          break;
-        }
-      }
-
-      if (finalError) {
-        throw new Error(finalError);
-      }
-
-      const savedPage = result?.data || result?.page
-        ? normalizePage(result.data || result.page)
-        : withoutLocalPageMarkers(nextPage);
-
-      const replacementIds = new Set(getPageApiIdentifiers(nextPage).concat(savedPage.id).map(String));
+      const replacementIds = new Set(getPageApiIdentifiers(pageToSave).concat(savedPage.id).map(String));
       setPages((current) => {
         let replaced = false;
         const nextPages = current.map((page) => {
@@ -3621,23 +4662,8 @@ function App() {
     setNotice("Page duplicated as a draft.");
   };
 
-  const deletePageById = async (pageId) => {
-    const targetPage = pages.find((page) => String(page.id) === String(pageId));
-    if (!targetPage) {
-      setNotice("Page not found.");
-      return;
-    }
-
-    const firstConfirm = window.confirm(`Delete "${targetPage.title}" from the database? This cannot be undone.`);
-    if (!firstConfirm) {
-      return;
-    }
-
-    const secondConfirm = window.confirm(`Final confirmation: permanently delete /${targetPage.slug} and its sections?`);
-    if (!secondConfirm) {
-      return;
-    }
-
+  const performDeletePage = async (targetPage, options = {}) => {
+    const { silentSuccess = false } = options;
     try {
       const identifiers = getPageApiIdentifiers(targetPage);
       if (isLocalDraftPage(targetPage)) {
@@ -3654,8 +4680,10 @@ function App() {
           return remaining;
         });
         setSelectedPageIds((current) => current.filter((id) => !removalIds.has(String(id))));
-        setNotice(`Removed unsaved draft "${targetPage.title}".`);
-        return;
+        if (!silentSuccess) {
+          setNotice(`Removed unsaved draft "${targetPage.title}".`);
+        }
+        return true;
       }
 
       const deleteIdentifiers = withPageDeleteIdentifiers(targetPage);
@@ -3731,15 +4759,104 @@ function App() {
         return remaining;
       });
       setSelectedPageIds((current) => current.filter((id) => !removalIds.has(String(id))));
-      setNotice(`Deleted "${targetPage.title}" from the database.`);
+      if (!silentSuccess) {
+        setNotice(`Deleted "${targetPage.title}" from the database.`);
+      }
+      return true;
     } catch (error) {
       if (String(error.message || "").includes("HTTP 401")) {
         clearAdminSession();
         setAdminToken("");
       }
-
-      setNotice(error.message || "Delete failed.");
+      throw error;
     }
+  };
+
+  const deletePageById = async (pageId) => {
+    const targetPage = pages.find((page) => String(page.id) === String(pageId));
+    if (!targetPage) {
+      setNotice("Page not found.");
+      return false;
+    }
+
+    const confirmed = await requestDangerConfirmation({
+      title: "Delete page permanently?",
+      message: "This permanently removes the selected page and all of its saved sections from the CRM.",
+      details: [
+        `Page: ${targetPage.title}`,
+        `Slug: /${targetPage.slug}`,
+        isLocalDraftPage(targetPage) ? "Source: Unsaved local draft" : "Source: Admin database"
+      ],
+      verificationText: targetPage.slug || targetPage.title || "DELETE PAGE",
+      finalLabel: "Delete Page"
+    });
+    if (!confirmed) {
+      setNotice("Page delete cancelled.");
+      return false;
+    }
+
+    try {
+      await performDeletePage(targetPage);
+      return true;
+    } catch (error) {
+      setNotice(error.message || "Delete failed.");
+      return false;
+    }
+  };
+
+  const bulkDeletePages = async () => {
+    if (!selectedPageIds.length) {
+      setNotice("Select pages first.");
+      return;
+    }
+
+    const targets = pages.filter((page) => selectedPageIds.some((id) => String(id) === String(page.id)));
+    if (!targets.length) {
+      setNotice("Selected pages could not be found.");
+      return;
+    }
+
+    const previewTitles = targets.slice(0, 4).map((page) => page.title);
+    const remainingCount = targets.length - previewTitles.length;
+    const confirmed = await requestDangerConfirmation({
+      title: `Delete ${targets.length} selected page${targets.length === 1 ? "" : "s"}?`,
+      message: "This permanently removes all selected pages from the CRM.",
+      details: [
+        ...previewTitles.map((title, index) => `${index + 1}. ${title}`),
+        ...(remainingCount > 0 ? [`+ ${remainingCount} more selected page${remainingCount === 1 ? "" : "s"}`] : [])
+      ],
+      verificationText: `${targets.length} PAGES`,
+      finalLabel: "Delete Selected Pages"
+    });
+    if (!confirmed) {
+      setNotice("Bulk delete cancelled.");
+      return;
+    }
+
+    let deletedCount = 0;
+    let firstFailure = "";
+    for (const targetPage of targets) {
+      try {
+        await performDeletePage(targetPage, { silentSuccess: true });
+        deletedCount += 1;
+      } catch (error) {
+        if (!firstFailure) {
+          firstFailure = `${targetPage.title}: ${error.message || "Delete failed."}`;
+        }
+      }
+    }
+
+    setSelectedPageIds([]);
+    if (firstFailure) {
+      setNotice(
+        deletedCount
+          ? `Deleted ${deletedCount} page${deletedCount === 1 ? "" : "s"}, but at least one delete failed. ${firstFailure}`
+          : firstFailure
+      );
+      return;
+    }
+
+    setNotice(`Deleted ${deletedCount} selected page${deletedCount === 1 ? "" : "s"}.`);
   };
 
   const deletePage = () => {
@@ -3997,9 +5114,25 @@ function App() {
     );
   };
 
-  const deleteProgramCategory = (categoryId) => {
+  const deleteProgramCategory = async (categoryId) => {
     const category = programCategories.find((item) => item.id === categoryId);
     if (!category) {
+      return;
+    }
+
+    const movedPrograms = programs.filter((program) => program.categorySlug === category.slug).length;
+    const confirmed = await requestDangerConfirmation({
+      title: "Delete program category?",
+      message: "The category will be removed and its related programs will be moved into the default category.",
+      details: [
+        `Category: ${category.name}`,
+        `Programs to reassign: ${movedPrograms}`
+      ],
+      verificationText: category.slug || category.name || "DELETE CATEGORY",
+      finalLabel: "Delete Category"
+    });
+    if (!confirmed) {
+      setNotice("Category delete cancelled.");
       return;
     }
 
@@ -4051,7 +5184,27 @@ function App() {
     );
   };
 
-  const deleteProgram = (programId) => {
+  const deleteProgram = async (programId) => {
+    const targetProgram = programs.find((program) => program.id === programId);
+    if (!targetProgram) {
+      return;
+    }
+
+    const confirmed = await requestDangerConfirmation({
+      title: "Delete program?",
+      message: "This permanently removes the selected academic program record.",
+      details: [
+        `Program: ${targetProgram.title}`,
+        `Slug: /${targetProgram.slug}`
+      ],
+      verificationText: targetProgram.slug || targetProgram.title || "DELETE PROGRAM",
+      finalLabel: "Delete Program"
+    });
+    if (!confirmed) {
+      setNotice("Program delete cancelled.");
+      return;
+    }
+
     setPrograms((current) => current.filter((program) => program.id !== programId));
     setNotice("Program removed.");
   };
@@ -4104,6 +5257,8 @@ function App() {
       <StandalonePageEditor
         allPages={pages}
         menuGroupChoices={liveMenuGroupChoices}
+        mediaItems={mediaLibrary}
+        mediaStorageMode={mediaStorageMode}
         page={editableStandalonePage}
         isLoading={!pages.length}
         notFound={pages.length > 0 && !standalonePage}
@@ -4118,17 +5273,28 @@ function App() {
         savePage={savePage}
         updateActiveStatus={updateActiveStatus}
         deletePage={deletePage}
+        uploadMediaFiles={uploadMediaFiles}
+        deleteMediaItem={deleteMediaItem}
+        copyMediaUrl={copyMediaUrl}
         onLogout={handleLogout}
       />
     );
   }
 
   return (
-    <div className="crm-app">
-      <aside className={`sidebar ${mobileNavOpen ? "open" : ""}`}>
+    <div className={`crm-app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <aside className={`sidebar ${mobileNavOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="brand">
           <img src={assets.logoOfficial} alt="Madda Walabu University" />
-          <button className="icon-button nav-close" type="button" onClick={() => setMobileNavOpen(false)}>
+          <button
+            className="icon-button nav-close"
+            type="button"
+            onClick={() => {
+              setMobileNavOpen(false);
+              setSidebarCollapsed(true);
+            }}
+            aria-label="Close sidebar"
+          >
             <X size={18} />
           </button>
         </div>
@@ -4169,10 +5335,19 @@ function App() {
 
       <main className="workspace">
         <header className="topbar">
-          <button className="icon-button mobile-toggle" type="button" onClick={() => setMobileNavOpen(true)}>
+          <button
+            className={`icon-button mobile-toggle ${sidebarCollapsed ? "force-visible" : ""}`}
+            type="button"
+            onClick={() => {
+              setSidebarCollapsed(false);
+              if (window.innerWidth <= 860) {
+                setMobileNavOpen(true);
+              }
+            }}
+            aria-label="Open sidebar"
+          >
             <ListTree size={19} />
           </button>
-          <img className="topbar-logo" src={assets.logoOfficial} alt="Madda Walabu University" />
           <div>
             <span className="eyebrow">Madda Walabu University</span>
             <h1>CRM Portal</h1>
@@ -4200,6 +5375,14 @@ function App() {
               <X size={16} />
             </button>
           </div>
+        )}
+
+        {dangerDialog && (
+          <DangerConfirmDialog
+            {...dangerDialog}
+            onCancel={() => resolveDangerConfirmation(false)}
+            onConfirm={() => resolveDangerConfirmation(true)}
+          />
         )}
 
         {activeView === "dashboard" && (
@@ -4235,6 +5418,7 @@ function App() {
             toggleSelectedPage={toggleSelectedPage}
             toggleAllFiltered={toggleAllFiltered}
             bulkUpdateStatus={bulkUpdateStatus}
+            bulkDeletePages={bulkDeletePages}
             bulkDuplicate={bulkDuplicate}
             exportAllPages={exportAllPages}
             importLivePublishedPages={importLivePublishedPages}
@@ -4347,11 +5531,16 @@ function App() {
 
         {activeView === "media" && (
           <MediaView
+            mediaItems={mediaLibrary}
+            mediaStorageMode={mediaStorageMode}
             selectedImage={formPage.heroImage}
             onSelect={(path) => {
               updateField("heroImage", path);
               setNotice("Hero image selected for the active page.");
             }}
+            onUploadMedia={uploadMediaFiles}
+            onDeleteMedia={deleteMediaItem}
+            onCopyUrl={copyMediaUrl}
           />
         )}
 
@@ -4383,6 +5572,102 @@ function App() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+function DangerConfirmDialog({
+  title,
+  message,
+  details = [],
+  verificationText = "DELETE",
+  continueLabel = "Continue",
+  finalLabel = "Delete Permanently",
+  onCancel,
+  onConfirm
+}) {
+  const [step, setStep] = useState(1);
+  const [typedValue, setTypedValue] = useState("");
+  const normalizedVerification = String(verificationText || "DELETE").trim();
+
+  useEffect(() => {
+    setStep(1);
+    setTypedValue("");
+  }, [title, message, normalizedVerification]);
+
+  const canConfirm = typedValue.trim() === normalizedVerification;
+
+  return (
+    <div className="danger-dialog-backdrop" role="presentation" onClick={onCancel}>
+      <div
+        className="danger-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="danger-dialog-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="danger-dialog-head">
+          <div>
+            <span className="eyebrow">Double Verification</span>
+            <h2 id="danger-dialog-title">{title}</h2>
+          </div>
+          <button className="icon-button" type="button" onClick={onCancel} aria-label="Close confirmation dialog">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="danger-dialog-body">
+          <p>{message}</p>
+          {details.length > 0 && (
+            <div className="danger-dialog-details">
+              {details.map((detail) => (
+                <div key={detail} className="danger-dialog-detail-row">
+                  <span>{detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="danger-dialog-steps">
+            <div className={`danger-step ${step >= 1 ? "active" : ""}`}>
+              <strong>1</strong>
+              <span>Review the deletion details</span>
+            </div>
+            <div className={`danger-step ${step >= 2 ? "active" : ""}`}>
+              <strong>2</strong>
+              <span>Type <code>{normalizedVerification}</code> to confirm</span>
+            </div>
+          </div>
+
+          {step === 2 && (
+            <label className="danger-dialog-input">
+              <span>Verification text</span>
+              <input
+                value={typedValue}
+                onChange={(event) => setTypedValue(event.target.value)}
+                placeholder={normalizedVerification}
+                autoFocus
+              />
+              <small>This action cannot be undone.</small>
+            </label>
+          )}
+        </div>
+
+        <div className="danger-dialog-actions">
+          <button className="ghost-button" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          {step === 1 ? (
+            <button className="danger-button" type="button" onClick={() => setStep(2)}>
+              {continueLabel}
+            </button>
+          ) : (
+            <button className="danger-button" type="button" onClick={onConfirm} disabled={!canConfirm}>
+              {finalLabel}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -4477,6 +5762,13 @@ function Dashboard({ pages, stats, setActiveView, setActivePageId, setEditorTab,
     setActiveView("page-editor");
   };
 
+  const moduleActions = [
+    { icon: GraduationCap, label: "Programs", value: "Undergraduate, graduate, PhD", onClick: () => setActiveView("programs") },
+    { icon: BookOpen, label: "Admissions", value: "Requirements, forms, scholarships", onClick: () => setActiveView("pages") },
+    { icon: MessageSquare, label: "Blog and Events", value: "Announcements and research updates", onClick: () => setActiveView("blogs") },
+    { icon: ShieldCheck, label: "Approvals", value: "Draft, review, scheduled, publish", onClick: () => setActiveView("pages") }
+  ];
+
   return (
     <section className="dashboard-grid">
       <div className="hero-panel">
@@ -4510,11 +5802,11 @@ function Dashboard({ pages, stats, setActiveView, setActivePageId, setEditorTab,
         {contentHealth.map((item) => {
           const Icon = item.icon;
           return (
-            <article className={`metric-card ${item.tone}`} key={item.label}>
+            <button className={`metric-card ${item.tone}`} key={item.label} type="button" onClick={() => setActiveView("pages")}>
               <Icon size={20} />
               <span>{item.label}</span>
               <strong>{item.value}</strong>
-            </article>
+            </button>
           );
         })}
       </div>
@@ -4556,10 +5848,16 @@ function Dashboard({ pages, stats, setActiveView, setActivePageId, setEditorTab,
           </div>
         </div>
         <div className="module-list">
-          <ModuleRow icon={GraduationCap} label="Programs" value="Undergraduate, graduate, PhD" />
-          <ModuleRow icon={BookOpen} label="Admissions" value="Requirements, forms, scholarships" />
-          <ModuleRow icon={MessageSquare} label="Blog and Events" value="Announcements and research updates" />
-          <ModuleRow icon={ShieldCheck} label="Approvals" value="Draft, review, scheduled, publish" />
+          {moduleActions.map((item) => (
+            <button className="module-row button-row" key={item.label} type="button" onClick={item.onClick}>
+              <item.icon size={18} />
+              <div>
+                <strong>{item.label}</strong>
+                <span>{item.value}</span>
+              </div>
+              <ChevronRight size={17} />
+            </button>
+          ))}
         </div>
       </section>
 
@@ -4600,6 +5898,7 @@ function PagesView({
   toggleSelectedPage,
   toggleAllFiltered,
   bulkUpdateStatus,
+  bulkDeletePages,
   bulkDuplicate,
   exportAllPages,
   importLivePublishedPages,
@@ -4611,6 +5910,7 @@ function PagesView({
 }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [viewMode, setViewMode] = useState("list");
   const pageTypeOptions = useMemo(
     () => Array.from(new Set(allPages.map((page) => page.type).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [allPages]
@@ -4680,7 +5980,7 @@ function PagesView({
       </div>
 
       <div className="view-content">
-        <div className="filter-bar manager-toolbar">
+        <div className="filter-bar manager-toolbar pages-toolbar">
           <label className="search-field">
             <Search size={17} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or slug" />
@@ -4736,6 +6036,8 @@ function PagesView({
               ))}
             </select>
           </label>
+
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
 
         <div className={`bulk-bar ${selectedPageIds.length ? "show" : ""}`}>
@@ -4752,6 +6054,10 @@ function PagesView({
             <Archive size={17} />
             <span>Archive</span>
           </button>
+          <button className="danger-button" type="button" onClick={bulkDeletePages}>
+            <Trash2 size={17} />
+            <span>Delete</span>
+          </button>
           <button className="ghost-button" type="button" onClick={bulkDuplicate}>
             <Copy size={17} />
             <span>Duplicate</span>
@@ -4759,59 +6065,104 @@ function PagesView({
         </div>
 
         <div className="table-panel panel">
-          <div className="pages-table" role="table" aria-label="All website pages">
-            <div className="pages-row table-head" role="row">
-              <label className="check-cell">
-                <input
-                  type="checkbox"
-                  checked={visibleSelected}
-                  onChange={() => toggleAllFiltered(paginatedPages.map((page) => page.id))}
-                />
-              </label>
-              <span>Page</span>
-              <span>Type</span>
-              <span>Menu</span>
-              <span>Status</span>
-              <span>SEO</span>
-              <span>Updated</span>
-              <span>Actions</span>
-            </div>
-
-            {paginatedPages.map((page) => (
-              <div className={`pages-row ${String(page.id) === String(activePageId) ? "active" : ""}`} role="row" key={page.id}>
+          {viewMode === "list" ? (
+            <div className="pages-table" role="table" aria-label="All website pages">
+              <div className="pages-row table-head" role="row">
                 <label className="check-cell">
                   <input
                     type="checkbox"
-                    checked={selectedPageIds.some((id) => String(id) === String(page.id))}
-                    onChange={() => toggleSelectedPage(page.id)}
+                    checked={visibleSelected}
+                    onChange={() => toggleAllFiltered(paginatedPages.map((page) => page.id))}
                   />
                 </label>
-                <button className="page-title-cell" type="button" onClick={() => selectPageRow(page.id)}>
-                  <img src={getAutoThumbnailForPage(page)} alt="" />
-                  <span>
+                <span>Page</span>
+                <span>Type</span>
+                <span>Menu</span>
+                <span>Status</span>
+                <span>SEO</span>
+                <span>Updated</span>
+                <span>Actions</span>
+              </div>
+
+              {paginatedPages.map((page) => (
+                <div className={`pages-row ${String(page.id) === String(activePageId) ? "active" : ""}`} role="row" key={page.id}>
+                  <label className="check-cell">
+                    <input
+                      type="checkbox"
+                      checked={selectedPageIds.some((id) => String(id) === String(page.id))}
+                      onChange={() => toggleSelectedPage(page.id)}
+                    />
+                  </label>
+                  <button className="page-title-cell" type="button" onClick={() => selectPageRow(page.id)}>
+                    <img src={getAutoThumbnailForPage(page)} alt="" />
+                    <span>
+                      <strong>{page.title}</strong>
+                      <small>/{page.slug}</small>
+                    </span>
+                  </button>
+                  <span>{page.type}</span>
+                  <span>{getMenuReferenceLabel(page, allPages)}</span>
+                  <StatusPill status={page.status} />
+                  <span>{getSeoScore(page)}%</span>
+                  <span>{formatDate(page.updatedAt)}</span>
+                  <div className="table-actions">
+                    <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageForEdit(page)}>
+                      <Pencil size={16} />
+                    </button>
+                    <button className="icon-button" type="button" aria-label="View sections" onClick={() => openPageSections(page.id)}>
+                      <ListTree size={16} />
+                    </button>
+                    <button className="icon-button danger" type="button" aria-label="Delete page" onClick={() => deletePageById(page.id)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="pages-grid" role="list" aria-label="All website pages grid">
+              {paginatedPages.map((page) => (
+                <article className={`page-grid-card ${String(page.id) === String(activePageId) ? "active" : ""}`} key={page.id}>
+                  <div className="page-grid-card-top">
+                    <label className="check-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedPageIds.some((id) => String(id) === String(page.id))}
+                        onChange={() => toggleSelectedPage(page.id)}
+                      />
+                    </label>
+                    <StatusPill status={page.status} />
+                  </div>
+                  <button className="page-grid-thumb" type="button" onClick={() => selectPageRow(page.id)}>
+                    <img src={getAutoThumbnailForPage(page)} alt="" />
+                  </button>
+                  <div className="page-grid-card-body">
                     <strong>{page.title}</strong>
                     <small>/{page.slug}</small>
-                  </span>
-                </button>
-                <span>{page.type}</span>
-                <span>{getMenuReferenceLabel(page, allPages)}</span>
-                <StatusPill status={page.status} />
-                <span>{getSeoScore(page)}%</span>
-                <span>{formatDate(page.updatedAt)}</span>
-                <div className="table-actions">
-                  <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageForEdit(page)}>
-                    <Pencil size={16} />
-                  </button>
-                  <button className="icon-button" type="button" aria-label="View sections" onClick={() => openPageSections(page.id)}>
-                    <ListTree size={16} />
-                  </button>
-                  <button className="icon-button danger" type="button" aria-label="Delete page" onClick={() => deletePageById(page.id)}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <p>{page.summary}</p>
+                  </div>
+                  <div className="page-grid-card-meta">
+                    <span>{page.type}</span>
+                    <span>{getMenuReferenceLabel(page, allPages)}</span>
+                    <span>SEO {getSeoScore(page)}%</span>
+                    <span>{formatDate(page.updatedAt)}</span>
+                  </div>
+                  <div className="page-grid-card-actions">
+                    <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageForEdit(page)}>
+                      <Pencil size={16} />
+                    </button>
+                    <button className="icon-button" type="button" aria-label="View sections" onClick={() => openPageSections(page.id)}>
+                      <ListTree size={16} />
+                    </button>
+                    <button className="icon-button danger" type="button" aria-label="Delete page" onClick={() => deletePageById(page.id)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {!paginatedPages.length && <p className="content-pages-empty">No pages match the current filters.</p>}
+            </div>
+          )}
 
           <div className="pagination-bar">
             <span>
@@ -4839,9 +6190,36 @@ function PagesView({
   );
 }
 
+function ViewModeToggle({ value = "grid", onChange }) {
+  return (
+    <div className="view-mode-toggle" role="group" aria-label="View mode toggle">
+      <button
+        type="button"
+        className={value === "list" ? "active" : ""}
+        onClick={() => onChange("list")}
+        aria-pressed={value === "list"}
+      >
+        <ListChecks size={16} />
+        <span>List</span>
+      </button>
+      <button
+        type="button"
+        className={value === "grid" ? "active" : ""}
+        onClick={() => onChange("grid")}
+        aria-pressed={value === "grid"}
+      >
+        <LayoutDashboard size={16} />
+        <span>Grid</span>
+      </button>
+    </div>
+  );
+}
+
 function StandalonePageEditor({
   allPages = [],
   menuGroupChoices = [],
+  mediaItems = [],
+  mediaStorageMode = "local",
   page,
   isLoading,
   notFound,
@@ -4856,6 +6234,9 @@ function StandalonePageEditor({
   savePage,
   updateActiveStatus,
   deletePage,
+  uploadMediaFiles,
+  deleteMediaItem,
+  copyMediaUrl,
   onLogout
 }) {
   const [activeSectionId, setActiveSectionId] = useState(page.sections?.[0]?.id || "");
@@ -4865,10 +6246,13 @@ function StandalonePageEditor({
   const [editableStatus, setEditableStatus] = useState("idle");
   const [editableError, setEditableError] = useState("");
   const [selectedLiveElement, setSelectedLiveElement] = useState(null);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerQuery, setMediaPickerQuery] = useState("");
+  const [selectedMediaId, setSelectedMediaId] = useState("");
+  const mediaUploadInputRef = useRef(null);
   const editableFrameRef = useRef(null);
   const editedBodyRef = useRef("");
   const editedFullHtmlRef = useRef("");
-  const imageReplaceInputRef = useRef(null);
   const pendingImageReplaceIdRef = useRef("");
   const livePageUrl = getLivePageUrl(page);
   const activeSection =
@@ -4886,6 +6270,23 @@ function StandalonePageEditor({
       editableSourceHtml
     );
   }, [editableSourceHtml, page.id, page.title, page.customCss, page.custom_css]);
+
+  const editorMediaItems = useMemo(() => {
+    const query = mediaPickerQuery.trim().toLowerCase();
+    if (!query) {
+      return mediaItems;
+    }
+    return mediaItems.filter((media) =>
+      [media.title, media.type, media.path]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [mediaItems, mediaPickerQuery]);
+
+  const selectedMediaItem = useMemo(
+    () => mediaItems.find((media) => String(media.id) === String(selectedMediaId)) || null,
+    [mediaItems, selectedMediaId]
+  );
 
   const loadEditableHtml = async ({ force = false } = {}) => {
     const storedDocument = getStoredEditableDocument(page);
@@ -4968,9 +6369,99 @@ function StandalonePageEditor({
     setEditableStatus("idle");
     setEditableError("");
     setSelectedLiveElement(null);
+    setMediaPickerOpen(false);
+    setMediaPickerQuery("");
+    setSelectedMediaId("");
     editedBodyRef.current = storedDocument.bodyHtml;
     editedFullHtmlRef.current = storedDocument.fullHtml;
   }, [page.id]);
+
+  const openMediaLibraryPicker = (elementId) => {
+    const nextElementId = elementId || selectedLiveElement?.id || "";
+    if (!nextElementId) {
+      setNotice("Select an image inside Editable Blocks first.");
+      return;
+    }
+    pendingImageReplaceIdRef.current = String(nextElementId);
+    setMediaPickerQuery("");
+    setSelectedMediaId(
+      mediaItems.find((media) => media.path === (selectedLiveElement?.src || ""))?.id ||
+      mediaItems[0]?.id ||
+      ""
+    );
+    setMediaPickerOpen(true);
+  };
+
+  useEffect(() => {
+    if (!selectedMediaId && editorMediaItems.length) {
+      setSelectedMediaId(editorMediaItems[0].id);
+      return;
+    }
+    if (selectedMediaId && !mediaItems.some((media) => String(media.id) === String(selectedMediaId))) {
+      setSelectedMediaId(editorMediaItems[0]?.id || "");
+    }
+  }, [editorMediaItems, mediaItems, selectedMediaId]);
+
+  const applyMediaLibraryImage = async (mediaPath) => {
+    const elementId = pendingImageReplaceIdRef.current || selectedLiveElement?.id || "";
+    if (!mediaPath || !elementId) {
+      setNotice("Select an image inside Editable Blocks first.");
+      return;
+    }
+
+    const liveAssetUrl = normalizeLiveAssetUrl(mediaPath);
+    if (liveAssetUrl) {
+      const isReachable = await canLoadRemoteImage(liveAssetUrl);
+      if (!isReachable) {
+        setNotice(`Image not applied: ${liveAssetUrl} is not available on the live website yet. Deploy the asset first or use an already hosted image URL.`);
+        return;
+      }
+    }
+
+    setSelectedLiveElement((current) => (current ? { ...current, src: mediaPath } : current));
+    editableFrameRef.current?.contentWindow?.postMessage({
+      type: "MWU_REPLACE_IMAGE_SOURCE",
+      elementId,
+      src: mediaPath
+    }, "*");
+    setMediaPickerOpen(false);
+    setNotice("Image updated from Media Library. Press Save to store the selected media URL.");
+  };
+
+  const handleMediaUpload = async (event) => {
+    const files = event.target.files;
+    if (!files?.length) {
+      return;
+    }
+    try {
+      const uploaded = await uploadMediaFiles(files);
+      if (uploaded[0]) {
+        setSelectedMediaId(uploaded[0].id);
+      }
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const handleDeleteSelectedMedia = async () => {
+    if (!selectedMediaItem) {
+      setNotice("Select a media item first.");
+      return;
+    }
+
+    const deleted = await deleteMediaItem(selectedMediaItem.id);
+    if (deleted) {
+      setSelectedMediaId("");
+    }
+  };
+
+  const applySelectedMedia = () => {
+    if (!selectedMediaItem) {
+      setNotice("Select a media item first.");
+      return;
+    }
+    applyMediaLibraryImage(selectedMediaItem.path);
+  };
 
   useEffect(() => {
     if (canvasMode === "editable" && !editableSourceHtml && editableStatus !== "loading") {
@@ -4997,8 +6488,7 @@ function StandalonePageEditor({
           setNotice("Select an image inside Editable Blocks first.");
           return;
         }
-        pendingImageReplaceIdRef.current = String(elementId);
-        imageReplaceInputRef.current?.click();
+        openMediaLibraryPicker(elementId);
         return;
       }
 
@@ -5016,7 +6506,7 @@ function StandalonePageEditor({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [editableSourceHtml, page.rawHtml, page.raw_html, selectedLiveElement?.id, updateField]);
+  }, [editableSourceHtml, openMediaLibraryPicker, page.rawHtml, page.raw_html, selectedLiveElement?.id, updateField]);
 
   const applyLiveElementStyle = (field, value) => {
     if (!selectedLiveElement?.id) {
@@ -5077,32 +6567,7 @@ function StandalonePageEditor({
       setNotice("Select an image inside Editable Blocks first.");
       return;
     }
-    pendingImageReplaceIdRef.current = String(selectedLiveElement.id);
-    imageReplaceInputRef.current?.click();
-  };
-
-  const handleImageReplaceFile = (event) => {
-    const file = event.target.files?.[0];
-    const elementId = pendingImageReplaceIdRef.current || selectedLiveElement?.id || "";
-    if (!file || !elementId) {
-      event.target.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const nextSrc = String(reader.result || "");
-      if (!nextSrc) return;
-      setSelectedLiveElement((current) => current ? { ...current, src: nextSrc } : current);
-      editableFrameRef.current?.contentWindow?.postMessage({
-        type: "MWU_REPLACE_IMAGE_SOURCE",
-        elementId,
-        src: nextSrc
-      }, "*");
-      setNotice("Image replaced. Press Save to store it in the database.");
-      event.target.value = "";
-    };
-    reader.readAsDataURL(file);
+    openMediaLibraryPicker(selectedLiveElement.id);
   };
 
   const addLayoutPreset = (preset) => {
@@ -5111,14 +6576,35 @@ function StandalonePageEditor({
   };
 
   const saveEditablePage = (event) => {
+    const pendingBodyHtml = editedBodyRef.current || page.bodyHtml || page.body_html || "";
+    if (hasEmbeddedImageData(pendingBodyHtml)) {
+      event?.preventDefault?.();
+      setNotice("Save blocked: the page still contains embedded base64 image data. Replace it with a website media item or another hosted image URL first.");
+      return;
+    }
+
     const pageOverride = {};
     if (editedBodyRef.current) {
       pageOverride.bodyHtml = editedBodyRef.current;
       updateField("bodyHtml", editedBodyRef.current);
     }
     if (editedFullHtmlRef.current) {
-      pageOverride.rawHtml = editedFullHtmlRef.current;
+      // Keep the full HTML in local editor state, but do not persist the full document back to the API.
+      pageOverride.rawHtml = "";
       updateField("rawHtml", editedFullHtmlRef.current);
+    }
+    if (editedBodyRef.current) {
+      pageOverride.sections = [
+        normalizeSection({
+          id: page.sections?.[0]?.id,
+          type: "Raw HTML",
+          title: page.title || "Page Markup",
+          html: editedBodyRef.current,
+          body: editedBodyRef.current,
+          layout: "Legacy HTML",
+          visible: true
+        })
+      ];
     }
     savePage(event, pageOverride);
   };
@@ -5153,16 +6639,8 @@ function StandalonePageEditor({
 
   return (
     <form className="standalone-editor" onSubmit={saveEditablePage}>
-      <input
-        ref={imageReplaceInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={handleImageReplaceFile}
-      />
       <header className="standalone-topbar">
         <div className="standalone-brand">
-          <img src={assets.logoOfficial} alt="Madda Walabu University" />
           <div>
             <span className="eyebrow">Elementor Style Page Editor</span>
             <h1>{page.title}</h1>
@@ -5337,7 +6815,7 @@ function StandalonePageEditor({
           <div className="inspector-card">
             <span className="eyebrow">Live HTML Editor</span>
             <p className="inspector-note">
-              Editable Blocks uses the static legacy HTML for editable markup and loads CSS/images from your local public/assets folder. Click text to edit, single-click images for crop/adjustments, and double-click images to replace them from your computer.
+              Editable Blocks uses the static legacy HTML for editable markup and loads CSS/images from your local public/assets folder. Click text to edit, single-click images for crop/adjustments, and double-click images to replace them from the Media Library.
             </p>
             <div className="block-actions vertical">
               <button className="ghost-button" type="button" onClick={() => loadEditableHtml({ force: true })}>
@@ -5423,6 +6901,132 @@ function StandalonePageEditor({
           </div>
         </aside>
       </div>
+      {mediaPickerOpen && (
+        <div className="standalone-media-picker" role="dialog" aria-modal="true" aria-label="Media library picker">
+          <input
+            ref={mediaUploadInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={handleMediaUpload}
+          />
+          <button
+            className="standalone-media-picker-backdrop"
+            type="button"
+            aria-label="Close media picker"
+            onClick={() => setMediaPickerOpen(false)}
+          />
+          <div className="standalone-media-picker-panel">
+            <div className="standalone-media-picker-head">
+              <div>
+                <span className="eyebrow">Media Library</span>
+                <h2>Select Existing Media URL</h2>
+              </div>
+              <div className="standalone-media-picker-head-actions">
+                <button className="ghost-button" type="button" onClick={() => mediaUploadInputRef.current?.click()}>
+                  <Upload size={16} />
+                  <span>Upload</span>
+                </button>
+                <button
+                  className="standalone-media-picker-close"
+                  type="button"
+                  onClick={() => setMediaPickerOpen(false)}
+                  aria-label="Close media picker"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="standalone-media-picker-toolbar">
+              <input
+                type="search"
+                value={mediaPickerQuery}
+                onChange={(event) => setMediaPickerQuery(event.target.value)}
+                placeholder="Search media by title, type, or URL"
+              />
+              <p>{mediaStorageMode === "api" ? "Choose a saved website media item. Uploaded files are stored on the website and written into the page markup as public URLs." : "Choose a saved media item. Uploaded browser-only images use data URLs and may still be blocked on save until a backend media endpoint exists."}</p>
+            </div>
+            <div className="standalone-media-picker-body">
+              <div className="standalone-media-picker-grid">
+                {editorMediaItems.map((media) => (
+                  <button
+                    key={media.id}
+                    type="button"
+                    className={selectedMediaId === media.id ? "media-card active" : "media-card"}
+                    onClick={() => setSelectedMediaId(media.id)}
+                  >
+                    <img src={media.path} alt={media.title} />
+                    <span>{media.type}</span>
+                    <strong>{media.title}</strong>
+                    <small>{media.dimensions || media.size}</small>
+                  </button>
+                ))}
+                {!editorMediaItems.length && (
+                  <div className="standalone-media-picker-empty">
+                    <strong>No matching media found.</strong>
+                    <span>Upload a new image or use the Media page to add more assets.</span>
+                  </div>
+                )}
+              </div>
+              <aside className="standalone-media-sidebar">
+                {selectedMediaItem ? (
+                  <>
+                    <div className="standalone-media-sidebar-preview">
+                      <img src={selectedMediaItem.path} alt={selectedMediaItem.title} />
+                    </div>
+                    <div className="standalone-media-sidebar-meta">
+                      <span className="eyebrow">Image Details</span>
+                      <h3>{selectedMediaItem.title}</h3>
+                      <dl className="standalone-media-meta-list">
+                        <div>
+                          <dt>Upload date</dt>
+                          <dd>{selectedMediaItem.uploadedAt || "Unknown"}</dd>
+                        </div>
+                        <div>
+                          <dt>Name</dt>
+                          <dd>{selectedMediaItem.title}</dd>
+                        </div>
+                        <div>
+                          <dt>Size</dt>
+                          <dd>{selectedMediaItem.size || "Unknown"}</dd>
+                        </div>
+                        <div>
+                          <dt>Dimensions</dt>
+                          <dd>{selectedMediaItem.dimensions || "Unknown"}</dd>
+                        </div>
+                        <div>
+                          <dt>URL</dt>
+                          <dd className="url">{selectedMediaItem.path}</dd>
+                        </div>
+                      </dl>
+                      <div className="standalone-media-sidebar-actions">
+                        <button className="ghost-button" type="button" onClick={() => copyMediaUrl(selectedMediaItem.path)}>
+                          <Copy size={16} />
+                          <span>Copy URL</span>
+                        </button>
+                        <button className="danger-button" type="button" onClick={handleDeleteSelectedMedia}>
+                          <Trash2 size={16} />
+                          <span>Delete</span>
+                        </button>
+                        <button className="primary-button" type="button" onClick={applySelectedMedia}>
+                          <Image size={16} />
+                          <span>Use Image</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="standalone-media-picker-empty sidebar">
+                    <strong>Select a media item</strong>
+                    <span>Its upload date, size, dimensions, and URL will appear here.</span>
+                  </div>
+                )}
+              </aside>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
@@ -5807,7 +7411,7 @@ function LiveElementInspector({ selectedElement, canvasMode, onStartEditing, onR
           <Field label="Image Source">
             <input value={selectedElement.src || ""} onChange={apply("src")} placeholder="/assets/img/example.jpg" />
           </Field>
-          <p className="inspector-note">Double-click the image on canvas to replace it from your computer.</p>
+          <p className="inspector-note">Double-click the image on canvas to replace it from the Media Library.</p>
         </div>
       )}
     </div>
@@ -6873,11 +8477,12 @@ function ProgramsView({
   updateProgram,
   deleteProgram
 }) {
-  const [activeTab, setActiveTab] = useState("programs");
+  const [activeTab, setActiveTab] = useState("pages");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [programQuery, setProgramQuery] = useState("");
   const [pageQuery, setPageQuery] = useState("");
   const [pageStatusFilter, setPageStatusFilter] = useState("All");
+  const [pageViewMode, setPageViewMode] = useState("grid");
   const sortedCategories = [...categories].sort((a, b) => Number(a.menuOrder) - Number(b.menuOrder));
   const filteredProgramPages = programPages
     .filter((page) => pageStatusFilter === "All" || (page.status || "").toLowerCase() === pageStatusFilter.toLowerCase())
@@ -6900,7 +8505,7 @@ function ProgramsView({
 
   return (
     <section className="programs-view">
-      <div className="panel programs-hero-manager">
+      {/* <div className="panel programs-hero-manager">
         <div className="panel-head">
           <div>
             <span className="eyebrow">Main Program Page</span>
@@ -6955,12 +8560,12 @@ function ProgramsView({
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       <div className="program-tabs" role="tablist" aria-label="Program management tabs">
         {[
           { id: "pages", label: "Program Pages", icon: FileText },
-          { id: "programs", label: "Programs", icon: GraduationCap },
+          // { id: "programs", label: "Programs", icon: GraduationCap },
           { id: "categories", label: "Categories", icon: Layers },
           { id: "preview", label: "Listing Preview", icon: Eye }
         ].map((tab) => {
@@ -6983,7 +8588,7 @@ function ProgramsView({
             </div>
           </div>
 
-          <div className="manager-toolbar programs-toolbar">
+          <div className="manager-toolbar programs-toolbar programs-pages-toolbar">
             <label className="search-field">
               <Search size={17} />
               <input value={pageQuery} onChange={(event) => setPageQuery(event.target.value)} placeholder="Search program page title or slug" />
@@ -6997,13 +8602,14 @@ function ProgramsView({
                 ))}
               </select>
             </label>
+            <ViewModeToggle value={pageViewMode} onChange={setPageViewMode} />
           </div>
 
-          <div className="program-pages-grid">
+          <div className={`program-pages-grid ${pageViewMode === "list" ? "list-mode" : ""}`}>
             {filteredProgramPages.map((page) => (
-              <article className="program-page-card" key={page.id}>
+              <article className={`program-page-card ${pageViewMode === "list" ? "list-mode" : ""}`} key={page.id}>
                 <img src={getAutoThumbnailForPage(page)} alt="" />
-                <div>
+                <div className="program-page-card-body">
                   <StatusPill status={page.status} />
                   <h3>{page.title}</h3>
                   <small>/{page.slug}</small>
@@ -7056,7 +8662,7 @@ function ProgramsView({
         </section>
       )}
 
-      {activeTab === "programs" && (
+      {/* {activeTab === "programs" && (
         <section className="panel programs-manager">
           <div className="panel-head">
             <div>
@@ -7168,7 +8774,7 @@ function ProgramsView({
             ))}
           </div>
         </section>
-      )}
+      )} */}
 
       {activeTab === "categories" && (
         <section className="panel category-manager">
@@ -7304,6 +8910,7 @@ function ContentPagesView({
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [viewMode, setViewMode] = useState("grid");
   const filteredPages = pages
     .filter((page) => statusFilter === "All" || (page.status || "").toLowerCase() === statusFilter.toLowerCase())
     .filter((page) =>
@@ -7325,10 +8932,10 @@ function ContentPagesView({
 
   return (
     <section className="content-pages-view">
-      <div className="panel content-pages-hero">
-        <div>
+      <div className="content-pages-header">
+        <div className="content-pages-copy">
           <span className="eyebrow">{eyebrow}</span>
-          <h2>{title}</h2>
+          <h1>{title}</h1>
           <p>{description}</p>
         </div>
         <div className="content-pages-count">
@@ -7338,21 +8945,19 @@ function ContentPagesView({
         </div>
       </div>
 
-      <section className="panel programs-manager">
-        <div className="panel-head">
-          <div>
-            <span className="eyebrow">Review Queue</span>
-            <h2>{filteredPages.length} Pages</h2>
-          </div>
+      <section className="content-pages-shell">
+        <div className="content-pages-head">
+          <span className="eyebrow">Review Queue</span>
+          <h2>{filteredPages.length} Pages</h2>
         </div>
 
-        <div className="manager-toolbar programs-toolbar">
-          <label className="search-field">
-            <Search size={17} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or slug" />
+        <div className="content-pages-toolbar">
+          <label className="content-pages-search">
+            <Search size={16} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or slug..." />
           </label>
-          <label className="select-field">
-            <Filter size={17} />
+          <label className="content-pages-filter">
+            <Filter size={16} />
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option>All</option>
               {pageStatusFilters.map((status) => (
@@ -7360,19 +8965,20 @@ function ContentPagesView({
               ))}
             </select>
           </label>
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
         </div>
 
-        <div className="program-pages-grid">
+        <div className={`content-pages-grid ${viewMode === "list" ? "list-mode" : ""}`}>
           {filteredPages.map((page) => (
-            <article className="program-page-card" key={page.id}>
+            <article className={`content-page-card ${viewMode === "list" ? "list-mode" : ""}`} key={page.id}>
               <img src={getAutoThumbnailForPage(page)} alt="" />
-              <div>
+              <div className="content-page-card-body">
                 <StatusPill status={page.status} />
                 <h3>{page.title}</h3>
                 <small>/{page.slug}</small>
                 <p>{page.summary}</p>
               </div>
-              <div className="program-page-actions">
+              <div className="content-page-actions">
                 <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPage(page, "content")}>
                   <Pencil size={16} />
                 </button>
@@ -7385,7 +8991,7 @@ function ContentPagesView({
               </div>
             </article>
           ))}
-          {!filteredPages.length && <p className="program-empty">{emptyLabel}</p>}
+          {!filteredPages.length && <p className="content-pages-empty">{emptyLabel}</p>}
         </div>
       </section>
     </section>
@@ -7683,34 +9289,123 @@ function MenusView({
   );
 }
 
-function MediaView({ selectedImage, onSelect }) {
+function MediaView({ mediaItems = [], mediaStorageMode = "local", selectedImage, onSelect, onUploadMedia, onDeleteMedia, onCopyUrl }) {
+  const [selectedMediaId, setSelectedMediaId] = useState(
+    mediaItems.find((media) => media.path === selectedImage)?.id || mediaItems[0]?.id || ""
+  );
+  const uploadInputRef = useRef(null);
+  const selectedMedia = mediaItems.find((media) => String(media.id) === String(selectedMediaId)) || mediaItems[0] || null;
+
+  useEffect(() => {
+    if (selectedImage) {
+      const match = mediaItems.find((media) => media.path === selectedImage);
+      if (match) {
+        setSelectedMediaId(match.id);
+        return;
+      }
+    }
+    if (selectedMediaId && !mediaItems.some((media) => String(media.id) === String(selectedMediaId))) {
+      setSelectedMediaId(mediaItems[0]?.id || "");
+    }
+  }, [mediaItems, selectedImage, selectedMediaId]);
+
+  const handleUpload = async (event) => {
+    const files = event.target.files;
+    if (!files?.length) {
+      return;
+    }
+    try {
+      const uploaded = await onUploadMedia(files);
+      if (uploaded[0]) {
+        setSelectedMediaId(uploaded[0].id);
+      }
+    } finally {
+      event.target.value = "";
+    }
+  };
+
   return (
     <section className="panel media-view">
+      <input ref={uploadInputRef} type="file" accept="image/*" multiple hidden onChange={handleUpload} />
       <div className="panel-head">
         <div>
           <span className="eyebrow">Media Library</span>
           <h2>Website Visual Assets</h2>
+          <small className="media-library-mode">{mediaStorageMode === "api" ? "Connected to website media storage" : "Browser fallback storage only"}</small>
         </div>
-        <button className="ghost-button" type="button">
+        <button className="ghost-button" type="button" onClick={() => uploadInputRef.current?.click()}>
           <Upload size={17} />
           <span>Upload</span>
         </button>
       </div>
 
-      <div className="media-grid">
-        {mediaLibrary.map((media) => (
-          <button
-            type="button"
-            className={selectedImage === media.path ? "media-card active" : "media-card"}
-            key={media.id}
-            onClick={() => onSelect(media.path)}
-          >
-            <img src={media.path} alt="" />
-            <span>{media.type}</span>
-            <strong>{media.title}</strong>
-            <small>{media.size}</small>
-          </button>
-        ))}
+      <div className="media-library-layout">
+        <div className="media-grid">
+          {mediaItems.map((media) => (
+            <button
+              type="button"
+              className={selectedMediaId === media.id ? "media-card active" : "media-card"}
+              key={media.id}
+              onClick={() => {
+                setSelectedMediaId(media.id);
+                onSelect(media.path);
+              }}
+            >
+              <img src={media.path} alt="" />
+              <span>{media.type}</span>
+              <strong>{media.title}</strong>
+              <small>{media.size || media.dimensions}</small>
+            </button>
+          ))}
+        </div>
+        <aside className="media-details-card">
+          {selectedMedia ? (
+            <>
+              <img src={selectedMedia.path} alt={selectedMedia.title} />
+              <div className="media-details-copy">
+                <span className="eyebrow">Image Information</span>
+                <h3>{selectedMedia.title}</h3>
+                <dl className="standalone-media-meta-list">
+                  <div>
+                    <dt>Upload date</dt>
+                    <dd>{selectedMedia.uploadedAt || "Unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>Name</dt>
+                    <dd>{selectedMedia.title}</dd>
+                  </div>
+                  <div>
+                    <dt>Size</dt>
+                    <dd>{selectedMedia.size || "Unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>Dimensions</dt>
+                    <dd>{selectedMedia.dimensions || "Unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>URL</dt>
+                    <dd className="url">{selectedMedia.path}</dd>
+                  </div>
+                </dl>
+                <div className="standalone-media-sidebar-actions">
+                  <button className="ghost-button" type="button" onClick={() => onCopyUrl(selectedMedia.path)}>
+                    <Copy size={16} />
+                    <span>Copy URL</span>
+                  </button>
+                  <button className="danger-button" type="button" onClick={() => onDeleteMedia(selectedMedia.id)}>
+                    <Trash2 size={16} />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="standalone-media-picker-empty sidebar">
+              <strong>No media selected</strong>
+              <span>Select any asset to review its stored details.</span>
+            </div>
+          )}
+        </aside>
       </div>
     </section>
   );
@@ -7819,85 +9514,326 @@ function SiteChromeView({
 }) {
   const config = getSiteChromeConfig(kind);
   const snippetHtml = getSiteChromeHtml(page);
+  const sourcePath = page.sourceUrl || page.source_url || config.sourceUrl;
+  const statusLabel = page.status || "Draft";
+  const isSavedStatus = String(statusLabel).toLowerCase() === "published";
+  const visualHeaderModel = useMemo(() => parseHeaderVisualModel(snippetHtml), [snippetHtml]);
+
+  const commitVisualHeaderModel = (updater) => {
+    if (kind !== "header") {
+      return;
+    }
+    const nextModel = typeof updater === "function" ? updater(visualHeaderModel) : updater;
+    updateHtml(kind, updateHeaderHtmlFromVisualModel(snippetHtml, nextModel));
+  };
+
+  const updateHeaderMenuItem = (itemId, field, value) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) => item.id === itemId ? { ...item, [field]: value } : item)
+    }));
+  };
+
+  const moveHeaderMenuItem = (itemId, direction) => {
+    commitVisualHeaderModel((current) => {
+      const items = [...current.menuItems];
+      const index = items.findIndex((item) => item.id === itemId);
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (index < 0 || targetIndex < 0 || targetIndex >= items.length) {
+        return current;
+      }
+      const [moved] = items.splice(index, 1);
+      items.splice(targetIndex, 0, moved);
+      return { ...current, menuItems: items };
+    });
+  };
+
+  const removeHeaderMenuItem = (itemId) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.filter((item) => item.id !== itemId)
+    }));
+  };
+
+  const addHeaderMenuItem = () => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: [
+        ...current.menuItems,
+        {
+          id: `header-menu-added-${Date.now()}`,
+          sourceIndex: current.menuItems.length,
+          title: "New Menu Item",
+          href: "#",
+          isMega: false,
+          children: []
+        }
+      ]
+    }));
+  };
+
+  const updateHeaderChildItem = (itemId, childId, field, value) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) => item.id === itemId ? {
+        ...item,
+        children: item.children.map((child) => child.id === childId ? { ...child, [field]: value } : child)
+      } : item)
+    }));
+  };
+
+  const addHeaderChildItem = (itemId) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) => item.id === itemId ? {
+        ...item,
+        children: [
+          ...(item.children || []),
+          {
+            id: `header-child-added-${Date.now()}-${itemId}`,
+            title: "New Dropdown Item",
+            href: "#"
+          }
+        ]
+      } : item)
+    }));
+  };
+
+  const removeHeaderChildItem = (itemId, childId) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) => item.id === itemId ? {
+        ...item,
+        children: item.children.filter((child) => child.id !== childId)
+      } : item)
+    }));
+  };
+
+  const moveHeaderChildItem = (itemId, childId, direction) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) => {
+        if (item.id !== itemId) return item;
+        const children = [...(item.children || [])];
+        const index = children.findIndex((child) => child.id === childId);
+        const targetIndex = direction === "up" ? index - 1 : index + 1;
+        if (index < 0 || targetIndex < 0 || targetIndex >= children.length) {
+          return item;
+        }
+        const [moved] = children.splice(index, 1);
+        children.splice(targetIndex, 0, moved);
+        return { ...item, children };
+      })
+    }));
+  };
+
+  const updateHeaderCta = (field, value) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      [field]: value
+    }));
+  };
 
   return (
-    <section className="site-chrome-grid">
-      <form className="panel site-chrome-editor" onSubmit={(event) => savePage(event, kind)}>
-        <div className="panel-head">
-          <div>
-            <span className="eyebrow">Global Layout</span>
-            <h2>Header & Footer</h2>
-          </div>
-          <div className="mode-switcher">
-            <button type="button" className={kind === "header" ? "active" : ""} onClick={() => openSiteChromeView("header")}>Header</button>
-            <button type="button" className={kind === "footer" ? "active" : ""} onClick={() => openSiteChromeView("footer")}>Footer</button>
-          </div>
+    <section className="site-chrome-shell">
+      <div className="site-chrome-banner">
+        <div className="site-chrome-banner-copy">
+          <CheckCircle2 size={18} />
+          <span>Editing website {kind} content.</span>
         </div>
-
-        <div className="site-chrome-fields">
-          <p className="panel-help">
-            Edit the global {kind} HTML here. Saving creates or updates a dedicated DB page with slug <code>{config.slug}</code>.
-          </p>
-
-          <div className="field-grid">
-            <Field label="Title">
-              <input value={page.title} onChange={(event) => updateField("title", event.target.value)} />
-            </Field>
-            <Field label="Status">
-              <select value={page.status} onChange={(event) => updateField("status", event.target.value)}>
-                {statusOptions.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Source Path">
-              <input value={config.sourceUrl} readOnly />
-            </Field>
-            <Field label="Slug">
-              <input value={page.slug} readOnly />
-            </Field>
-          </div>
-
-          <Field label="Summary">
-            <textarea rows="3" value={page.summary} onChange={(event) => updateField("summary", event.target.value)} />
-          </Field>
-
-          <Field label={`${config.title} HTML`}>
-            <textarea
-              className="site-chrome-textarea"
-              rows="22"
-              value={snippetHtml}
-              onChange={(event) => updateHtml(kind, event.target.value)}
-              placeholder={`Paste ${config.title.toLowerCase()} markup here`}
-            />
-          </Field>
-
-          <div className="editor-actions">
-            <button className="primary-button" type="submit">
-              <Save size={17} />
-              <span>Save {kind === "header" ? "Header" : "Footer"}</span>
-            </button>
-          </div>
+        <div className="site-chrome-tabs">
+          <button type="button" className={kind === "header" ? "active" : ""} onClick={() => openSiteChromeView("header")}>Header</button>
+          <button type="button" className={kind === "footer" ? "active" : ""} onClick={() => openSiteChromeView("footer")}>Footer</button>
         </div>
-      </form>
+      </div>
 
-      <div className="panel site-chrome-preview-panel">
-        <div className="panel-head compact">
-          <div>
-            <span className="eyebrow">Live Preview</span>
-            <h2>{config.title}</h2>
-          </div>
-        </div>
-
-        <div className="website-preview website-preview-html site-chrome-preview">
-          <div className="preview-html-head">
+      <div className="site-chrome-grid">
+        <form className="panel site-chrome-editor" onSubmit={(event) => savePage(event, kind)}>
+          <div className="panel-head site-chrome-panel-head">
             <div>
-              <span className="eyebrow">Snippet Canvas</span>
-              <h3>{config.title}</h3>
+              <span className="eyebrow">Global Layout</span>
+              <h2>Header & Footer</h2>
             </div>
-            <small>{config.sourceUrl}</small>
+            <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{statusLabel}</span>
           </div>
-          <iframe title={`${config.title} preview`} srcDoc={buildSiteChromePreviewDocument(kind, snippetHtml)} sandbox="" />
+
+          <div className="site-chrome-fields">
+            <p className="site-chrome-hint">
+              Edit the global {kind} HTML here. Saving creates or updates the active CRM page with slug <code>{config.slug}</code>.
+            </p>
+
+            <div className="field-grid">
+              <Field label="Title">
+                <input value={page.title} onChange={(event) => updateField("title", event.target.value)} />
+              </Field>
+              <Field label="Status">
+                <select value={page.status} onChange={(event) => updateField("status", event.target.value)}>
+                  {statusOptions.map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Source Path">
+                <input value={sourcePath} onChange={(event) => updateField("sourceUrl", event.target.value)} />
+              </Field>
+              <Field label="Slug">
+                <input value={page.slug} readOnly />
+              </Field>
+            </div>
+
+            <Field label="Summary">
+              <textarea rows="3" value={page.summary} onChange={(event) => updateField("summary", event.target.value)} />
+            </Field>
+
+            {kind === "header" && (
+              <div className="site-chrome-visual-editor">
+                <div className="site-chrome-editor-label">
+                  <strong>Visual Header Builder</strong>
+                  <small>{visualHeaderModel.menuItems.length} main items</small>
+                </div>
+                <p className="site-chrome-hint">
+                  Edit the live header menu visually. Special mega-menu items are preserved, while standard menu items and dropdowns can be changed directly.
+                </p>
+
+                <div className="site-chrome-cta-grid">
+                  <Field label="Header CTA Label">
+                    <input value={visualHeaderModel.ctaLabel} onChange={(event) => updateHeaderCta("ctaLabel", event.target.value)} />
+                  </Field>
+                  <Field label="Header CTA URL">
+                    <input value={visualHeaderModel.ctaUrl} onChange={(event) => updateHeaderCta("ctaUrl", event.target.value)} />
+                  </Field>
+                </div>
+
+                <div className="site-chrome-menu-list">
+                  {visualHeaderModel.menuItems.map((item, index) => (
+                    <div className="site-chrome-menu-card" key={item.id}>
+                      <div className="site-chrome-menu-card-head">
+                        <div>
+                          <strong>{item.title || `Menu Item ${index + 1}`}</strong>
+                          <small>{item.isMega ? "Mega menu preserved" : item.children.length ? "Dropdown menu" : "Single link"}</small>
+                        </div>
+                        <div className="site-chrome-menu-actions">
+                          <button className="ghost-button" type="button" onClick={() => moveHeaderMenuItem(item.id, "up")} disabled={index === 0}>
+                            <ChevronUp size={16} />
+                            <span>Up</span>
+                          </button>
+                          <button className="ghost-button" type="button" onClick={() => moveHeaderMenuItem(item.id, "down")} disabled={index === visualHeaderModel.menuItems.length - 1}>
+                            <ChevronDown size={16} />
+                            <span>Down</span>
+                          </button>
+                          {!item.isMega && (
+                            <button className="danger-button" type="button" onClick={() => removeHeaderMenuItem(item.id)}>
+                              <Trash2 size={16} />
+                              <span>Remove</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="field-grid">
+                        <Field label="Label">
+                          <input value={item.title} onChange={(event) => updateHeaderMenuItem(item.id, "title", event.target.value)} />
+                        </Field>
+                        <Field label="URL">
+                          <input value={item.href} onChange={(event) => updateHeaderMenuItem(item.id, "href", event.target.value)} />
+                        </Field>
+                      </div>
+
+                      {item.isMega ? (
+                        <div className="site-chrome-locked-note">
+                          <CheckCircle2 size={15} />
+                          <span>This item keeps the existing Programs mega-menu structure. Only its label and URL are edited here.</span>
+                        </div>
+                      ) : (
+                        <div className="site-chrome-children">
+                          <div className="site-chrome-children-head">
+                            <strong>Dropdown Items</strong>
+                            <button className="ghost-button" type="button" onClick={() => addHeaderChildItem(item.id)}>
+                              <Plus size={16} />
+                              <span>Add Child</span>
+                            </button>
+                          </div>
+                          {(item.children || []).map((child, childIndex) => (
+                            <div className="site-chrome-child-row" key={child.id}>
+                              <input value={child.title} onChange={(event) => updateHeaderChildItem(item.id, child.id, "title", event.target.value)} placeholder="Child label" />
+                              <input value={child.href} onChange={(event) => updateHeaderChildItem(item.id, child.id, "href", event.target.value)} placeholder="Child URL" />
+                              <button className="icon-button" type="button" aria-label="Move child up" onClick={() => moveHeaderChildItem(item.id, child.id, "up")} disabled={childIndex === 0}>
+                                <ChevronUp size={16} />
+                              </button>
+                              <button className="icon-button" type="button" aria-label="Move child down" onClick={() => moveHeaderChildItem(item.id, child.id, "down")} disabled={childIndex === item.children.length - 1}>
+                                <ChevronDown size={16} />
+                              </button>
+                              <button className="icon-button danger" type="button" aria-label="Remove child" onClick={() => removeHeaderChildItem(item.id, child.id)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                          {!item.children.length && (
+                            <div className="site-chrome-empty-note">This menu item currently has no dropdown children.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="site-chrome-builder-footer">
+                  <button className="ghost-button" type="button" onClick={addHeaderMenuItem}>
+                    <Plus size={16} />
+                    <span>Add Main Menu Item</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="site-chrome-editor-block">
+              <div className="site-chrome-editor-label">
+                <strong>{config.title} HTML</strong>
+                <small>{snippetHtml.length} characters</small>
+              </div>
+              <textarea
+                className="site-chrome-textarea"
+                rows="22"
+                value={snippetHtml}
+                onChange={(event) => updateHtml(kind, event.target.value)}
+                placeholder={`Paste ${config.title.toLowerCase()} markup here`}
+              />
+            </div>
+
+            <div className="site-chrome-footer">
+              <div className="site-chrome-save-note">
+                {isSavedStatus ? <CheckCircle2 size={15} /> : <Save size={15} />}
+                <span>{isSavedStatus ? "Published content loaded." : "Changes are in draft state until you save."}</span>
+              </div>
+              <button className="primary-button site-chrome-save" type="submit">
+                <Save size={17} />
+                <span>Save {kind === "header" ? "Header" : "Footer"}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div className="site-chrome-preview-col">
+          <div className="panel site-chrome-preview-panel">
+            <div className="panel-head compact site-chrome-panel-head">
+              <div>
+                <span className="eyebrow">Live Preview</span>
+                <h2>{config.title}</h2>
+              </div>
+              <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{isSavedStatus ? "Published" : "Draft"}</span>
+            </div>
+
+            <div className="website-preview website-preview-html site-chrome-preview">
+              <div className="preview-html-head site-chrome-preview-head">
+                <div>
+                  <span className="eyebrow">Snippet Canvas</span>
+                  <h3>{config.title}</h3>
+                </div>
+                <small>{sourcePath}</small>
+              </div>
+              <iframe title={`${config.title} preview`} srcDoc={buildSiteChromePreviewDocument(kind, snippetHtml)} sandbox="" />
+            </div>
+          </div>
         </div>
       </div>
     </section>
