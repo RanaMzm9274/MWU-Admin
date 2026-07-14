@@ -1459,16 +1459,17 @@ button:disabled {
 }
 
 .page-editor-html-shell {
-  min-height: calc(100vh - 118px);
-  padding-top: 0;
-  padding-bottom: 24px;
+  min-height: 100vh;
+  padding: 0;
+  gap: 0;
 }
 
 .page-editor-html-frame-panel {
   min-height: 0;
-  height: calc(100vh - 170px);
+  height: 100vh;
   padding: 0;
   overflow: hidden;
+  border-radius: 0;
 }
 
 .page-editor-html-frame {
@@ -4692,11 +4693,11 @@ button:disabled {
   }
 
   .page-editor-html-shell {
-    min-height: calc(100vh - 102px);
+    min-height: 100vh;
   }
 
   .page-editor-html-frame-panel {
-    height: calc(100vh - 154px);
+    height: 100vh;
   }
 
   .view-header {

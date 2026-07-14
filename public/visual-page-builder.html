@@ -161,6 +161,14 @@
   .preset-swatch.active{ border-color: var(--gold-500); }
 
   .spacing-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .dimension-stack{display:grid;gap:10px}
+  .slider-unit-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center}
+  .field-select.unit-value-select{width:auto;min-width:64px;max-width:74px;padding:4px 20px 4px 8px;font-size:11px;font-weight:800;line-height:1.1;border-radius:999px;background:#fff7e6}
+  .linked-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .linked-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .clip-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink-600)}
+  .clip-toggle.active{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
+  .quad-field label{font-size:10px;font-weight:700;color:var(--ink-400);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px}
   .spacing-field label{ font-size:10px; font-weight:700; color: var(--ink-400); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:5px; }
   .stepper-field{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
   .stepper-field input{width:100%;border:none;outline:none;padding:8px 10px;font-size:12.5px;background:transparent}
@@ -181,7 +189,7 @@
   .switch input:checked + .switch-track::before{ transform: translateX(16px); }
 
   /* ============ CANVAS ============ */
-  .canvas-area{ flex:1; overflow-y:auto; overflow-x:hidden; background: var(--bg); padding: 34px 30px 100px; display:flex; justify-content:center; }
+  .canvas-area{ flex:1; overflow-y:auto; overflow-x:hidden; background:#ffffff; padding: 34px 30px 100px; display:flex; justify-content:center; }
   .canvas-page{
     width:100%; max-width:1180px; background:#fff; border-radius:14px; box-shadow: var(--shadow-md);
     min-height:600px; transition: max-width .25s ease; padding: 0; position:relative;
@@ -189,14 +197,15 @@
   .canvas-page.tablet{ max-width:760px; }
   .canvas-page.mobile{ max-width:380px; }
 
-  .drop-zone{ height:8px; margin:2px 0; border-radius:6px; transition:.13s ease; position:relative; }
-  .drop-zone.active-zone{ height:44px; background: var(--gold-050); border:1.5px dashed var(--gold-500); display:flex; align-items:center; justify-content:center; }
+  .drop-zone{ height:0; margin:0; border-radius:6px; transition:.13s ease; position:relative; overflow:hidden; }
+  .drop-zone.active-zone{ height:44px; background: var(--gold-050); border:1.5px dashed var(--gold-500); display:flex; align-items:center; justify-content:center; overflow:visible; }
   .drop-zone.active-zone::after{ content:'Drop widget here'; font-size:11px; font-weight:700; color: var(--gold-600); }
+  body.dragging-builder .drop-zone{ height:14px; margin:3px 0; background:rgba(201,154,59,0.08); border:1px dashed rgba(201,154,59,0.28); overflow:visible; }
 
   .el-wrap{ position:relative; border:1.5px solid transparent; border-radius:8px; transition:.1s ease; cursor:pointer; }
   .el-wrap:hover{ border-color: rgba(201,154,59,0.45); }
   .el-wrap.selected{ border-color: var(--gold-500); }
-  .el-wrap .el-inner{ padding: 18px 22px; }
+  .el-wrap .el-inner{ padding: 0; }
   .el-wrap.dragging-el{ opacity:.35; }
   .el-wrap.device-hidden .el-inner{ opacity:.32; filter:grayscale(.4); }
   .hidden-badge{
@@ -220,13 +229,24 @@
   .el-controls button svg{ width:12px; height:12px; }
   .el-controls .drag-grip{ cursor:grab; }
 
-  .el-label{ position:absolute; top:-13px; left:8px; background: var(--gold-500); color: var(--navy-900); font-size:9.5px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; padding:3px 8px; border-radius:5px; display:none; z-index:5; }
-  .el-wrap:hover .el-label, .el-wrap.selected .el-label{ display:block; }
+  .el-label{ display:none !important; }
 
   .canvas-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:560px; color: var(--ink-400); text-align:center; padding:40px; }
   .canvas-empty svg{ width:44px; height:44px; color: var(--line); margin-bottom:16px; }
   .canvas-empty h3{ font-family:'Fraunces', serif; font-size:19px; font-weight:600; color: var(--ink-600); margin-bottom:6px; }
   .canvas-empty p{ font-size:12.5px; max-width:280px; line-height:1.6; }
+  .container-shell{min-height:84px;border:1.5px dashed #d9dfeb;border-radius:12px;background:rgba(248,250,252,0.92)}
+  .container-shell.is-row{display:flex;flex-direction:row;align-items:stretch;flex-wrap:nowrap}
+  .container-shell.is-column{display:flex;flex-direction:column}
+  .container-shell > .container-empty{padding:18px;font-size:11.5px;color:var(--ink-400);text-align:center}
+  .container-children{min-height:48px}
+  .container-children > .drop-zone{margin:0}
+  .container-children > .el-wrap{margin:0}
+  .container-shell.is-row .container-children > .drop-zone{width:0;min-width:0;height:auto;align-self:stretch}
+  body.dragging-builder .container-shell.is-row .container-children > .drop-zone{width:14px;min-width:14px;height:auto;margin:0 3px}
+  .container-shell.is-row .container-children > .drop-zone.active-zone{width:18px;min-width:18px;margin:0 4px}
+  .container-shell.is-column .container-children > .drop-zone{width:100%}
+  .container-shell.is-column .container-children > .drop-zone.active-zone{margin:4px 0}
 
   /* preview mode: hide all editor chrome */
   body.preview-mode .side-panel{ display:none; }
@@ -495,17 +515,17 @@ const IMAGE_PRESETS = [
   "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=600&auto=format&fit=crop",
 ];
 
-function defaultBox(){ return { bg:'transparent', borderWidth:0, borderColor:'#E4E7ED', borderStyle:'solid', borderRadius:0, shadow:false, height:0, minHeight:0 }; }
-function defaultAdvanced(){ return { marginTop:0, marginRight:0, marginBottom:0, marginLeft:0, paddingTop:0, paddingBottom:0, paddingLeft:0, paddingRight:0, cssId:'', cssClasses:'', customCss:'', zIndex:'', opacity:100, hideDesktop:false, hideTablet:false, hideMobile:false, animation:'none' }; }
+function defaultBox(){ return { bg:'transparent', bgImage:'', bgSize:'cover', bgPosition:'center center', borderWidth:0, borderTopWidth:0, borderRightWidth:0, borderBottomWidth:0, borderLeftWidth:0, borderWidthLinked:true, borderColor:'#E4E7ED', borderStyle:'solid', borderRadius:0, borderTopLeftRadius:0, borderTopRightRadius:0, borderBottomRightRadius:0, borderBottomLeftRadius:0, borderRadiusLinked:true, shadow:false, shadowTop:0, shadowRight:0, shadowBottom:0, shadowLeft:0, shadowLinked:true, shadowBlur:18, shadowSpread:0, shadowColor:'rgba(15,23,42,0.16)', width:0, widthUnit:'px', height:0, heightUnit:'px', minHeight:0, minHeightUnit:'px', displayMode:'block', flexGrow:0 }; }
+function defaultAdvanced(){ return { marginTop:0, marginRight:0, marginBottom:0, marginLeft:0, marginLinked:true, paddingTop:0, paddingBottom:0, paddingLeft:0, paddingRight:0, paddingLinked:true, cssId:'', cssClasses:'', customCss:'', zIndex:'', opacity:100, hideDesktop:false, hideTablet:false, hideMobile:false, animation:'none' }; }
 
 function defaultsFor(type){
   let base;
   switch(type){
     case 'heading': base = { content:{ text:"Add Your Heading Text Here", tag:"h2" }, style:{ fontSize:32, fontWeight:"700", color:"#161D2B", align:"left", letterSpacing:0, transform:"none" } }; break;
     case 'text': base = { content:{ text:"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent nec metus in sapien sagittis pharetra." }, style:{ fontSize:15, lineHeight:1.7, color:"#4B5468", align:"left", letterSpacing:0 } }; break;
-    case 'image': base = { content:{ src:IMAGE_PRESETS[0], alt:"Descriptive image alt text" }, style:{ width:100, radius:12, align:"left" } }; break;
+    case 'image': base = { content:{ src:IMAGE_PRESETS[0], alt:"Descriptive image alt text" }, style:{ width:100, widthUnit:'%', height:0, heightUnit:'px', fit:'cover', radius:12, align:"left" } }; break;
     case 'button': base = { content:{ text:"Learn More", link:"#" }, style:{ bg:"#C99A3B", color:"#0B1830", radius:8, size:"md", align:"left", borderWidth:0, borderColor:"#0B1830" } }; break;
-    case 'icon-box': base = { content:{ icon:"starIcon", title:"Feature Title", text:"A short description of this feature or benefit goes here." }, style:{ iconColor:"#C99A3B", iconBg:"#F6EDDB", align:"left", iconSize:52 } }; break;
+    case 'icon-box': base = { content:{ icon:"starIcon", title:"Feature Title", text:"A short description of this feature or benefit goes here." }, style:{ iconColor:"#C99A3B", iconBg:"#F6EDDB", iconBorderColor:"#F6D38A", iconBorderWidth:0, iconRadius:14, titleColor:"#161D2B", textColor:"#4B5468", align:"left", iconSize:52, titleSize:17, textSize:13, gap:14 } }; break;
     case 'list': base = { content:{ items:"Accredited undergraduate and graduate programs\nModern research facilities and laboratories\nDedicated academic and career advising" }, style:{ color:"#161D2B", fontSize:14, markerColor:"#C99A3B", gap:9 } }; break;
     case 'testimonial': base = { content:{ quote:"The research center gave me hands-on experience I couldn't have found anywhere else.", name:"Selam Tesfaye", role:"MSc Public Health, Class of 2025" }, style:{ accent:"#C99A3B", bg:"#FBF6EB", radius:14 } }; break;
     case 'columns': base = { content:{ left:"Column content goes here. Use this space to describe a feature, service, or idea in more detail.", right:"A second column sits alongside the first, ideal for comparisons or paired content blocks." }, style:{ gap:24, bg:"#FFFFFF" } }; break;
@@ -526,7 +546,7 @@ let elements = [
   Object.assign({ id: uid(), type:'text' }, defaultsFor('text'), { content:{ text:"A multidisciplinary hub for applied research in public health, agriculture, and rural development — supporting Madda Walabu University's mission across South-East Ethiopia." } }),
   Object.assign({ id: uid(), type:'button' }, defaultsFor('button'), { content:{ text:"Explore Research Areas", link:"/research-areas" } }),
   Object.assign({ id: uid(), type:'spacer' }, defaultsFor('spacer')),
-  Object.assign({ id: uid(), type:'columns' }, defaultsFor('columns')),
+  createColumnsElement(),
 ];
 let selectedId = null;
 let currentDevice = 'desktop';
@@ -537,12 +557,87 @@ let dragPayload = null; // { kind:'new', widgetType } or { kind:'move', id }
 function uid(){ return 'el_' + Math.random().toString(36).slice(2,10); }
 function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function nl2li(s){ return (s||'').split('\n').map(x=>x.trim()).filter(Boolean); }
+function genericIconOptions(){ return [['check','Check'],['starIcon','Star'],['shieldIcon','Shield'],['bookIcon','Book'],['usersIcon','Users'],['heartIcon','Heart'],['globeIcon','Globe']]; }
+function normalizeListItemsData(content = {}, style = {}){
+  const existing = Array.isArray(content.listItemsData) ? content.listItemsData : [];
+  const fallback = nl2li(content.items).map((text) => ({
+    text,
+    icon: 'check',
+    iconColor: style.markerColor || '#C99A3B',
+    textColor: style.color || '#161D2B',
+    fontSize: style.fontSize || 14
+  }));
+  return (existing.length ? existing : fallback).map((item) => ({
+    text: item.text || '',
+    icon: item.icon || 'check',
+    iconColor: item.iconColor || style.markerColor || '#C99A3B',
+    textColor: item.textColor || style.color || '#161D2B',
+    fontSize: Number(item.fontSize || style.fontSize || 14)
+  }));
+}
+function normalizeSocialItemsData(content = {}, style = {}){
+  const existing = Array.isArray(content.socialItemsData) ? content.socialItemsData : [];
+  const fallback = parsePairs(content.links).map(([name,url]) => ({
+    label: name,
+    url,
+    icon: String(name || '').toLowerCase(),
+    bg: style.bg || '#0B1830',
+    color: style.color || '#FFFFFF',
+    size: Number(style.size || 38)
+  }));
+  return (existing.length ? existing : fallback).map((item) => ({
+    label: item.label || 'Social',
+    url: item.url || '#',
+    icon: item.icon || String(item.label || '').toLowerCase(),
+    bg: item.bg || style.bg || '#0B1830',
+    color: item.color || style.color || '#FFFFFF',
+    size: Number(item.size || style.size || 38)
+  }));
+}
+function createColumnChild(label, text=''){
+  const column = Object.assign({ id: uid(), type:'container' }, defaultsFor('container'));
+  column.content = { name: label };
+  column.style = { ...(column.style||{}), flow:'column', gap:0, justify:'flex-start', alignItems:'stretch' };
+  column.box = { ...(column.box||defaultBox()), flexGrow:1, width:0, widthUnit:'px', displayMode:'block' };
+  column.children = text ? [Object.assign({ id: uid(), type:'text' }, defaultsFor('text'), { content:{ text } })] : [];
+  return column;
+}
+function createColumnsElement(leftText='', rightText=''){
+  const row = Object.assign({ id: uid(), type:'container' }, defaultsFor('container'));
+  row.content = { name:'Columns' };
+  row.style = { ...(row.style||{}), flow:'row', gap:5, justify:'flex-start', alignItems:'stretch' };
+  row.box = { ...(row.box||defaultBox()), displayMode:'fullwidth' };
+  row.children = [
+    createColumnChild('Column 1', leftText || 'Column content goes here. Use this space to describe a feature, service, or idea in more detail.'),
+    createColumnChild('Column 2', rightText || 'A second column sits alongside the first, ideal for comparisons or paired content blocks.')
+  ];
+  return row;
+}
+function migrateLegacyColumns(list){
+  return (list||[]).map((el)=>{
+    if(!el || typeof el !== 'object') return el;
+    if(el.type === 'columns'){
+      const migrated = createColumnsElement(el.content?.left || '', el.content?.right || '');
+      migrated.id = el.id || migrated.id;
+      migrated.box = { ...defaultBox(), ...(el.box||{}), displayMode:(el.box&&el.box.displayMode) || 'fullwidth' };
+      migrated.advanced = { ...defaultAdvanced(), ...(el.advanced||{}) };
+      migrated.style = { ...migrated.style, ...(el.style||{}) };
+      if (el.style?.gap == null) {
+        migrated.style.gap = 5;
+      }
+      return migrated;
+    }
+    if(Array.isArray(el.children) && el.children.length) el.children = migrateLegacyColumns(el.children);
+    return el;
+  });
+}
 
 /* ============================================================
    HISTORY
 ============================================================ */
 function pushHistory(){
   history = history.slice(0, historyIndex+1);
+  elements = ensureTreeDefaults(elements);
   history.push(JSON.stringify(elements));
   historyIndex++;
   if(history.length > 40){ history.shift(); historyIndex--; }
@@ -551,7 +646,7 @@ function pushHistory(){
 function undo(){
   if(historyIndex <= 0) return;
   historyIndex--;
-  elements = JSON.parse(history[historyIndex]);
+  elements = ensureTreeDefaults(JSON.parse(history[historyIndex]));
   selectedId = null;
   renderAll();
   updateHistoryButtons();
@@ -560,7 +655,7 @@ function undo(){
 function redo(){
   if(historyIndex >= history.length-1) return;
   historyIndex++;
-  elements = JSON.parse(history[historyIndex]);
+  elements = ensureTreeDefaults(JSON.parse(history[historyIndex]));
   selectedId = null;
   renderAll();
   updateHistoryButtons();
@@ -582,6 +677,9 @@ function showToast(msg){
   toast.innerHTML = svgIcon('check',14) + '<span>'+msg+'</span>';
   stack.appendChild(toast);
   setTimeout(()=> toast.remove(), 3000);
+}
+function setDraggingBuilderState(active){
+  document.body.classList.toggle('dragging-builder', !!active);
 }
 document.body.addEventListener('click', (e)=>{
   const el = e.target.closest('[data-toast]');
@@ -622,8 +720,11 @@ function elementInnerHTML(el){
       return `<${c.tag} style="font-family:'Fraunces',serif; font-weight:${s.fontWeight}; font-size:${s.fontSize}px; color:${s.color}; text-align:${s.align}; line-height:1.22; margin:0; letter-spacing:${s.letterSpacing||0}px; text-transform:${s.transform||'none'};">${escapeHtml(c.text)}</${c.tag}>`;
     case 'text':
       return `<p style="font-size:${s.fontSize}px; color:${s.color}; text-align:${s.align}; line-height:${s.lineHeight}; margin:0; letter-spacing:${s.letterSpacing||0}px;">${escapeHtml(c.text)}</p>`;
-    case 'image':
-      return `<div style="text-align:${s.align};"><img src="${c.src}" alt="${escapeHtml(c.alt)}" style="width:${s.width}%; max-width:100%; border-radius:${s.radius}px; display:inline-block;"></div>`;
+    case 'image': {
+      const imageWidth = `${s.width||100}${s.widthUnit||'%'}`;
+      const imageHeight = (s.height||0) > 0 ? `height:${s.height}${s.heightUnit||'px'};` : '';
+      return `<div style="text-align:${s.align};"><img src="${c.src}" alt="${escapeHtml(c.alt)}" style="width:${imageWidth}; max-width:100%; ${imageHeight}border-radius:${s.radius}px; object-fit:${s.fit||'cover'}; display:inline-block;"></div>`;
+    }
     case 'button': {
       const pad = s.size==='sm' ? '8px 16px' : s.size==='lg' ? '16px 30px' : '12px 24px';
       const fsz = s.size==='sm' ? '12px' : s.size==='lg' ? '16px' : '13.5px';
@@ -633,15 +734,16 @@ function elementInnerHTML(el){
     case 'icon-box': {
       const alignItems = s.align==='left' ? 'flex-start' : s.align==='right' ? 'flex-end' : 'center';
       const isz = s.iconSize || 52;
+      const iconBorder = Number(s.iconBorderWidth||0) > 0 ? `border:${Number(s.iconBorderWidth||0)}px solid ${s.iconBorderColor||'#F6D38A'};` : '';
       return `<div style="text-align:${s.align}; display:flex; flex-direction:column; align-items:${alignItems};">
-        <div style="width:${isz}px;height:${isz}px;border-radius:14px;background:${s.iconBg};color:${s.iconColor};display:flex;align-items:center;justify-content:center;margin-bottom:14px;">${svgIcon(c.icon, Math.round(isz*0.42))}</div>
-        <h4 style="font-family:'Fraunces',serif; font-size:17px; font-weight:600; margin-bottom:6px; color:#161D2B;">${escapeHtml(c.title)}</h4>
-        <p style="font-size:13px; color:#4B5468; line-height:1.6; margin:0; max-width:320px;">${escapeHtml(c.text)}</p>
+        <div style="width:${isz}px;height:${isz}px;border-radius:${Number(s.iconRadius||14)}px;background:${s.iconBg};color:${s.iconColor};display:flex;align-items:center;justify-content:center;margin-bottom:${Number(s.gap||14)}px;${iconBorder}">${svgIcon(c.icon, Math.round(isz*0.42))}</div>
+        <h4 style="font-family:'Fraunces',serif; font-size:${Number(s.titleSize||17)}px; font-weight:600; margin-bottom:6px; color:${s.titleColor||'#161D2B'};">${escapeHtml(c.title)}</h4>
+        <p style="font-size:${Number(s.textSize||13)}px; color:${s.textColor||'#4B5468'}; line-height:1.6; margin:0; max-width:320px;">${escapeHtml(c.text)}</p>
       </div>`;
     }
     case 'list': {
-      const items = nl2li(c.items);
-      return `<ul style="list-style:none; margin:0; padding:0;">${items.map(it=>`<li style="padding:${s.gap||9}px 0; border-bottom:1px solid #EDEFF3; font-size:${s.fontSize}px; color:${s.color}; display:flex; align-items:center; gap:10px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${s.markerColor||'#C99A3B'}" stroke-width="2.6" style="flex-shrink:0;"><path d="M20 6L9 17l-5-5"/></svg>${escapeHtml(it)}</li>`).join('')}</ul>`;
+      const items = normalizeListItemsData(c, s);
+      return `<ul style="list-style:none; margin:0; padding:0;">${items.map(it=>`<li style="padding:${s.gap||9}px 0; border-bottom:1px solid #EDEFF3; font-size:${Number(it.fontSize||s.fontSize||14)}px; color:${it.textColor||s.color}; display:flex; align-items:center; gap:10px;">${genericListIconMarkup(it.icon, it.iconColor||s.markerColor||'#C99A3B')}${escapeHtml(it.text)}</li>`).join('')}</ul>`;
     }
     case 'testimonial': {
       const initials = (c.name||'').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
@@ -675,12 +777,42 @@ function composeWrapStyle(el){
   const mt = a.marginTop ?? 0, mr = a.marginRight ?? 0, mb = a.marginBottom ?? 0, ml = a.marginLeft ?? 0;
   const pt = a.paddingTop ?? 0, pb = a.paddingBottom ?? 0, pl = a.paddingLeft ?? 0, pr = a.paddingRight ?? 0;
   let style = `padding:${pt}px ${pr}px ${pb}px ${pl}px; margin:${mt}px ${mr}px ${mb}px ${ml}px;`;
-  style += `background:${b.bg||'transparent'};`;
-  if(b.borderWidth) style += `border:${b.borderWidth}px ${b.borderStyle||'solid'} ${b.borderColor};`;
-  if(b.borderRadius) style += `border-radius:${b.borderRadius}px;`;
-  if(b.shadow) style += `box-shadow:0 10px 30px rgba(15,23,42,0.12);`;
-  if((b.height||0) > 0) style += `height:${b.height}px;`;
-  if((b.minHeight||0) > 0) style += `min-height:${b.minHeight}px;`;
+  style += `background-color:${b.bg||'transparent'};`;
+  if(b.bgImage) style += `background-image:url('${safeUrl(b.bgImage)}'); background-size:${b.bgSize||'cover'}; background-position:${b.bgPosition||'center center'}; background-repeat:no-repeat;`;
+  const btw = Number(b.borderTopWidth ?? b.borderWidth ?? 0);
+  const brw = Number(b.borderRightWidth ?? b.borderWidth ?? 0);
+  const bbw = Number(b.borderBottomWidth ?? b.borderWidth ?? 0);
+  const blw = Number(b.borderLeftWidth ?? b.borderWidth ?? 0);
+  if(btw || brw || bbw || blw) style += `border-style:${b.borderStyle||'solid'};border-color:${b.borderColor};border-width:${btw}px ${brw}px ${bbw}px ${blw}px;`;
+  const tlr = Number(b.borderTopLeftRadius ?? b.borderRadius ?? 0);
+  const trr = Number(b.borderTopRightRadius ?? b.borderRadius ?? 0);
+  const brr = Number(b.borderBottomRightRadius ?? b.borderRadius ?? 0);
+  const blr = Number(b.borderBottomLeftRadius ?? b.borderRadius ?? 0);
+  if(tlr || trr || brr || blr) style += `border-radius:${tlr}px ${trr}px ${brr}px ${blr}px;`;
+  if(b.shadow) {
+    const shadowColor = b.shadowColor || 'rgba(15,23,42,0.16)';
+    const blur = Number(b.shadowBlur || 18);
+    const spread = Number(b.shadowSpread || 0);
+    const top = Number(b.shadowTop || 0);
+    const right = Number(b.shadowRight || 0);
+    const bottom = Number(b.shadowBottom || 0);
+    const left = Number(b.shadowLeft || 0);
+    const parts = [];
+    if(top) parts.push(`0 ${-top}px ${blur}px ${spread}px ${shadowColor}`);
+    if(right) parts.push(`${right}px 0 ${blur}px ${spread}px ${shadowColor}`);
+    if(bottom) parts.push(`0 ${bottom}px ${blur}px ${spread}px ${shadowColor}`);
+    if(left) parts.push(`${-left}px 0 ${blur}px ${spread}px ${shadowColor}`);
+    if(!parts.length) parts.push(`0 10px 30px 0 ${shadowColor}`);
+    style += `box-shadow:${parts.join(',')};`;
+  }
+  const flexGrow = Number(b.flexGrow || 0);
+  if((b.width||0) > 0) style += `width:${b.width}${(b.widthUnit||'px') === 'wh' ? '%' : (b.widthUnit||'px')};`;
+  if((b.height||0) > 0) style += `height:${b.height}${b.heightUnit||'px'};`;
+  if((b.minHeight||0) > 0) style += `min-height:${b.minHeight}${b.minHeightUnit||'px'};`;
+  if(flexGrow > 0) style += `display:block; flex:${flexGrow} 1 0; width:auto; min-width:0; max-width:100%;`;
+  else if(b.displayMode==='inline') style += `display:inline-block; max-width:100%;`;
+  else if(b.displayMode==='fullwidth') style += `display:block; width:100%;`;
+  else style += `display:block; width:fit-content; max-width:100%;`;
   const opacity = a.opacity!=null ? a.opacity : 100;
   style += `opacity:${opacity/100};`;
   if(a.zIndex) style += `position:relative; z-index:${a.zIndex};`;
@@ -726,7 +858,6 @@ function renderCanvas(){
     const cssClasses = (el.advanced && el.advanced.cssClasses) ? ' ' + el.advanced.cssClasses.trim() : '';
     html += `
       <div class="el-wrap ${selectedId===el.id?'selected':''} ${hidden?'device-hidden':''}" data-id="${el.id}" draggable="true">
-        <div class="el-label">${w.label}</div>
         ${hidden ? `<div class="hidden-badge">Hidden on ${currentDevice}</div>` : ''}
         <div class="el-controls">
           <button class="drag-grip" title="Drag">${svgIcon('drag',12)}</button>
@@ -997,8 +1128,7 @@ function renderContentFields(el){
       html += fieldInput('Role / title', 'testiRole', c.role);
       break;
     case 'columns':
-      html += fieldTextarea('Left column content', 'colLeft', c.left);
-      html += fieldTextarea('Right column content', 'colRight', c.right);
+      html += `<div class="field-hint">Legacy columns are converted into nested containers automatically. Select each column directly to edit its own content and styling.</div>`;
       break;
     case 'divider':
     case 'spacer':
@@ -1037,8 +1167,6 @@ function bindContentEvents(el){
   bind('testiQuote', v=>{ c.quote=v; reRenderElement(el); });
   bind('testiName', v=>{ c.name=v; reRenderElement(el); });
   bind('testiRole', v=>{ c.role=v; reRenderElement(el); });
-  bind('colLeft', v=>{ c.left=v; reRenderElement(el); });
-  bind('colRight', v=>{ c.right=v; reRenderElement(el); });
 
   document.querySelectorAll('.preset-swatch').forEach(sw=>{
     sw.addEventListener('click', ()=>{
@@ -1079,7 +1207,9 @@ function renderStyleFields(el){
       html += alignField('align', s.align, s.verticalAlign||'top');
       break;
     case 'image':
-      html += rangeField('Width', 'width', 20, 100, s.width, '%');
+      html += sliderWithUnitField('Width', 'width', s.width||100, [['px','PX'],['%','PC'],['wh','WH']], s.widthUnit||'%', 0, 100, 1);
+      html += sliderWithUnitField('Height', 'imageHeight', s.height||0, [['px','PX'],['%','PC'],['vh','VH']], s.heightUnit||'px', 0, 100, 1);
+      html += selectField('Fit', 'fit', [['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None']], s.fit||'cover');
       html += rangeField('Corner radius', 'radius', 0, 50, s.radius, 'px');
       html += alignField('align', s.align, s.verticalAlign||'top');
       break;
@@ -1096,6 +1226,14 @@ function renderStyleFields(el){
       html += rangeField('Icon size', 'iconSize', 32, 90, s.iconSize||52, 'px');
       html += colorField('Icon color', 'iconColor', s.iconColor);
       html += colorField('Icon background', 'iconBg', s.iconBg);
+      html += rangeField('Icon radius', 'iconRadius', 0, 40, s.iconRadius||14, 'px');
+      html += rangeField('Icon gap', 'gap', 0, 32, s.gap||14, 'px');
+      html += rangeField('Icon border width', 'iconBorderWidth', 0, 10, s.iconBorderWidth||0, 'px');
+      html += colorField('Icon border color', 'iconBorderColor', s.iconBorderColor||'#F6D38A');
+      html += colorField('Title color', 'titleColor', s.titleColor||'#161D2B');
+      html += colorField('Text color', 'textColor', s.textColor||'#4B5468');
+      html += rangeField('Title size', 'titleSize', 12, 36, s.titleSize||17, 'px');
+      html += rangeField('Text size', 'textSize', 11, 22, s.textSize||13, 'px');
       html += alignField('align', s.align, s.verticalAlign||'top');
       break;
     case 'list':
@@ -1110,8 +1248,7 @@ function renderStyleFields(el){
       html += rangeField('Corner radius', 'radius', 0, 30, s.radius, 'px');
       break;
     case 'columns':
-      html += rangeField('Column gap', 'gap', 0, 60, s.gap, 'px');
-      html += colorField('Background', 'bg', s.bg);
+      html += `<div class="field-hint">Legacy columns use the new nested container system. Select the parent container for row flow and gap, or select each column to style it separately.</div>`;
       break;
     case 'divider':
       html += colorField('Line color', 'color', s.color);
@@ -1134,19 +1271,27 @@ function renderBoxStyleFields(el){
   const b = el.box || defaultBox();
   return `
     <div class="panel-section-label" style="padding:4px 0 10px;">Box style</div>
+    ${selectFieldGeneric('Container style', 'boxDisplayMode', [['block','Block'],['inline','Inline'],['fullwidth','Full width']], b.displayMode||'block')}
+    <div class="panel-section-label" style="padding:4px 0 10px;">Dimensions</div>
+    <div class="dimension-stack">
+      ${sliderWithUnitField('Width', 'boxWidth', b.width||0, [['px','PX'],['%','PC'],['wh','WH']], b.widthUnit||'px', 0, 100, 1)}
+      ${sliderWithUnitField('Height', 'boxHeight', b.height||0, [['px','PX'],['%','PC'],['vh','VH']], b.heightUnit||'px', 0, 100, 1)}
+      ${sliderWithUnitField('Minimum height', 'boxMinHeight', b.minHeight||0, [['px','PX'],['%','PC'],['vh','VH']], b.minHeightUnit||'px', 0, 100, 1)}
+    </div>
     ${colorFieldGeneric('Background', 'boxBg', b.bg==='transparent' ? '#ffffff' : b.bg, 'box')}
-    <div class="field-group"><div class="field-group-label">Border width <span class="val" id="v_boxBorderWidth">${b.borderWidth}px</span></div>
-      <div class="range-row"><input type="range" id="f_boxBorderWidth" min="0" max="10" value="${b.borderWidth}"></div></div>
+    <div class="field-group"><div class="field-group-label">Background image</div>${imageUploadHtml('boxBgImageUpload')}${b.bgImage?`<div class="field-hint" style="margin-top:10px;">Background image selected</div><button type="button" class="btn btn-light" id="clearBoxBgImageBtn" style="margin-top:10px;">Remove image</button>`:`<div class="field-hint" style="margin-top:10px;">Supports all standard browser image types.</div>`}</div>
+    ${linkedQuadField('Border width', 'boxBorderWidth', { top:b.borderTopWidth??b.borderWidth??0, right:b.borderRightWidth??b.borderWidth??0, bottom:b.borderBottomWidth??b.borderWidth??0, left:b.borderLeftWidth??b.borderWidth??0 }, b.borderWidthLinked !== false, 0, 100)}
     ${colorFieldGeneric('Border color', 'boxBorderColor', b.borderColor, 'box')}
     ${selectFieldGeneric('Border style', 'boxBorderStyle', [['solid','Solid'],['dashed','Dashed'],['dotted','Dotted']], b.borderStyle, 'box')}
-    <div class="field-group"><div class="field-group-label">Border radius <span class="val" id="v_boxBorderRadius">${b.borderRadius}px</span></div>
-      <div class="range-row"><input type="range" id="f_boxBorderRadius" min="0" max="40" value="${b.borderRadius}"></div></div>
-    ${stepperField('Height', 'boxHeight', b.height||0, 0, 1200, 1)}
-    ${stepperField('Minimum height', 'boxMinHeight', b.minHeight||0, 0, 1200, 1)}
+    ${linkedQuadField('Border radius', 'boxBorderRadius', { top:b.borderTopLeftRadius??b.borderRadius??0, right:b.borderTopRightRadius??b.borderRadius??0, bottom:b.borderBottomRightRadius??b.borderRadius??0, left:b.borderBottomLeftRadius??b.borderRadius??0 }, b.borderRadiusLinked !== false, 0, 200)}
     <div class="toggle-row">
       <label>Box shadow</label>
       <div class="switch"><input type="checkbox" id="f_boxShadow" ${b.shadow?'checked':''}><div class="switch-track"></div></div>
     </div>
+    ${linkedQuadField('Shadow sides', 'boxShadow', { top:b.shadowTop||0, right:b.shadowRight||0, bottom:b.shadowBottom||0, left:b.shadowLeft||0 }, b.shadowLinked !== false, 0, 100)}
+    ${rangeField('Shadow blur', 'boxShadowBlur', 0, 80, b.shadowBlur||18, 'px')}
+    ${rangeField('Shadow spread', 'boxShadowSpread', -40, 40, b.shadowSpread||0, 'px')}
+    ${colorFieldGeneric('Shadow color', 'boxShadowColor', b.shadowColor||'#0f172a')}
   `;
 }
 function colorFieldGeneric(label, id, value){
@@ -1160,6 +1305,25 @@ function selectFieldGeneric(label, id, options, value){
 function bindBoxStyleEvents(el){
   el.box = el.box || defaultBox();
   const b = el.box;
+  const displayMode = document.getElementById('f_boxDisplayMode');
+  if(displayMode){
+    displayMode.addEventListener('change', ()=>{ b.displayMode = displayMode.value; reRenderElement(el); pushHistory(); });
+  }
+  const widthUnit = document.getElementById('f_boxWidthUnit');
+  if(widthUnit){
+    syncUnitValueSelect(widthUnit, b.width||0);
+    widthUnit.addEventListener('change', ()=>{ b.widthUnit = widthUnit.value; syncUnitValueSelect(widthUnit, b.width||0); reRenderElement(el); pushHistory(); });
+  }
+  const heightUnit = document.getElementById('f_boxHeightUnit');
+  if(heightUnit){
+    syncUnitValueSelect(heightUnit, b.height||0);
+    heightUnit.addEventListener('change', ()=>{ b.heightUnit = heightUnit.value; syncUnitValueSelect(heightUnit, b.height||0); reRenderElement(el); pushHistory(); });
+  }
+  const minHeightUnit = document.getElementById('f_boxMinHeightUnit');
+  if(minHeightUnit){
+    syncUnitValueSelect(minHeightUnit, b.minHeight||0);
+    minHeightUnit.addEventListener('change', ()=>{ b.minHeightUnit = minHeightUnit.value; syncUnitValueSelect(minHeightUnit, b.minHeight||0); reRenderElement(el); pushHistory(); });
+  }
   const bgC = document.getElementById('f_boxBg'), bgT = document.getElementById('t_boxBg');
   if(bgC){
     bgC.addEventListener('input', ()=>{ b.bg = bgC.value; bgT.value = bgC.value; reRenderElement(el); });
@@ -1167,33 +1331,121 @@ function bindBoxStyleEvents(el){
     bgT.addEventListener('input', ()=>{ b.bg = bgT.value; if(/^#[0-9A-Fa-f]{6}$/.test(bgT.value)) bgC.value = bgT.value; reRenderElement(el); });
     bgT.addEventListener('blur', ()=> pushHistory());
   }
-  const bw = document.getElementById('f_boxBorderWidth');
-  bw.addEventListener('input', ()=>{ b.borderWidth = parseInt(bw.value); document.getElementById('v_boxBorderWidth').textContent = bw.value+'px'; reRenderElement(el); });
-  bw.addEventListener('change', ()=> pushHistory());
-
+  bindImageUpload('boxBgImageUpload', src=>{ b.bgImage = src; reRenderElement(el); renderStyleFields(el); });
+  const clearBoxBgImageBtn = document.getElementById('clearBoxBgImageBtn');
+  if(clearBoxBgImageBtn){
+    clearBoxBgImageBtn.addEventListener('click', ()=>{
+      b.bgImage = '';
+      reRenderElement(el);
+      renderStyleFields(el);
+      pushHistory();
+    });
+  }
   const bc = document.getElementById('f_boxBorderColor'), bcT = document.getElementById('t_boxBorderColor');
   bc.addEventListener('input', ()=>{ b.borderColor = bc.value; bcT.value = bc.value; reRenderElement(el); });
   bc.addEventListener('change', ()=> pushHistory());
   bcT.addEventListener('input', ()=>{ b.borderColor = bcT.value; if(/^#[0-9A-Fa-f]{6}$/.test(bcT.value)) bc.value = bcT.value; reRenderElement(el); });
   bcT.addEventListener('blur', ()=> pushHistory());
 
+  const sc = document.getElementById('f_boxShadowColor'), scT = document.getElementById('t_boxShadowColor');
+  if(sc){
+    sc.addEventListener('input', ()=>{ b.shadowColor = sc.value; scT.value = sc.value; reRenderElement(el); });
+    sc.addEventListener('change', ()=> pushHistory());
+    scT.addEventListener('input', ()=>{ b.shadowColor = scT.value; if(/^#[0-9A-Fa-f]{6}$/.test(scT.value)) sc.value = scT.value; reRenderElement(el); });
+    scT.addEventListener('blur', ()=> pushHistory());
+  }
+
   const bs = document.getElementById('f_boxBorderStyle');
   bs.addEventListener('change', ()=>{ b.borderStyle = bs.value; reRenderElement(el); pushHistory(); });
 
-  const br = document.getElementById('f_boxBorderRadius');
-  br.addEventListener('input', ()=>{ b.borderRadius = parseInt(br.value); document.getElementById('v_boxBorderRadius').textContent = br.value+'px'; reRenderElement(el); });
-  br.addEventListener('change', ()=> pushHistory());
-
-  wireStepperControl('f_boxHeight', value=>{ b.height = value; reRenderElement(el); });
-  wireStepperControl('f_boxMinHeight', value=>{ b.minHeight = value; reRenderElement(el); });
+  const boxWidth = document.getElementById('f_boxWidth');
+  if(boxWidth){
+    boxWidth.addEventListener('input', ()=>{ b.width = Number(boxWidth.value)||0; syncUnitValueSelect(widthUnit, b.width); reRenderElement(el); });
+    boxWidth.addEventListener('change', ()=> pushHistory());
+  }
+  const boxHeight = document.getElementById('f_boxHeight');
+  if(boxHeight){
+    boxHeight.addEventListener('input', ()=>{ b.height = Number(boxHeight.value)||0; syncUnitValueSelect(heightUnit, b.height); reRenderElement(el); });
+    boxHeight.addEventListener('change', ()=> pushHistory());
+  }
+  const boxMinHeight = document.getElementById('f_boxMinHeight');
+  if(boxMinHeight){
+    boxMinHeight.addEventListener('input', ()=>{ b.minHeight = Number(boxMinHeight.value)||0; syncUnitValueSelect(minHeightUnit, b.minHeight); reRenderElement(el); });
+    boxMinHeight.addEventListener('change', ()=> pushHistory());
+  }
 
   const shadow = document.getElementById('f_boxShadow');
   shadow.addEventListener('change', ()=>{ b.shadow = shadow.checked; reRenderElement(el); pushHistory(); });
+  const shadowBlur = document.getElementById('f_boxShadowBlur');
+  if(shadowBlur){
+    shadowBlur.addEventListener('input', ()=>{ b.shadowBlur = Number(shadowBlur.value)||0; const label=document.getElementById('v_boxShadowBlur'); if(label) label.textContent = `${b.shadowBlur}px`; reRenderElement(el); });
+    shadowBlur.addEventListener('change', ()=> pushHistory());
+  }
+  const shadowSpread = document.getElementById('f_boxShadowSpread');
+  if(shadowSpread){
+    shadowSpread.addEventListener('input', ()=>{ b.shadowSpread = Number(shadowSpread.value)||0; const label=document.getElementById('v_boxShadowSpread'); if(label) label.textContent = `${b.shadowSpread}px`; reRenderElement(el); });
+    shadowSpread.addEventListener('change', ()=> pushHistory());
+  }
+
+  const syncLinkedBox = (prefix, propPrefix, linkedKey, fields) => {
+    const toggle = document.getElementById(`${prefix}Linked`);
+    const inputs = fields.map((field) => document.getElementById(`${prefix}${field}`)).filter(Boolean);
+    const propNames = prefix === 'boxBorderRadius'
+      ? ['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius']
+      : prefix === 'boxShadow'
+        ? ['shadowTop','shadowRight','shadowBottom','shadowLeft']
+        : ['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'];
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        b[linkedKey] = !b[linkedKey];
+        toggle.classList.toggle('active', b[linkedKey]);
+        toggle.textContent = b[linkedKey] ? 'Clip' : 'Free';
+        pushHistory();
+      });
+    }
+    inputs.forEach((input, index) => {
+      input.addEventListener('input', () => {
+        const value = Number(input.value) || 0;
+        if (b[linkedKey] !== false) {
+          inputs.forEach((node) => { node.value = String(value); });
+          propNames.forEach((prop) => { b[prop] = value; });
+          b[propPrefix] = value;
+        } else {
+          b[propNames[index]] = value;
+        }
+        reRenderElement(el);
+      });
+      input.addEventListener('change', ()=> pushHistory());
+    });
+  };
+  syncLinkedBox('boxBorderWidth', 'borderWidth', 'borderWidthLinked', ['Top','Right','Bottom','Left']);
+  syncLinkedBox('boxBorderRadius', 'borderRadius', 'borderRadiusLinked', ['Top','Right','Bottom','Left']);
+  syncLinkedBox('boxShadow', 'shadow', 'shadowLinked', ['Top','Right','Bottom','Left']);
 }
 
 function rangeField(label, id, min, max, value, unit='', step=1){
   return `<div class="field-group"><div class="field-group-label">${label} <span class="val" id="v_${id}">${value}${unit}</span></div>
     <div class="range-row"><input type="range" id="f_${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div></div>`;
+}
+function sliderWithUnitField(label, id, value, options, selectedUnit, min=0, max=100, step=1){
+  return `<div class="field-group"><div class="field-group-label">${label}<select class="field-select unit-value-select" id="f_${id}Unit">${options.map(([v])=>`<option value="${v}" ${v===selectedUnit?'selected':''}>${value}${v}</option>`).join('')}</select></div>
+    <div class="slider-unit-row">
+      <div class="range-row"><input type="range" id="f_${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div>
+    </div></div>`;
+}
+function simpleNumberField(label, id, value, min=-999, max=999, step=1){
+  return `<div class="quad-field"><label>${label}</label><input class="field-input" id="${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
+}
+function linkedQuadField(title, prefix, values, linked=true, min=0, max=200){
+  return `<div class="field-group">
+    <div class="linked-head"><div class="field-group-label" style="margin-bottom:0;">${title}</div><button type="button" class="clip-toggle ${linked?'active':''}" id="${prefix}Linked">${linked?'Clip':'Free'}</button></div>
+    <div class="linked-grid">
+      ${simpleNumberField('Top', `${prefix}Top`, values.top, min, max)}
+      ${simpleNumberField('Right', `${prefix}Right`, values.right, min, max)}
+      ${simpleNumberField('Bottom', `${prefix}Bottom`, values.bottom, min, max)}
+      ${simpleNumberField('Left', `${prefix}Left`, values.left, min, max)}
+    </div>
+  </div>`;
 }
 function stepperField(label, id, value, min=-999, max=999, step=1){
   return `<div class="field-group"><div class="field-group-label">${label}</div><div class="stepper-field"><input class="field-input" id="f_${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><div class="stepper-buttons"><button type="button" data-step-target="f_${id}" data-step-delta="1">+</button><button type="button" data-step-target="f_${id}" data-step-delta="-1">-</button></div></div></div>`;
@@ -1240,11 +1492,17 @@ function wireStepperControl(inputId, onChange){
     });
   });
 }
+function syncUnitValueSelect(select, value){
+  if(!select) return;
+  Array.from(select.options).forEach(option=>{
+    option.textContent = `${value}${option.value}`;
+  });
+}
 
 function bindStyleEvents(el){
   const s = el.style;
   // ranges
-  ['fontSize','lineHeight','width','radius','thickness','gap','height','letterSpacing','iconSize','borderWidth'].forEach(key=>{
+  ['fontSize','lineHeight','radius','thickness','gap','height','letterSpacing','iconSize','borderWidth','iconRadius','iconBorderWidth','titleSize','textSize'].forEach(key=>{
     const node = document.getElementById('f_'+key);
     if(!node) return;
     node.addEventListener('input', ()=>{
@@ -1259,7 +1517,7 @@ function bindStyleEvents(el){
   });
 
   // colors
-  ['color','bg','iconColor','iconBg','accent','markerColor','borderColor'].forEach(key=>{
+  ['color','bg','iconColor','iconBg','accent','markerColor','borderColor','iconBorderColor','titleColor','textColor'].forEach(key=>{
     const cnode = document.getElementById('f_'+key);
     const tnode = document.getElementById('t_'+key);
     if(!cnode) return;
@@ -1270,11 +1528,50 @@ function bindStyleEvents(el){
   });
 
   // selects
-  ['fontWeight','size','transform','lineStyle'].forEach(key=>{
+  ['fontWeight','size','transform','lineStyle','fit'].forEach(key=>{
     const node = document.getElementById('f_'+key);
     if(!node) return;
     node.addEventListener('change', ()=>{ s[key]=node.value; reRenderElement(el); pushHistory(); });
   });
+
+  const widthSlider = document.getElementById('f_width');
+  const widthUnit = document.getElementById('f_widthUnit');
+  if(widthUnit) syncUnitValueSelect(widthUnit, s.width||0);
+  if(widthSlider){
+    widthSlider.addEventListener('input', ()=>{
+      s.width = Number(widthSlider.value)||0;
+      syncUnitValueSelect(widthUnit, s.width);
+      reRenderElement(el);
+    });
+    widthSlider.addEventListener('change', ()=> pushHistory());
+  }
+  if(widthUnit){
+    widthUnit.addEventListener('change', ()=>{
+      s.widthUnit = widthUnit.value;
+      syncUnitValueSelect(widthUnit, s.width||0);
+      reRenderElement(el);
+      pushHistory();
+    });
+  }
+  const imageHeight = document.getElementById('f_imageHeight');
+  const imageHeightUnit = document.getElementById('f_imageHeightUnit');
+  if(imageHeightUnit) syncUnitValueSelect(imageHeightUnit, s.height||0);
+  if(imageHeight){
+    imageHeight.addEventListener('input', ()=>{
+      s.height = Number(imageHeight.value)||0;
+      syncUnitValueSelect(imageHeightUnit, s.height);
+      reRenderElement(el);
+    });
+    imageHeight.addEventListener('change', ()=> pushHistory());
+  }
+  if(imageHeightUnit){
+    imageHeightUnit.addEventListener('change', ()=>{
+      s.heightUnit = imageHeightUnit.value;
+      syncUnitValueSelect(imageHeightUnit, s.height||0);
+      reRenderElement(el);
+      pushHistory();
+    });
+  }
 
   // align button group
   const alignGroupH = document.getElementById('f_align_h');
@@ -1310,24 +1607,8 @@ function renderAdvancedFields(el){
   const a = el.advanced;
   box.innerHTML = `
     <div class="panel-section-label" style="padding:0 0 10px;">Spacing</div>
-    <div class="field-group">
-      <div class="field-group-label">Margin</div>
-      <div class="spacing-grid">
-        <div class="spacing-field"><label>Top</label><div class="stepper-field"><input class="field-input" id="a_marginTop" type="number" min="-200" max="200" step="1" value="${a.marginTop}"><div class="stepper-buttons"><button type="button" data-step-target="a_marginTop" data-step-delta="1">+</button><button type="button" data-step-target="a_marginTop" data-step-delta="-1">-</button></div></div></div>
-        <div class="spacing-field"><label>Right</label><div class="stepper-field"><input class="field-input" id="a_marginRight" type="number" min="-200" max="200" step="1" value="${a.marginRight||0}"><div class="stepper-buttons"><button type="button" data-step-target="a_marginRight" data-step-delta="1">+</button><button type="button" data-step-target="a_marginRight" data-step-delta="-1">-</button></div></div></div>
-        <div class="spacing-field"><label>Bottom</label><div class="stepper-field"><input class="field-input" id="a_marginBottom" type="number" min="-200" max="200" step="1" value="${a.marginBottom}"><div class="stepper-buttons"><button type="button" data-step-target="a_marginBottom" data-step-delta="1">+</button><button type="button" data-step-target="a_marginBottom" data-step-delta="-1">-</button></div></div></div>
-        <div class="spacing-field"><label>Left</label><div class="stepper-field"><input class="field-input" id="a_marginLeft" type="number" min="-200" max="200" step="1" value="${a.marginLeft||0}"><div class="stepper-buttons"><button type="button" data-step-target="a_marginLeft" data-step-delta="1">+</button><button type="button" data-step-target="a_marginLeft" data-step-delta="-1">-</button></div></div></div>
-      </div>
-    </div>
-    <div class="field-group">
-      <div class="field-group-label">Padding</div>
-      <div class="spacing-grid">
-        <div class="spacing-field"><label>Top</label><div class="stepper-field"><input class="field-input" id="a_paddingTop" type="number" min="0" max="200" step="1" value="${a.paddingTop}"><div class="stepper-buttons"><button type="button" data-step-target="a_paddingTop" data-step-delta="1">+</button><button type="button" data-step-target="a_paddingTop" data-step-delta="-1">-</button></div></div></div>
-        <div class="spacing-field"><label>Right</label><div class="stepper-field"><input class="field-input" id="a_paddingRight" type="number" min="0" max="200" step="1" value="${a.paddingRight}"><div class="stepper-buttons"><button type="button" data-step-target="a_paddingRight" data-step-delta="1">+</button><button type="button" data-step-target="a_paddingRight" data-step-delta="-1">-</button></div></div></div>
-        <div class="spacing-field"><label>Bottom</label><div class="stepper-field"><input class="field-input" id="a_paddingBottom" type="number" min="0" max="200" step="1" value="${a.paddingBottom}"><div class="stepper-buttons"><button type="button" data-step-target="a_paddingBottom" data-step-delta="1">+</button><button type="button" data-step-target="a_paddingBottom" data-step-delta="-1">-</button></div></div></div>
-        <div class="spacing-field"><label>Left</label><div class="stepper-field"><input class="field-input" id="a_paddingLeft" type="number" min="0" max="200" step="1" value="${a.paddingLeft}"><div class="stepper-buttons"><button type="button" data-step-target="a_paddingLeft" data-step-delta="1">+</button><button type="button" data-step-target="a_paddingLeft" data-step-delta="-1">-</button></div></div></div>
-      </div>
-    </div>
+    ${linkedQuadField('Margin', 'a_margin', { top:a.marginTop||0, right:a.marginRight||0, bottom:a.marginBottom||0, left:a.marginLeft||0 }, a.marginLinked !== false, -200, 200)}
+    ${linkedQuadField('Padding', 'a_padding', { top:a.paddingTop||0, right:a.paddingRight||0, bottom:a.paddingBottom||0, left:a.paddingLeft||0 }, a.paddingLinked !== false, 0, 200)}
 
     <div class="panel-section-label" style="padding:6px 0 10px;">Layout</div>
     <div class="field-group"><div class="field-group-label">Opacity <span class="val" id="v_opacity">${a.opacity}%</span></div>
@@ -1370,9 +1651,34 @@ function renderAdvancedFields(el){
     </div>
   `;
 
-  ['marginTop','marginRight','marginBottom','marginLeft','paddingTop','paddingRight','paddingBottom','paddingLeft'].forEach(key=>{
-    wireStepperControl('a_'+key, value=>{ a[key]=value; reRenderElement(el); });
-  });
+  const bindLinkedSpacing = (prefix, propBase, linkedKey) => {
+    const toggle = document.getElementById(`${prefix}Linked`);
+    const fields = ['Top','Right','Bottom','Left'].map((side) => document.getElementById(`${prefix}${side}`));
+    const propNames = [`${propBase}Top`,`${propBase}Right`,`${propBase}Bottom`,`${propBase}Left`];
+    if (toggle) {
+      toggle.addEventListener('click', ()=> {
+        a[linkedKey] = !a[linkedKey];
+        toggle.classList.toggle('active', a[linkedKey]);
+        toggle.textContent = a[linkedKey] ? 'Clip' : 'Free';
+        pushHistory();
+      });
+    }
+    fields.forEach((field, index) => {
+      field.addEventListener('input', ()=> {
+        const value = Number(field.value) || 0;
+        if (a[linkedKey] !== false) {
+          fields.forEach((node) => { node.value = String(value); });
+          propNames.forEach((prop) => { a[prop] = value; });
+        } else {
+          a[propNames[index]] = value;
+        }
+        reRenderElement(el);
+      });
+      field.addEventListener('change', ()=> pushHistory());
+    });
+  };
+  bindLinkedSpacing('a_margin', 'margin', 'marginLinked');
+  bindLinkedSpacing('a_padding', 'padding', 'paddingLinked');
 
   const opacityNode = document.getElementById('a_opacity');
   opacityNode.addEventListener('input', ()=>{ a.opacity = parseInt(opacityNode.value); document.getElementById('v_opacity').textContent = a.opacity+'%'; reRenderElement(el); });
@@ -1461,6 +1767,7 @@ Object.assign(ICONS, {
 
 WIDGETS.forEach(w=>w.category = ['heading','text','image','button','divider','spacer'].includes(w.type) ? 'Basic' : ['columns'].includes(w.type) ? 'Layout' : 'Content');
 WIDGETS.push(
+  {type:'container',label:'Container',icon:'columns',category:'Layout'},
   {type:'section',label:'Hero Section',icon:'section',category:'Layout'},
   {type:'video',label:'Video',icon:'video',category:'Media'},
   {type:'gallery',label:'Gallery',icon:'gallery',category:'Media'},
@@ -1490,6 +1797,7 @@ const _defaultsFor = defaultsFor;
 defaultsFor = function(type){
   let base;
   switch(type){
+    case 'container': base={content:{name:'Container'},style:{flow:'column',gap:0,justify:'flex-start',alignItems:'stretch'},children:[]}; break;
     case 'section': base={content:{eyebrow:'Madda Walabu University',title:'Research that improves communities',text:'Build an engaging hero section with editable content, image, call to action, and responsive styling.',buttonText:'Discover More',buttonLink:'#'},style:{bg:'#0B1830',color:'#ffffff',accent:'#C99A3B',align:'left',minHeight:340,image:IMAGE_PRESETS[1],overlay:62,radius:14}}; break;
     case 'video': base={content:{url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ',title:'University overview video'},style:{radius:12,aspect:'16/9'}}; break;
     case 'gallery': base={content:{images:IMAGE_PRESETS.slice(0,4).join('\n'),captions:'Campus life\nStudent learning\nResearch laboratory\nCommunity agriculture'},style:{columns:2,gap:10,radius:10,height:170}}; break;
@@ -1518,11 +1826,33 @@ function youtubeEmbed(url){
   return value;
 }
 function socialInitial(name){ return (name||'?').trim().slice(0,2).toUpperCase(); }
+function socialIconMarkup(name, size=16, color='currentColor'){
+  const key = String(name || '').trim().toLowerCase();
+  const icons = {
+    facebook:`<path d="M14 8h-2c-.6 0-1 .4-1 1v2h3l-.4 3H11v7H8v-7H5v-3h3V8c0-2.2 1.8-4 4-4h2v4z"/>`,
+    linkedin:`<rect x="4" y="9" width="3" height="11"/><circle cx="5.5" cy="5.5" r="1.5"/><path d="M10 9h3v1.6c.6-1 1.7-1.9 3.6-1.9 3.1 0 3.4 2.2 3.4 5v6.3h-3v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9V20h-3V9z"/>`,
+    youtube:`<path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.7 12 4.7 12 4.7s-5.9 0-7.6.5a2.8 2.8 0 0 0-2 2A29.2 29.2 0 0 0 2 12a29.2 29.2 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.5 7.6.5 7.6.5s5.9 0 7.6-.5a2.8 2.8 0 0 0 2-2A29.2 29.2 0 0 0 22 12a29.2 29.2 0 0 0-.4-4.8z"/><path d="M10 15.5v-7l6 3.5-6 3.5z" fill="${color}" stroke="none"/>`,
+    x:`<path d="M18.2 4H21l-6.2 7.1L22 20h-5.6l-4.4-5.6L7 20H4.2l6.6-7.5L2 4h5.8l4 5.2L18.2 4z"/>`,
+    instagram:`<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/><circle cx="17.2" cy="6.8" r="1"/>`,
+    whatsapp:`<path d="M20 11.8a8 8 0 1 1-14.9 4L4 20l4.4-1.1A8 8 0 0 1 20 11.8z"/><path d="M9.3 8.7c.2-.5.4-.5.6-.5h.5c.2 0 .5 0 .7.5s.8 1.9.9 2.1c.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.4-.5.5-.2.2-.4.4-.2.8.2.4 1 1.7 2.2 2.7 1.5 1.3 2.7 1.7 3.1 1.9.4.2.6.1.8-.1.2-.2.8-.9 1-1.2.2-.3.5-.2.8-.1.3.1 1.8.8 2.1.9.3.2.5.2.6.4.1.2.1 1.2-.3 1.8-.4.7-2.3 1.7-3.1 1.7-.8 0-1.7-.2-4.8-1.7-3.8-1.9-6.2-6.1-6.4-6.4-.2-.3-1.5-2-.9-3.8z" fill="${color}" stroke="none"/>`,
+    telegram:`<path d="M21.9 4.6 18.7 19c-.2 1-.8 1.2-1.6.8l-4.5-3.3-2.2 2.1c-.2.2-.4.4-.8.4l.3-4.6 8.4-7.6c.4-.3-.1-.5-.5-.2L7.4 13 3 11.6c-.9-.3-.9-1 .2-1.4L20.6 3c.8-.3 1.5.2 1.3 1.6z"/>`,
+  };
+  if (icons[key]) {
+    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="${color}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[key]}</svg>`;
+  }
+  return escapeHtml(socialInitial(name));
+}
+function genericListIconMarkup(name, color='#C99A3B'){
+  if(name === 'check') return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.6" style="flex-shrink:0;"><path d="M20 6L9 17l-5-5"/></svg>`;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;color:${color};flex-shrink:0;">${svgIcon(name,15)}</span>`;
+}
 
 const _elementInnerHTML = elementInnerHTML;
 elementInnerHTML = function(el){
   const s=el.style||{}, c=el.content||{};
   switch(el.type){
+    case 'container':
+      return '';
     case 'heading': return `<${c.tag} data-inline-field="text" style="font-family:'Fraunces',serif;font-weight:${s.fontWeight};font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:1.22;margin:0;letter-spacing:${s.letterSpacing||0}px;text-transform:${s.transform||'none'};">${escapeHtml(c.text)}</${c.tag}>`;
     case 'text': return `<p data-inline-field="text" style="font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:${s.lineHeight};margin:0;letter-spacing:${s.letterSpacing||0}px;white-space:pre-line;">${escapeHtml(c.text)}</p>`;
     case 'button': {
@@ -1557,8 +1887,8 @@ elementInnerHTML = function(el){
       return `<form class="form-widget demo-form" style="grid-template-columns:repeat(${s.columns},minmax(0,1fr));"><h3 class="full" style="font-family:'Fraunces',serif;font-size:24px;">${escapeHtml(c.title)}</h3>${fields.map(f=>`<label class="${f.type==='textarea'?'full':''}" style="font-size:11px;font-weight:700;">${escapeHtml(f.label)}${f.required?' *':''}${f.type==='textarea'?`<textarea ${f.required?'required':''} style="background:${s.fieldBg};border-radius:${s.radius}px;margin-top:6px;" rows="4"></textarea>`:`<input type="${escapeHtml(f.type)}" ${f.required?'required':''} style="background:${s.fieldBg};border-radius:${s.radius}px;margin-top:6px;">`}</label>`).join('')}<div class="full"><button type="submit" style="background:${s.buttonBg};color:${s.buttonColor};">${escapeHtml(c.buttonText)}</button><span class="form-success" style="display:none;margin-left:10px;color:#1F8A5F;font-size:11px;">${escapeHtml(c.successMessage)}</span></div></form>`;
     }
     case 'social': {
-      const links=parsePairs(c.links), justify=s.align==='center'?'center':s.align==='right'?'flex-end':'flex-start';
-      return `<div class="social-widget" style="justify-content:${justify};">${links.map(([name,url])=>`<a class="builder-link" href="${safeUrl(url)}" title="${escapeHtml(name)}" style="width:${s.size}px;height:${s.size}px;background:${s.bg};color:${s.color};">${escapeHtml(socialInitial(name))}</a>`).join('')}</div>`;
+      const items = normalizeSocialItemsData(c, s), justify=s.align==='center'?'center':s.align==='right'?'flex-end':'flex-start';
+      return `<div class="social-widget" style="justify-content:${justify};">${items.map((item)=>`<a class="builder-link" href="${safeUrl(item.url)}" title="${escapeHtml(item.label)}" style="width:${Number(item.size||s.size||38)}px;height:${Number(item.size||s.size||38)}px;background:${item.bg||s.bg};color:${item.color||s.color};">${socialIconMarkup(item.icon || item.label, Math.round((Number(item.size||s.size||38))*0.44), item.color||s.color||'#fff')}</a>`).join('')}</div>`;
     }
     case 'html': return `<div class="custom-html-widget">${c.code||''}</div>`;
     default:return _elementInnerHTML(el);
@@ -1569,8 +1899,27 @@ const _composeWrapStyle=composeWrapStyle;
 composeWrapStyle=function(el){return _composeWrapStyle(el)+(el.advanced&&el.advanced.position==='absolute'?`position:absolute;left:${el.advanced.left||0}px;top:${el.advanced.top||0}px;width:${el.advanced.width||300}px;`:'');};
 
 function addWidget(type,index=elements.length){
-  const def=defaultsFor(type),newEl=Object.assign({id:uid(),type},def);
-  elements.splice(Math.max(0,Math.min(index,elements.length)),0,newEl);selectedId=newEl.id;pushHistory();renderAll();openSettingsFor(newEl.id);showToast((WIDGETS.find(w=>w.type===type)||{label:type}).label+' added');
+  const selected = selectedId ? findElementDeep(selectedId) : null;
+  let targetList = elements;
+  let targetIndex = index;
+  if(selected){
+    if(selected.element.type === 'container'){
+      targetList = getContainerChildren(selected.element.id) || elements;
+      targetIndex = targetList.length;
+    } else if(selected.list){
+      targetList = selected.list;
+      targetIndex = selected.index + 1;
+    }
+  }
+  const safeIndex = Math.max(0, Math.min(targetIndex, targetList.length));
+  const newEl = type === 'columns' ? createColumnsElement() : Object.assign({id:uid(),type},defaultsFor(type));
+  ensureTreeDefaults([newEl]);
+  targetList.splice(safeIndex,0,newEl);
+  selectedId=newEl.id;
+  pushHistory();
+  renderAll();
+  openSettingsFor(newEl.id);
+  showToast((WIDGETS.find(w=>w.type===type)||{label:type}).label+' added');
 }
 
 renderPalette=function(filter=''){
@@ -1585,8 +1934,8 @@ renderPalette=function(filter=''){
       const card=document.createElement('div');card.className='widget-card';card.draggable=true;card.title='Click to add at the end, or drag to a precise position';
       card.innerHTML=`<div class="widget-icon">${svgIcon(w.icon,17)}</div><span>${w.label}</span>`;
       card.addEventListener('click',e=>{e.stopPropagation();addWidget(w.type);});
-      card.addEventListener('dragstart',e=>{dragPayload={kind:'new',widgetType:w.type};e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain',w.type);card.classList.add('dragging');});
-      card.addEventListener('dragend',()=>card.classList.remove('dragging'));grid.appendChild(card);
+      card.addEventListener('dragstart',e=>{dragPayload={kind:'new',widgetType:w.type};e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain',w.type);card.classList.add('dragging');setDraggingBuilderState(true);});
+      card.addEventListener('dragend',()=>{card.classList.remove('dragging');setDraggingBuilderState(false);});grid.appendChild(card);
     });library.appendChild(grid);
   });
 };
@@ -1599,7 +1948,7 @@ reRenderElement=function(el){
 };
 const _renderCanvas=renderCanvas;
 renderCanvas=function(){
-  _renderCanvas();canvasPage.style.background=pageSettings.canvasBg;document.querySelector('.canvas-area').style.background=pageSettings.bodyBg;
+  _renderCanvas();canvasPage.style.background=pageSettings.canvasBg;document.querySelector('.canvas-area').style.background='#ffffff';
   elements.forEach(el=>{const inner=canvasPage.querySelector(`.el-wrap[data-id="${el.id}"] .el-inner`);if(inner)inner.id=(el.advanced&&el.advanced.cssId)||'';});
   updateCanvasStatus();
 };
@@ -1630,6 +1979,36 @@ function bindImageUpload(id,callback){const n=document.getElementById(id);if(!n)
 
 const _renderContentFields=renderContentFields;
 renderContentFields=function(el){
+  const renderListItemsEditor = () => {
+    const items = normalizeListItemsData(el.content, el.style);
+    return `<div class="field-group"><div class="field-group-label">List items</div>${items.map((item, index) => `
+      <div class="field-hint" style="text-align:left;margin-top:10px;">
+        <div style="display:grid;gap:10px;">
+          <input class="field-input" data-list-item-text="${index}" value="${escapeHtml(item.text)}" placeholder="Item text">
+          <select class="field-select" data-list-item-icon="${index}">${genericIconOptions().map(([value,label])=>`<option value="${value}" ${value===item.icon?'selected':''}>${label}</option>`).join('')}</select>
+          <div class="color-field-row"><input type="color" data-list-item-icon-color="${index}" value="${item.iconColor}"><input class="field-input" data-list-item-icon-color-text="${index}" value="${item.iconColor}"></div>
+          <div class="color-field-row"><input type="color" data-list-item-text-color="${index}" value="${item.textColor}"><input class="field-input" data-list-item-text-color-text="${index}" value="${item.textColor}"></div>
+          <input class="field-input" type="number" min="10" max="30" data-list-item-size="${index}" value="${item.fontSize}">
+          <button type="button" class="btn btn-light" data-list-item-remove="${index}">Remove item</button>
+        </div>
+      </div>`).join('')}<button type="button" class="btn btn-light" id="addListItemBtn" style="margin-top:10px;">Add item</button></div>`;
+  };
+  const renderSocialItemsEditor = () => {
+    const items = normalizeSocialItemsData(el.content, el.style);
+    const iconOptions = [['facebook','Facebook'],['linkedin','LinkedIn'],['youtube','YouTube'],['x','X'],['instagram','Instagram'],['whatsapp','WhatsApp'],['telegram','Telegram'],['globe','Globe']];
+    return `<div class="field-group"><div class="field-group-label">Social items</div>${items.map((item, index) => `
+      <div class="field-hint" style="text-align:left;margin-top:10px;">
+        <div style="display:grid;gap:10px;">
+          <input class="field-input" data-social-item-label="${index}" value="${escapeHtml(item.label)}" placeholder="Label">
+          <input class="field-input" data-social-item-url="${index}" value="${escapeHtml(item.url)}" placeholder="URL">
+          <select class="field-select" data-social-item-icon="${index}">${iconOptions.map(([value,label])=>`<option value="${value}" ${value===item.icon?'selected':''}>${label}</option>`).join('')}</select>
+          <input class="field-input" type="number" min="20" max="90" data-social-item-size="${index}" value="${item.size}">
+          <div class="color-field-row"><input type="color" data-social-item-bg="${index}" value="${item.bg}"><input class="field-input" data-social-item-bg-text="${index}" value="${item.bg}"></div>
+          <div class="color-field-row"><input type="color" data-social-item-color="${index}" value="${item.color}"><input class="field-input" data-social-item-color-text="${index}" value="${item.color}"></div>
+          <button type="button" class="btn btn-light" data-social-item-remove="${index}">Remove item</button>
+        </div>
+      </div>`).join('')}<button type="button" class="btn btn-light" id="addSocialItemBtn" style="margin-top:10px;">Add item</button></div>`;
+  };
   if(el.type==='image'){
     const box=document.getElementById('contentFields'),c=el.content;
     box.innerHTML=imageUploadHtml()+`<div class="field-group"><div class="field-group-label">Preset images</div><div class="preset-swatches">${IMAGE_PRESETS.map(src=>`<div class="preset-swatch ${src===c.src?'active':''}" data-src="${src}"><img src="${src}"></div>`).join('')}</div></div>`+replaceFieldHtml('Image URL','imageSrc',c.src)+replaceFieldHtml('Alt text','imageAlt',c.alt);
@@ -1637,7 +2016,7 @@ renderContentFields=function(el){
     bindXInput('imageSrc',v=>{c.src=v;reRenderElement(el)});bindXInput('imageAlt',v=>{c.alt=v;reRenderElement(el)});
     box.querySelectorAll('.preset-swatch').forEach(sw=>sw.addEventListener('click',()=>{c.src=sw.dataset.src;reRenderElement(el);renderContentFields(el);pushHistory();}));bindXTextHistory(box);return;
   }
-  const enhanced=['section','video','gallery','accordion','tabs','counter','callout','progress','form','social','html'];
+  const enhanced=['section','video','gallery','accordion','tabs','counter','callout','progress','form','social','html','list'];
   if(!enhanced.includes(el.type)){_renderContentFields(el);return;}
   const box=document.getElementById('contentFields'),c=el.content;let h='';
   if(el.type==='section') h=replaceFieldHtml('Eyebrow','eyebrow',c.eyebrow)+replaceFieldHtml('Title','title',c.title)+replaceAreaHtml('Description','text',c.text)+replaceFieldHtml('Button text','buttonText',c.buttonText)+replaceFieldHtml('Button link','buttonLink',c.buttonLink);
@@ -1649,11 +2028,41 @@ renderContentFields=function(el){
   if(el.type==='callout') h=xSelect('Icon','icon',[['shieldIcon','Shield'],['starIcon','Star'],['bookIcon','Book'],['usersIcon','Users'],['heartIcon','Heart'],['globeIcon','Globe']],c.icon)+replaceFieldHtml('Title','title',c.title)+replaceAreaHtml('Description','text',c.text);
   if(el.type==='progress') h=replaceFieldHtml('Label','label',c.label)+replaceFieldHtml('Progress value','value',c.value,'number');
   if(el.type==='form') h=replaceFieldHtml('Form title','title',c.title)+replaceAreaHtml('Fields','fields',c.fields,8,'One per line: Label | type | required/optional')+replaceFieldHtml('Button text','buttonText',c.buttonText)+replaceFieldHtml('Success message','successMessage',c.successMessage);
-  if(el.type==='social') h=replaceAreaHtml('Social links','links',c.links,7,'One per line: Network name | URL');
+  if(el.type==='social') h=renderSocialItemsEditor();
+  if(el.type==='list') h=renderListItemsEditor();
   if(el.type==='html') h=replaceAreaHtml('Trusted HTML','code',c.code,12,'This advanced widget renders raw HTML. Only use markup from trusted administrators.');
   box.innerHTML=h;
   Object.keys(c).forEach(key=>bindXInput(key,v=>{c[key]=key==='value'?Number(v):v;reRenderElement(el)}));
   if(el.type==='gallery')bindImageUpload('galleryUpload',src=>{c.images=(c.images?c.images+'\n':'')+src;reRenderElement(el);renderContentFields(el);});
+  if(el.type==='list'){
+    const commit = (items) => { c.listItemsData = items; c.items = items.map((item) => item.text).join('\n'); reRenderElement(el); };
+    const items = normalizeListItemsData(c, el.style);
+    box.querySelectorAll('[data-list-item-text]').forEach((node)=>node.addEventListener('input', ()=>{ items[Number(node.dataset.listItemText)].text=node.value; commit(items); }));
+    box.querySelectorAll('[data-list-item-icon]').forEach((node)=>node.addEventListener('change', ()=>{ items[Number(node.dataset.listItemIcon)].icon=node.value; commit(items); pushHistory(); }));
+    box.querySelectorAll('[data-list-item-size]').forEach((node)=>node.addEventListener('input', ()=>{ items[Number(node.dataset.listItemSize)].fontSize=Number(node.value)||14; commit(items); }));
+    box.querySelectorAll('[data-list-item-icon-color]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.listItemIconColor); items[i].iconColor=node.value; const t=box.querySelector(`[data-list-item-icon-color-text="${i}"]`); if(t) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-list-item-icon-color-text]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.listItemIconColorText); items[i].iconColor=node.value; const t=box.querySelector(`[data-list-item-icon-color="${i}"]`); if(t && /^#[0-9A-Fa-f]{6}$/.test(node.value)) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-list-item-text-color]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.listItemTextColor); items[i].textColor=node.value; const t=box.querySelector(`[data-list-item-text-color-text="${i}"]`); if(t) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-list-item-text-color-text]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.listItemTextColorText); items[i].textColor=node.value; const t=box.querySelector(`[data-list-item-text-color="${i}"]`); if(t && /^#[0-9A-Fa-f]{6}$/.test(node.value)) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-list-item-remove]').forEach((node)=>node.addEventListener('click', ()=>{ items.splice(Number(node.dataset.listItemRemove),1); commit(items); renderContentFields(el); pushHistory(); }));
+    const addBtn = document.getElementById('addListItemBtn');
+    if(addBtn) addBtn.addEventListener('click', ()=>{ items.push({ text:'New list item', icon:'check', iconColor:'#C99A3B', textColor:'#161D2B', fontSize:14 }); commit(items); renderContentFields(el); pushHistory(); });
+  }
+  if(el.type==='social'){
+    const commit = (items) => { c.socialItemsData = items; c.links = items.map((item) => `${item.label}|${item.url}`).join('\n'); reRenderElement(el); };
+    const items = normalizeSocialItemsData(c, el.style);
+    box.querySelectorAll('[data-social-item-label]').forEach((node)=>node.addEventListener('input', ()=>{ items[Number(node.dataset.socialItemLabel)].label=node.value; commit(items); }));
+    box.querySelectorAll('[data-social-item-url]').forEach((node)=>node.addEventListener('input', ()=>{ items[Number(node.dataset.socialItemUrl)].url=node.value; commit(items); }));
+    box.querySelectorAll('[data-social-item-icon]').forEach((node)=>node.addEventListener('change', ()=>{ items[Number(node.dataset.socialItemIcon)].icon=node.value; commit(items); pushHistory(); }));
+    box.querySelectorAll('[data-social-item-size]').forEach((node)=>node.addEventListener('input', ()=>{ items[Number(node.dataset.socialItemSize)].size=Number(node.value)||38; commit(items); }));
+    box.querySelectorAll('[data-social-item-bg]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.socialItemBg); items[i].bg=node.value; const t=box.querySelector(`[data-social-item-bg-text="${i}"]`); if(t) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-social-item-bg-text]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.socialItemBgText); items[i].bg=node.value; const t=box.querySelector(`[data-social-item-bg="${i}"]`); if(t && /^#[0-9A-Fa-f]{6}$/.test(node.value)) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-social-item-color]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.socialItemColor); items[i].color=node.value; const t=box.querySelector(`[data-social-item-color-text="${i}"]`); if(t) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-social-item-color-text]').forEach((node)=>node.addEventListener('input', ()=>{ const i=Number(node.dataset.socialItemColorText); items[i].color=node.value; const t=box.querySelector(`[data-social-item-color="${i}"]`); if(t && /^#[0-9A-Fa-f]{6}$/.test(node.value)) t.value=node.value; commit(items); }));
+    box.querySelectorAll('[data-social-item-remove]').forEach((node)=>node.addEventListener('click', ()=>{ items.splice(Number(node.dataset.socialItemRemove),1); commit(items); renderContentFields(el); pushHistory(); }));
+    const addBtn = document.getElementById('addSocialItemBtn');
+    if(addBtn) addBtn.addEventListener('click', ()=>{ items.push({ label:'Social', url:'#', icon:'globe', bg:'#0B1830', color:'#FFFFFF', size:38 }); commit(items); renderContentFields(el); pushHistory(); });
+  }
   bindXTextHistory(box);
 };
 
@@ -1700,6 +2109,346 @@ renderAdvancedFields=function(el){
   ['left','top','width'].forEach(k=>document.getElementById('a_'+k).addEventListener('input',e=>{el.advanced[k]=Number(e.target.value);renderCanvas()}));
 };
 
+function ensureTreeDefaults(list){
+  list = migrateLegacyColumns(list || []);
+  (list||[]).forEach(el=>{
+    el.box = el.box || defaultBox();
+    el.advanced = el.advanced || defaultAdvanced();
+    if(el.type==='container'){
+      el.content = el.content || { name:'Container' };
+      el.style = { flow:'column', gap:0, justify:'flex-start', alignItems:'stretch', ...(el.style||{}) };
+      el.children = Array.isArray(el.children) ? el.children : [];
+      el.box.flexGrow = Number(el.box.flexGrow || 0);
+      el.children = ensureTreeDefaults(el.children);
+    }
+  });
+  return list;
+}
+
+function visitElements(list, visitor, parentId=''){
+  (list||[]).forEach((el, index)=>{
+    visitor(el, list, index, parentId);
+    if(Array.isArray(el.children) && el.children.length){
+      visitElements(el.children, visitor, el.id);
+    }
+  });
+}
+
+function findElementDeep(id, list=elements, parentId=''){
+  for(let i=0;i<list.length;i+=1){
+    const el=list[i];
+    if(el.id===id) return { element: el, list, index: i, parentId };
+    if(Array.isArray(el.children) && el.children.length){
+      const found=findElementDeep(id, el.children, el.id);
+      if(found) return found;
+    }
+  }
+  return null;
+}
+
+function getContainerChildren(parentId){
+  if(!parentId) return elements;
+  const found = findElementDeep(parentId);
+  if(!found) return null;
+  found.element.children = Array.isArray(found.element.children) ? found.element.children : [];
+  return found.element.children;
+}
+
+function cloneElementTree(el){
+  const copy = JSON.parse(JSON.stringify(el));
+  const remap = (node)=>{
+    node.id = uid();
+    node.box = node.box || defaultBox();
+    node.advanced = node.advanced || defaultAdvanced();
+    if(Array.isArray(node.children)) node.children.forEach(remap);
+  };
+  remap(copy);
+  return copy;
+}
+
+function subtreeContainsId(el, id){
+  if(!el) return false;
+  if(el.id===id) return true;
+  return Array.isArray(el.children) && el.children.some(child => subtreeContainsId(child, id));
+}
+
+function renderTreeElements(list, parentId=''){
+  let html = dropZoneHTML(0, parentId);
+  list.forEach((el, idx)=>{
+    const w = WIDGETS.find(item=>item.type===el.type) || {label:el.type, icon:'heading'};
+    const hidden = isHiddenForDevice(el, currentDevice);
+    const cssClasses = (el.advanced && el.advanced.cssClasses) ? ' ' + el.advanced.cssClasses.trim() : '';
+    let innerHtml = elementInnerHTML(el);
+    if(el.type === 'container'){
+      const containerChildren = Array.isArray(el.children) ? el.children : [];
+      const flowClass = (el.style&&el.style.flow)==='row' ? 'is-row' : 'is-column';
+      const gap = Number(el.style&&el.style.gap||0);
+      const justify = (el.style&&el.style.justify) || 'flex-start';
+      const alignItems = (el.style&&el.style.alignItems) || 'stretch';
+      innerHtml = `<div class="container-shell ${flowClass}" style="gap:${gap}px;justify-content:${justify};align-items:${alignItems};">
+        <div class="container-children" data-container-id="${el.id}" style="display:flex;flex-direction:${(el.style&&el.style.flow)==='row'?'row':'column'};flex-wrap:nowrap;gap:${gap}px;justify-content:${justify};align-items:${alignItems};width:100%;">
+          ${containerChildren.length ? renderTreeElements(containerChildren, el.id) : `${dropZoneHTML(0, el.id)}<div class="container-empty">Drag widgets here</div>`}
+        </div>
+      </div>`;
+    }
+    html += `
+      <div class="el-wrap ${selectedId===el.id?'selected':''} ${hidden?'device-hidden':''}" data-id="${el.id}" data-parent-id="${parentId}" draggable="true">
+        ${hidden ? `<div class="hidden-badge">Hidden on ${currentDevice}</div>` : ''}
+        <div class="el-controls">
+          <button class="drag-grip" title="Drag">${svgIcon('drag',12)}</button>
+          <button class="dup-el" title="Duplicate" data-id="${el.id}">${svgIcon('dup',12)}</button>
+          <button class="del-el" title="Delete" data-id="${el.id}">${svgIcon('del',12)}</button>
+        </div>
+        <div class="el-inner ${el.id} ${animationClass(el)}${cssClasses}" style="${composeWrapStyle(el)}">${innerHtml}</div>
+      </div>
+      ${dropZoneHTML(idx+1, parentId)}
+    `;
+  });
+  return html;
+}
+
+dropZoneHTML = function(index, parentId=''){
+  return `<div class="drop-zone" data-index="${index}" data-parent-id="${parentId}"></div>`;
+};
+
+renderCanvas = function(){
+  elements = ensureTreeDefaults(elements);
+  if(elements.length === 0){
+    canvasPage.innerHTML = `<div class="canvas-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <h3>This page is empty</h3>
+      <p>Drag a widget from the left panel and drop it here to start building.</p>
+    </div>` + dropZoneHTML(0, '');
+    wireDropZones();
+    return;
+  }
+  canvasPage.innerHTML = renderTreeElements(elements, '');
+  wireCanvasEvents();
+  wireDropZones();
+  rebuildCustomStyles();
+};
+
+wireCanvasEvents = function(){
+  canvasPage.querySelectorAll('.el-wrap').forEach(wrap=>{
+    const id = wrap.dataset.id;
+    wrap.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(e.target.closest('.drop-zone')) return;
+      selectElement(id);
+    });
+    wrap.addEventListener('dragstart', (e)=>{
+      dragPayload = { kind:'move', id, fromParentId: wrap.dataset.parentId || '' };
+      wrap.classList.add('dragging-el');
+      setDraggingBuilderState(true);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', id);
+    });
+    wrap.addEventListener('dragend', ()=>{
+      wrap.classList.remove('dragging-el');
+      dragPayload = null;
+      setDraggingBuilderState(false);
+    });
+    const dup = wrap.querySelector('.dup-el');
+    const del = wrap.querySelector('.del-el');
+    if(dup) dup.addEventListener('click', (e)=>{ e.stopPropagation(); duplicateElement(id); });
+    if(del) del.addEventListener('click', (e)=>{ e.stopPropagation(); deleteElement(id); });
+  });
+};
+
+wireDropZones = function(){
+  canvasPage.querySelectorAll('.drop-zone').forEach(zone=>{
+    zone.addEventListener('dragover', (e)=>{
+      e.preventDefault();
+      zone.classList.add('active-zone');
+    });
+    zone.addEventListener('dragleave', ()=> zone.classList.remove('active-zone'));
+      zone.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        zone.classList.remove('active-zone');
+        setDraggingBuilderState(false);
+        if(!dragPayload) return;
+      const parentId = zone.dataset.parentId || '';
+      const targetIndex = parseInt(zone.dataset.index || '0', 10);
+      const targetList = getContainerChildren(parentId);
+      if(!targetList) return;
+
+      if(dragPayload.kind === 'new'){
+        const newEl = dragPayload.widgetType === 'columns'
+          ? createColumnsElement()
+          : Object.assign({ id: uid(), type: dragPayload.widgetType, advanced:{} }, defaultsFor(dragPayload.widgetType));
+        ensureTreeDefaults([newEl]);
+        targetList.splice(targetIndex, 0, newEl);
+        selectedId = newEl.id;
+        pushHistory();
+        renderAll();
+        openSettingsFor(newEl.id);
+      } else if(dragPayload.kind === 'move'){
+        const found = findElementDeep(dragPayload.id);
+        if(!found) return;
+        if(parentId && subtreeContainsId(found.element, parentId)) return;
+        const sameList = found.list === targetList;
+        const [moved] = found.list.splice(found.index, 1);
+        const adjustedIndex = sameList && found.index < targetIndex ? targetIndex - 1 : targetIndex;
+        targetList.splice(Math.max(0, adjustedIndex), 0, moved);
+        pushHistory();
+        renderAll();
+      }
+      dragPayload = null;
+    });
+  });
+};
+
+duplicateElement = function(id){
+  const found = findElementDeep(id);
+  if(!found) return;
+  const copy = cloneElementTree(found.element);
+  found.list.splice(found.index + 1, 0, copy);
+  pushHistory();
+  selectedId = copy.id;
+  renderAll();
+  openSettingsFor(copy.id);
+  showToast('Widget duplicated');
+};
+
+deleteElement = function(id){
+  const found = findElementDeep(id);
+  if(!found) return;
+  found.list.splice(found.index, 1);
+  if(selectedId===id) selectedId=null;
+  pushHistory();
+  renderAll();
+  if(selectedId===null) switchLeftView('elements');
+  showToast('Widget deleted');
+};
+
+selectElement = function(id){
+  selectedId = id;
+  document.querySelectorAll('.el-wrap').forEach(w=> w.classList.toggle('selected', w.dataset.id===id));
+  openSettingsFor(id);
+};
+
+renderLayers = function(){
+  const list = document.getElementById('layersList');
+  const renderRows = (items, depth=0)=>{
+    items.forEach(el=>{
+      const w = WIDGETS.find(item=>item.type===el.type) || {label:el.type, icon:'heading'};
+      const row = document.createElement('div');
+      row.className = 'layer-row' + (selectedId===el.id ? ' selected' : '');
+      row.style.paddingLeft = `${10 + depth * 18}px`;
+      row.innerHTML = `<div class="li-icon">${svgIcon(w.icon,12)}</div><div class="li-label">${w.label}</div><button class="li-del" data-id="${el.id}">${svgIcon('del',12)}</button>`;
+      row.addEventListener('click', (e)=>{
+        if(e.target.closest('.li-del')) return;
+        selectElement(el.id);
+        switchLeftView('settings');
+      });
+      row.querySelector('.li-del').addEventListener('click', (e)=>{ e.stopPropagation(); deleteElement(el.id); renderLayers(); });
+      list.appendChild(row);
+      if(Array.isArray(el.children) && el.children.length) renderRows(el.children, depth + 1);
+    });
+  };
+  if(elements.length===0){
+    list.innerHTML = `<div class="layers-empty">${svgIcon('columns',28)}<div>No widgets on this page yet. Add one from the Elements panel.</div></div>`;
+    return;
+  }
+  list.innerHTML = '';
+  renderRows(elements, 0);
+};
+
+openSettingsFor = function(id){
+  const found = findElementDeep(id);
+  if(!found) return;
+  let el = found.element;
+  if(el.type === 'columns'){
+    const migrated = createColumnsElement(el.content?.left || '', el.content?.right || '');
+    migrated.id = el.id || migrated.id;
+    migrated.box = { ...defaultBox(), ...(el.box||{}), displayMode:(el.box&&el.box.displayMode) || 'fullwidth' };
+    migrated.advanced = { ...defaultAdvanced(), ...(el.advanced||{}) };
+    migrated.style = { ...migrated.style, ...(el.style||{}) };
+    found.list[found.index] = migrated;
+    el = migrated;
+    elements = ensureTreeDefaults(elements);
+  }
+  const w = WIDGETS.find(item=>item.type===el.type) || {label:el.type, icon:'heading'};
+  document.getElementById('settingsIcon').innerHTML = svgIcon(w.icon,15);
+  document.getElementById('settingsTitle').textContent = w.label;
+  document.getElementById('settingsSub').textContent = 'Editing widget';
+  renderContentFields(el);
+  renderStyleFields(el);
+  renderAdvancedFields(el);
+  switchLeftView('settings');
+  document.querySelectorAll('.settings-tab').forEach(t=>t.classList.toggle('active', t.dataset.stab==='content'));
+  document.querySelectorAll('.settings-panel-tab').forEach(p=>p.classList.toggle('active', p.dataset.spanel==='content'));
+};
+
+reRenderElement = function(el){
+  renderAll();
+  if(selectedId) {
+    const wrap = canvasPage.querySelector(`.el-wrap[data-id="${selectedId}"]`);
+    if(wrap) wrap.classList.add('selected');
+  }
+};
+
+renderContentFields = function(el){
+  if(el.type !== 'container'){
+    return _renderContentFields(el);
+  }
+  const box = document.getElementById('contentFields');
+  box.innerHTML = fieldInput('Container label', 'containerName', (el.content&&el.content.name)||'Container') +
+    `<div class="field-hint">Containers accept widgets inside them. Drag items into this container to build nested layouts.</div>`;
+  const nameField = document.getElementById('f_containerName');
+  if(nameField){
+    nameField.addEventListener('input', ()=>{ el.content.name = nameField.value; });
+    nameField.addEventListener('blur', ()=> pushHistory());
+  }
+};
+
+renderStyleFields = function(el){
+  _renderStyleFields(el);
+  if(el.type !== 'container') return;
+  const box = document.getElementById('styleFields');
+  const s = el.style || {};
+  const containerFields = `
+    <div class="panel-section-label" style="padding:0 0 10px;">Container flow</div>
+    ${selectField('Direction', 'containerFlow', [['column','Vertical'],['row','Horizontal']], s.flow||'column')}
+    ${rangeField('Gap', 'containerGap', 0, 100, s.gap ?? 0, 'px')}
+    ${selectField('Justify content', 'containerJustify', [['flex-start','Start'],['center','Center'],['flex-end','End'],['space-between','Space Between']], s.justify||'flex-start')}
+    ${selectField('Align items', 'containerAlignItems', [['stretch','Stretch'],['flex-start','Start'],['center','Center'],['flex-end','End']], s.alignItems||'stretch')}
+  `;
+  box.insertAdjacentHTML('afterbegin', containerFields);
+  const flow = document.getElementById('f_containerFlow');
+  const gap = document.getElementById('f_containerGap');
+  const justify = document.getElementById('f_containerJustify');
+  const alignItems = document.getElementById('f_containerAlignItems');
+  if(flow) flow.addEventListener('change', ()=>{ s.flow = flow.value; reRenderElement(el); pushHistory(); });
+  if(gap){
+    gap.addEventListener('input', ()=>{ s.gap = Number(gap.value)||0; const label=document.getElementById('v_containerGap'); if(label) label.textContent=`${s.gap}px`; reRenderElement(el); });
+    gap.addEventListener('change', ()=> pushHistory());
+  }
+  if(justify) justify.addEventListener('change', ()=>{ s.justify = justify.value; reRenderElement(el); pushHistory(); });
+  if(alignItems) alignItems.addEventListener('change', ()=>{ s.alignItems = alignItems.value; reRenderElement(el); pushHistory(); });
+};
+
+const _buildPublishedHtml = buildPublishedHtml;
+buildPublishedHtml = function(){
+  elements = ensureTreeDefaults(elements);
+  const customRules = [];
+  const renderPublishedTree = (items)=>{
+    return (items||[]).filter(e=>!e.advanced?.hideDesktop).map(el=>{
+      const cls = `published-widget ${el.id} ${(el.advanced?.cssClasses||'')}`.trim();
+      if(el.advanced && el.advanced.customCss) customRules.push(`.${el.id}{${el.advanced.customCss}}`);
+      if(el.type === 'container'){
+        const s = el.style || {};
+        const inner = renderPublishedTree(el.children || []);
+        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}"><div style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;">${inner}</div></div>`;
+      }
+      return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}">${elementInnerHTML(el)}</div>`;
+    }).join('\n');
+  };
+  const body = renderPublishedTree(elements);
+  const custom = customRules.join('\n');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}.published-widget{padding-left:16px!important;padding-right:16px!important}}${custom}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
+};
+
 canvasPage.addEventListener('dblclick',e=>{
   const target=e.target.closest('[data-inline-field]');if(!target||document.body.classList.contains('preview-mode'))return;
   e.preventDefault();e.stopPropagation();const wrap=target.closest('.el-wrap'),el=elements.find(x=>x.id===wrap.dataset.id),field=target.dataset.inlineField;if(!el||!(field in el.content))return;
@@ -1723,7 +2472,7 @@ function saveDraft(silent=false){
   catch(err){showToast('Draft is too large for browser storage. Export JSON instead.');}
 }
 function restoreDraft(){
-  try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;const data=JSON.parse(raw);if(!Array.isArray(data.elements))return false;elements=data.elements;pageSettings={...pageSettings,...(data.pageSettings||{})};currentDevice=data.device||'desktop';return true;}catch{return false;}
+  try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;const data=JSON.parse(raw);if(!Array.isArray(data.elements))return false;elements=migrateLegacyColumns(data.elements);pageSettings={...pageSettings,...(data.pageSettings||{})};currentDevice=data.device||'desktop';return true;}catch{return false;}
 }
 function downloadBlob(content,filename,type){const blob=new Blob([content],{type});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},100);}
 async function copyText(text){try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return true;}const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();const ok=document.execCommand('copy');t.remove();return ok;}catch{return false;}}
@@ -1739,7 +2488,7 @@ function closeModal(){document.getElementById('modalBackdrop').classList.remove(
 document.getElementById('modalClose').addEventListener('click',closeModal);document.getElementById('modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});
 
 const TEMPLATES={
-  research:[Object.assign({id:uid(),type:'section'},defaultsFor('section')),Object.assign({id:uid(),type:'heading'},defaultsFor('heading'),{content:{text:'Research priorities',tag:'h2'}}),Object.assign({id:uid(),type:'columns'},defaultsFor('columns'),{content:{left:'Public health, disease prevention, and community wellbeing research.',right:'Climate-smart agriculture, food systems, and rural development research.'}}),Object.assign({id:uid(),type:'counter'},defaultsFor('counter')),Object.assign({id:uid(),type:'callout'},defaultsFor('callout'))],
+  research:[Object.assign({id:uid(),type:'section'},defaultsFor('section')),Object.assign({id:uid(),type:'heading'},defaultsFor('heading'),{content:{text:'Research priorities',tag:'h2'}}),createColumnsElement('Public health, disease prevention, and community wellbeing research.','Climate-smart agriculture, food systems, and rural development research.'),Object.assign({id:uid(),type:'counter'},defaultsFor('counter')),Object.assign({id:uid(),type:'callout'},defaultsFor('callout'))],
   admission:[Object.assign({id:uid(),type:'section'},defaultsFor('section'),{content:{eyebrow:'Admissions 2026',title:'Start your journey at MWU',text:'Explore programs, prepare your documents, and submit an application through a clear admission process.',buttonText:'Apply Online',buttonLink:'#apply'}}),Object.assign({id:uid(),type:'heading'},defaultsFor('heading'),{content:{text:'Application steps',tag:'h2'}}),Object.assign({id:uid(),type:'list'},defaultsFor('list'),{content:{items:'Choose your preferred academic program\nReview entry requirements and deadlines\nPrepare academic records and identification\nSubmit the online application form\nTrack your application status'}}),Object.assign({id:uid(),type:'accordion'},defaultsFor('accordion')),Object.assign({id:uid(),type:'form'},defaultsFor('form'))],
   department:[Object.assign({id:uid(),type:'section'},defaultsFor('section'),{content:{eyebrow:'College of Science',title:'Department of Computer Science',text:'Education, research, innovation, and industry collaboration for Ethiopia’s digital future.',buttonText:'View Programs',buttonLink:'#programs'}}),Object.assign({id:uid(),type:'gallery'},defaultsFor('gallery')),Object.assign({id:uid(),type:'tabs'},defaultsFor('tabs')),Object.assign({id:uid(),type:'progress'},defaultsFor('progress')),Object.assign({id:uid(),type:'social'},defaultsFor('social'))]
 };
@@ -1754,14 +2503,14 @@ function showPageSettings(){openModal('Page settings',`<div class="modal-grid"><
 }
 function showExport(){const json=JSON.stringify(snapshot(),null,2);openModal('Export or import',`<div class="field-group"><div class="field-group-label">Builder JSON</div><textarea class="code-output" id="exportCode">${escapeHtml(json)}</textarea></div><div class="upload-box"><input type="file" accept="application/json,.json" id="importJson"><label for="importJson">${svgIcon('upload',15)} Import builder JSON</label><p>Replaces the current page after validating the file.</p></div>`,`<button class="btn btn-light" id="copyJsonBtn">Copy JSON</button><button class="btn btn-light" id="downloadJsonBtn">Download JSON</button><button class="btn btn-gold" id="doneExportBtn">Done</button>`);
   document.getElementById('copyJsonBtn').addEventListener('click',async()=>{showToast(await copyText(document.getElementById('exportCode').value)?'JSON copied':'Copy was blocked — select the JSON manually')});document.getElementById('downloadJsonBtn').addEventListener('click',()=>downloadBlob(document.getElementById('exportCode').value,pageSettings.slug+'.builder.json','application/json'));document.getElementById('doneExportBtn').addEventListener('click',closeModal);
-  document.getElementById('importJson').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.elements))throw new Error();elements=d.elements;pageSettings={...pageSettings,...(d.pageSettings||{})};selectedId=null;history=[];historyIndex=-1;pushHistory();renderAll();document.querySelector('.tb-page-name').textContent=pageSettings.title;closeModal();showToast('Builder JSON imported')}catch{showToast('Invalid builder JSON file')}};r.readAsText(f)});
+  document.getElementById('importJson').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.elements))throw new Error();elements=migrateLegacyColumns(d.elements);pageSettings={...pageSettings,...(d.pageSettings||{})};selectedId=null;history=[];historyIndex=-1;pushHistory();renderAll();document.querySelector('.tb-page-name').textContent=pageSettings.title;closeModal();showToast('Builder JSON imported')}catch{showToast('Invalid builder JSON file')}};r.readAsText(f)});
 }
-function showPublish(){const html=buildPublishedHtml();try{localStorage.setItem(PUBLISH_KEY,html)}catch{}pageSettings.status='published';openModal('Publish page',`<p style="font-size:12px;color:var(--ink-600);line-height:1.7;margin-bottom:14px;">The standalone example below contains the rendered page, responsive styles, tabs, accordions, and demo form behaviour. In your CRM, send the same JSON payload to your API instead of downloading.</p><textarea class="code-output" id="publishedCode">${escapeHtml(html)}</textarea>`,`<button class="btn btn-light" id="copyHtmlBtn">Copy HTML</button><button class="btn btn-light" id="previewWindowBtn">Open preview</button><button class="btn btn-gold" id="downloadHtmlBtn">Download HTML</button>`);
+function showPublish(){const html=buildPublishedHtml();try{localStorage.setItem(PUBLISH_KEY,html)}catch{}pageSettings.status='published';openModal('Publish page',`<p style="font-size:12px;color:var(--ink-600);line-height:1.7;margin-bottom:14px;">The standalone example below contains the rendered page, responsive styles, tabs, accordions, and demo form behaviour. In your CRM, the same builder snapshot and generated HTML are now sent to the database when you use Publish.</p><textarea class="code-output" id="publishedCode">${escapeHtml(html)}</textarea>`,`<button class="btn btn-light" id="copyHtmlBtn">Copy HTML</button><button class="btn btn-light" id="previewWindowBtn">Open preview</button><button class="btn btn-gold" id="downloadHtmlBtn">Download HTML</button>`);
   document.getElementById('copyHtmlBtn').addEventListener('click',async()=>{showToast(await copyText(html)?'Published HTML copied':'Copy was blocked — select the HTML manually')});document.getElementById('downloadHtmlBtn').addEventListener('click',()=>downloadBlob(html,pageSettings.slug+'.html','text/html'));document.getElementById('previewWindowBtn').addEventListener('click',()=>{const w=window.open('','_blank');w.document.open();w.document.write(html);w.document.close()});saveDraft(true);showToast('Page published locally');
 }
 function showHelp(){openModal('Keyboard shortcuts',`<div class="shortcut-grid"><span>Save draft</span><span class="kbd">Ctrl / ⌘ + S</span></div><div class="shortcut-grid"><span>Undo</span><span class="kbd">Ctrl / ⌘ + Z</span></div><div class="shortcut-grid"><span>Redo</span><span class="kbd">Ctrl / ⌘ + Y</span></div><div class="shortcut-grid"><span>Duplicate selected widget</span><span class="kbd">Ctrl / ⌘ + D</span></div><div class="shortcut-grid"><span>Delete selected widget</span><span class="kbd">Delete</span></div><div class="shortcut-grid"><span>Exit preview / close dialog</span><span class="kbd">Esc</span></div><div class="field-hint" style="margin-top:16px;">Click any element card to append it, drag it between existing widgets for precise placement, and double-click visible text for inline editing.</div>`,`<button class="btn btn-gold" id="closeHelpBtn">Got it</button>`,true);document.getElementById('closeHelpBtn').addEventListener('click',closeModal);}
 
-function getBridgeState(){ return { snapshot: snapshot(), publishedHtml: buildPublishedHtml(), selectedId }; }
+function getBridgeState(saveMode=''){ return { snapshot: snapshot(), publishedHtml: buildPublishedHtml(), selectedId, saveMode }; }
 function notifyHost(type, extra={}){ if(window.parent!==window) window.parent.postMessage({ type, ...extra }, '*'); }
 function syncPageSettingsToUi(){
   document.querySelector('.tb-page-name').textContent=pageSettings.title||'Untitled Page';
@@ -1771,7 +2520,7 @@ function syncPageSettingsToUi(){
 function loadHostSnapshot(data={}){
   const nextPageSettings=data.pageSettings&&typeof data.pageSettings==='object'?data.pageSettings:{};
   pageSettings={...pageSettings,...nextPageSettings};
-  if(Array.isArray(data.elements)) elements=data.elements;
+  if(Array.isArray(data.elements)) elements=migrateLegacyColumns(data.elements);
   if(data.device) currentDevice=data.device;
   selectedId=null;
   history=[];historyIndex=-1;
@@ -1802,7 +2551,7 @@ document.querySelector('.topbar').addEventListener('click',e=>e.stopPropagation(
 document.getElementById('modalBox').addEventListener('click',e=>e.stopPropagation());
 
 // Replace demo-only top bar actions with real standalone behaviour.
-document.getElementById('saveDraftBtn').addEventListener('click',()=>{saveDraft(false);notifyHost('MWU_HTML_BUILDER_STATE', getBridgeState());});document.getElementById('publishBtn').addEventListener('click',()=>{showPublish();notifyHost('MWU_HTML_BUILDER_STATE', getBridgeState());});document.getElementById('templateBtn').addEventListener('click',showTemplates);document.getElementById('pageSettingsBtn').addEventListener('click',showPageSettings);document.getElementById('helpBtn').addEventListener('click',showHelp);
+document.getElementById('saveDraftBtn').addEventListener('click',()=>{pageSettings.status='draft';saveDraft(false);showToast('Draft sent to the database');notifyHost('MWU_HTML_BUILDER_STATE', getBridgeState('draft'));});document.getElementById('publishBtn').addEventListener('click',()=>{pageSettings.status='published';saveDraft(true);showToast('Published page sent to the database');notifyHost('MWU_HTML_BUILDER_STATE', getBridgeState('publish'));});document.getElementById('templateBtn').addEventListener('click',showTemplates);document.getElementById('pageSettingsBtn').addEventListener('click',showPageSettings);document.getElementById('helpBtn').addEventListener('click',showHelp);
 const exportBtn=document.createElement('button');exportBtn.className='tb-icon-btn';exportBtn.title='Export / import';exportBtn.innerHTML=svgIcon('download',16);exportBtn.addEventListener('click',showExport);document.getElementById('pageSettingsBtn').after(exportBtn);
 document.getElementById('zoomSelect').addEventListener('change',e=>{canvasPage.style.transform=`scale(${e.target.value})`;canvasPage.style.marginBottom=`${(Number(e.target.value)-1)*canvasPage.offsetHeight}px`;});
 

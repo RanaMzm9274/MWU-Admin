@@ -66,6 +66,7 @@ const MEDIA_API_PASSWORD_KEY = "mwu_media_api_password";
 const ADMIN_TOKEN_KEY = "mwu_admin_token";
 const ADMIN_ACTIVITY_KEY = "mwu_admin_last_activity";
 const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
+const CRM_UI_STATE_KEY = "mwu_admin_ui_state_v1";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -147,6 +148,19 @@ const touchAdminSession = () => {
 const getStandaloneEditorPageId = () => {
   const params = new URLSearchParams(window.location.search);
   return params.get("editor") === "page" ? params.get("pageId") || "" : "";
+};
+
+const getStoredCrmUiState = () => {
+  try {
+    const raw = window.sessionStorage.getItem(CRM_UI_STATE_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 };
 
 const getCrmUrl = () => {
@@ -1010,7 +1024,7 @@ const getHtmlVisualBuilderSnapshotFromPage = (page = {}) =>
   extractHtmlVisualBuilderSnapshot(page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html || "");
 
 const buildHtmlVisualBuilderInitPayload = (page = {}) => {
-  const storedSnapshot = getHtmlVisualBuilderSnapshotFromPage(page) || {};
+  const storedSnapshot = page?.visualBuilder || page?.visual_builder || getHtmlVisualBuilderSnapshotFromPage(page) || {};
   const storedPageSettings = storedSnapshot?.pageSettings || {};
 
   return {
@@ -3361,6 +3375,8 @@ const normalizePage = (page) => {
     seoTitle: page?.seoTitle || page?.seo_title || pageTitle,
     seoDescription: page?.seoDescription || page?.seo_description || page?.summary || "",
     sourceUrl: page?.sourceUrl || page?.source_url || page?.url || "",
+    builderKind: page?.builderKind || page?.builder_kind || "",
+    visualBuilder: page?.visualBuilder || page?.visual_builder || null,
     rawHtml: page?.rawHtml || page?.raw_html || "",
     bodyHtml: page?.bodyHtml || page?.body_html || "",
     customCss: page?.customCss || page?.custom_css || "",
@@ -3424,8 +3440,9 @@ const toApiPagePayload = (page) => {
     seo_title: page.seoTitle,
     seo_description: page.seoDescription,
     source_url: page.sourceUrl,
-    // Avoid sending the same large document multiple times; body_html is enough to rebuild editable pages locally.
-    raw_html: isHtmlBacked ? "" : page.rawHtml,
+    builder_kind: page.builderKind || page.builder_kind || "",
+    visual_builder: page.visualBuilder || page.visual_builder || null,
+    raw_html: page.rawHtml || page.raw_html || "",
     body_html: bodyHtml,
     custom_css: page.customCss,
     styles: page.styles || defaultPageStyles,
@@ -3784,6 +3801,8 @@ const emptyPage = () => ({
   seoTitle: "New MWU Website Page | Madda Walabu University",
   seoDescription: "Write a search summary for this page.",
   sourceUrl: "",
+  builderKind: "",
+  visualBuilder: null,
   rawHtml: "",
   bodyHtml: "",
   customCss: "",
@@ -4432,12 +4451,17 @@ const isNormalWebsitePage = (page) => {
 function App() {
   const standaloneEditorPageId = getStandaloneEditorPageId();
   const isStandaloneEditor = Boolean(standaloneEditorPageId);
+  const storedUiState = getStoredCrmUiState();
   const [adminToken, setAdminToken] = useState(getStoredAdminToken);
   const [pages, setPages] = useState([]);
   const [programCategories, setProgramCategories] = useState(loadProgramCategories);
   const [programs, setPrograms] = useState(loadPrograms);
-  const [activeView, setActiveView] = useState("dashboard");
-  const [activePageId, setActivePageId] = useState(standaloneEditorPageId);
+  const [activeView, setActiveView] = useState(
+    isStandaloneEditor ? "page-editor" : String(storedUiState.activeView || "dashboard")
+  );
+  const [activePageId, setActivePageId] = useState(
+    standaloneEditorPageId || String(storedUiState.activePageId || "")
+  );
   const [formPage, setFormPage] = useState(emptyPage);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -4449,7 +4473,7 @@ function App() {
   const [siteChromeTab, setSiteChromeTab] = useState("header");
   const [navigationSource, setNavigationSource] = useState("");
   const [selectedPageIds, setSelectedPageIds] = useState([]);
-  const [editorTab, setEditorTab] = useState("builder");
+  const [editorTab, setEditorTab] = useState(String(storedUiState.editorTab || "builder"));
   const [notice, setNotice] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -4464,6 +4488,20 @@ function App() {
     window.localStorage.removeItem("authToken");
     window.localStorage.removeItem("token");
   }, []);
+
+  useEffect(() => {
+    if (isStandaloneEditor) {
+      return;
+    }
+    window.sessionStorage.setItem(
+      CRM_UI_STATE_KEY,
+      JSON.stringify({
+        activeView,
+        activePageId,
+        editorTab
+      })
+    );
+  }, [activePageId, activeView, editorTab, isStandaloneEditor]);
 
   useEffect(() => {
     if (noticeTimeoutRef.current) {
@@ -5967,6 +6005,7 @@ function App() {
 
   const handleLogout = () => {
     clearAdminSession();
+    window.sessionStorage.removeItem(CRM_UI_STATE_KEY);
     setAdminToken("");
     setPages([]);
     setActivePageId("");
@@ -6067,38 +6106,40 @@ function App() {
       </aside>
 
       <main className="workspace">
-        <header className="topbar">
-          <button
-            className={`icon-button mobile-toggle ${sidebarCollapsed ? "force-visible" : ""}`}
-            type="button"
-            onClick={() => {
-              setSidebarCollapsed(false);
-              if (window.innerWidth <= 860) {
-                setMobileNavOpen(true);
-              }
-            }}
-            aria-label="Open sidebar"
-          >
-            <ListTree size={19} />
-          </button>
-          <div>
-            <span className="eyebrow">Madda Walabu University</span>
-            <h1>CRM Portal</h1>
-          </div>
-          <div className="topbar-actions">
-            <button className="ghost-button" type="button">
-              <Bell size={17} />
-              <span>Alerts</span>
+        {activeView !== "page-editor" && (
+          <header className="topbar">
+            <button
+              className={`icon-button mobile-toggle ${sidebarCollapsed ? "force-visible" : ""}`}
+              type="button"
+              onClick={() => {
+                setSidebarCollapsed(false);
+                if (window.innerWidth <= 860) {
+                  setMobileNavOpen(true);
+                }
+              }}
+              aria-label="Open sidebar"
+            >
+              <ListTree size={19} />
             </button>
-            <button className="primary-button" type="button" onClick={createNewPage}>
-              <Plus size={17} />
-              <span>Add Page</span>
-            </button>
-            <button className="icon-button" type="button" onClick={handleLogout} aria-label="Logout">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </header>
+            <div>
+              <span className="eyebrow">Madda Walabu University</span>
+              <h1>CRM Portal</h1>
+            </div>
+            <div className="topbar-actions">
+              <button className="ghost-button" type="button">
+                <Bell size={17} />
+                <span>Alerts</span>
+              </button>
+              <button className="primary-button" type="button" onClick={createNewPage}>
+                <Plus size={17} />
+                <span>Add Page</span>
+              </button>
+              <button className="icon-button" type="button" onClick={handleLogout} aria-label="Logout">
+                <LogOut size={18} />
+              </button>
+            </div>
+          </header>
+        )}
 
         {notice && (
           <div className="notice" role="status">
@@ -6665,6 +6706,11 @@ function StandalonePageEditor({
         }
         htmlBuilderStateRequestRef.current = null;
         pendingRequest?.resolve?.(data);
+        if (data.saveMode === "draft" || data.saveMode === "publish") {
+          persistHtmlBuilderState({ preventDefault() {} }, data, data.saveMode).catch((error) => {
+            setNotice(error?.message || "Unable to save the visual builder page.");
+          });
+        }
         return;
       }
 
@@ -6708,7 +6754,7 @@ function StandalonePageEditor({
       }
       htmlBuilderStateRequestRef.current = null;
     };
-  }, [editableSourceHtml, openMediaLibraryPicker, page.rawHtml, page.raw_html, selectedLiveElement?.id, updateField]);
+  }, [editableSourceHtml, openMediaLibraryPicker, page.rawHtml, page.raw_html, persistHtmlBuilderState, selectedLiveElement?.id, updateField]);
 
   const applyLiveElementStyle = (field, value) => {
     if (!selectedLiveElement?.id) {
@@ -6777,6 +6823,63 @@ function StandalonePageEditor({
     setNotice(`Added ${preset.title} sections.`);
   };
 
+  const persistHtmlBuilderState = async (event, builderState, saveMode = "draft") => {
+    const snapshot = builderState?.snapshot || {};
+    const snapshotPageSettings = snapshot.pageSettings || {};
+    const publishedHtml = String(builderState?.publishedHtml || "").trim();
+
+    if (!publishedHtml) {
+      setNotice("Visual builder returned no HTML to save.");
+      return;
+    }
+
+    const persistedBodyHtml = `${serializeHtmlVisualBuilderSnapshot(snapshot)}${extractBodyHtml(publishedHtml)}`;
+    const extractedCustomCss = extractInlineStylesFromHtmlDocument(publishedHtml);
+    const nextTitle = snapshotPageSettings.title || page.title;
+    const nextSlug = slugify(snapshotPageSettings.slug || page.slug || nextTitle);
+    const requestedStatus = saveMode === "publish"
+      ? "Published"
+      : titleCaseStatus(snapshotPageSettings.status || "Draft");
+    const nextStatus = requestedStatus === "Published" && saveMode !== "publish" ? "Draft" : requestedStatus;
+    const pageOverride = {
+      builderKind: "visual",
+      visualBuilder: snapshot,
+      title: nextTitle,
+      slug: nextSlug,
+      status: nextStatus,
+      seoTitle: snapshotPageSettings.seoTitle || page.seoTitle || nextTitle,
+      seoDescription: snapshotPageSettings.seoDescription || page.seoDescription || "",
+      bodyHtml: persistedBodyHtml,
+      rawHtml: publishedHtml,
+      customCss: extractedCustomCss,
+      sections: [
+        normalizeSection({
+          id: page.sections?.[0]?.id,
+          type: "Raw HTML",
+          title: nextTitle || "Page Markup",
+          html: persistedBodyHtml,
+          body: persistedBodyHtml,
+          layout: "Legacy HTML",
+          visible: true
+        })
+      ]
+    };
+
+    editedBodyRef.current = persistedBodyHtml;
+    editedFullHtmlRef.current = publishedHtml;
+    updateField("builderKind", pageOverride.builderKind);
+    updateField("visualBuilder", pageOverride.visualBuilder);
+    updateField("title", pageOverride.title);
+    updateField("slug", pageOverride.slug);
+    updateField("status", pageOverride.status);
+    updateField("seoTitle", pageOverride.seoTitle);
+    updateField("seoDescription", pageOverride.seoDescription);
+    updateField("bodyHtml", persistedBodyHtml);
+    updateField("rawHtml", publishedHtml);
+    updateField("customCss", extractedCustomCss);
+    await savePage(event, pageOverride);
+  };
+
   const saveEditablePage = async (event) => {
     if (canvasMode === "editable") {
       event?.preventDefault?.();
@@ -6787,54 +6890,7 @@ function StandalonePageEditor({
 
       try {
         const builderState = await requestHtmlBuilderState();
-        const snapshot = builderState.snapshot || {};
-        const snapshotPageSettings = snapshot.pageSettings || {};
-        const publishedHtml = String(builderState.publishedHtml || "").trim();
-
-        if (!publishedHtml) {
-          setNotice("Visual builder returned no HTML to save.");
-          return;
-        }
-
-        const persistedBodyHtml = `${serializeHtmlVisualBuilderSnapshot(snapshot)}${extractBodyHtml(publishedHtml)}`;
-        const extractedCustomCss = extractInlineStylesFromHtmlDocument(publishedHtml);
-        const nextTitle = snapshotPageSettings.title || page.title;
-        const nextSlug = slugify(snapshotPageSettings.slug || page.slug || nextTitle);
-        const nextStatus = titleCaseStatus(snapshotPageSettings.status || page.status || "Draft");
-        const pageOverride = {
-          builderKind: "visual",
-          title: nextTitle,
-          slug: nextSlug,
-          status: nextStatus,
-          seoTitle: snapshotPageSettings.seoTitle || page.seoTitle || nextTitle,
-          seoDescription: snapshotPageSettings.seoDescription || page.seoDescription || "",
-          bodyHtml: persistedBodyHtml,
-          rawHtml: publishedHtml,
-          customCss: extractedCustomCss,
-          sections: [
-            normalizeSection({
-              id: page.sections?.[0]?.id,
-              type: "Raw HTML",
-              title: nextTitle || "Page Markup",
-              html: persistedBodyHtml,
-              body: persistedBodyHtml,
-              layout: "Legacy HTML",
-              visible: true
-            })
-          ]
-        };
-
-        editedBodyRef.current = persistedBodyHtml;
-        editedFullHtmlRef.current = publishedHtml;
-        updateField("title", pageOverride.title);
-        updateField("slug", pageOverride.slug);
-        updateField("status", pageOverride.status);
-        updateField("seoTitle", pageOverride.seoTitle);
-        updateField("seoDescription", pageOverride.seoDescription);
-        updateField("bodyHtml", persistedBodyHtml);
-        updateField("rawHtml", publishedHtml);
-        updateField("customCss", extractedCustomCss);
-        savePage(event, pageOverride);
+        await persistHtmlBuilderState(event, builderState, "draft");
       } catch (error) {
         setNotice(error?.message || "Unable to read the visual builder state.");
       }

@@ -42,7 +42,7 @@ export default function ContentPagesView({
 
   return (
     <section className="content-pages-view">
-      <div className="content-pages-header">
+      {/* <div className="content-pages-header">
         <div className="content-pages-copy">
           <span className="eyebrow">{eyebrow}</span>
           <h1>{title}</h1>
@@ -53,7 +53,7 @@ export default function ContentPagesView({
           <strong>{pages.length}</strong>
           <span>Total pages</span>
         </div>
-      </div>
+      </div> */}
 
       <section className="content-pages-shell">
         <div className="content-pages-head">
