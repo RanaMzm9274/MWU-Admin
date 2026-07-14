@@ -216,6 +216,19 @@
   body.imported-page-mode .custom-html-widget{
     width:100%;
   }
+  body.imported-page-mode .custom-html-widget [data-import-selected="true"]{
+    outline:2px solid var(--gold-500) !important;
+    outline-offset:2px !important;
+    box-shadow:0 0 0 4px rgba(201,154,59,0.14) !important;
+  }
+  body.imported-page-mode .custom-html-widget [data-import-hoverable="true"]:hover{
+    outline:1px dashed rgba(201,154,59,0.45);
+    outline-offset:2px;
+  }
+  body.imported-page-mode .custom-html-widget img{
+    max-width:100%;
+    height:auto;
+  }
 
   .drop-zone{ height:0; margin:0; border-radius:6px; transition:.13s ease; position:relative; overflow:hidden; }
   .drop-zone.active-zone{ height:44px; background: var(--gold-050); border:1.5px dashed var(--gold-500); display:flex; align-items:center; justify-content:center; overflow:visible; }
@@ -360,7 +373,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
         <span>Page Builder</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-        <span class="tb-page-name" style="color:#fff; font-weight:700;">Robe Integrated Research Center</span>
+        <span class="tb-page-name" style="color:#fff; font-weight:700;">Untitled Page</span>
       </div>
     </div>
 
@@ -561,18 +574,18 @@ function defaultsFor(type){
 /* ============================================================
    STATE
 ============================================================ */
-let elements = [
-  Object.assign({ id: uid(), type:'heading' }, defaultsFor('heading'), { content:{ text:"Robe Integrated Research Center", tag:"h1" }, style:{ fontSize:40, fontWeight:"700", color:"#0B1830", align:"left", letterSpacing:0, transform:"none" } }),
-  Object.assign({ id: uid(), type:'text' }, defaultsFor('text'), { content:{ text:"A multidisciplinary hub for applied research in public health, agriculture, and rural development — supporting Madda Walabu University's mission across South-East Ethiopia." } }),
-  Object.assign({ id: uid(), type:'button' }, defaultsFor('button'), { content:{ text:"Explore Research Areas", link:"/research-areas" } }),
-  Object.assign({ id: uid(), type:'spacer' }, defaultsFor('spacer')),
-  createColumnsElement(),
-];
+let elements = [];
 let selectedId = null;
 let currentDevice = 'desktop';
 let history = [];
 let historyIndex = -1;
 let dragPayload = null; // { kind:'new', widgetType } or { kind:'move', id }
+let hostImportCssLinks = [];
+let hostLiveAssetProxyPrefix = '/__live_asset';
+let hostLiveSiteOrigin = '';
+let importedSelectionNode = null;
+let importedSelectionId = '';
+let importedEditorIdCounter = 1;
 
 function uid(){ return 'el_' + Math.random().toString(36).slice(2,10); }
 function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -705,6 +718,423 @@ document.body.addEventListener('click', (e)=>{
   const el = e.target.closest('[data-toast]');
   if(el) showToast(el.getAttribute('data-toast'));
 });
+
+function isImportedExactPageMode(){
+  return !!pageSettings.exactImport && elements.length===1 && elements[0] && elements[0].type==='html';
+}
+function getImportedHtmlElementModel(){
+  return isImportedExactPageMode() ? elements[0] : null;
+}
+function getImportedHtmlRoot(){
+  return canvasPage.querySelector('.custom-html-widget');
+}
+function normalizeImportedAssetUrl(value=''){
+  const raw = String(value || '').trim();
+  if(!raw || /^(data:|blob:|mailto:|tel:|#|javascript:)/i.test(raw)) return raw;
+  try{
+    const absolute = /^https?:\/\//i.test(raw)
+      ? new URL(raw)
+      : new URL(raw.startsWith('/') ? raw : `/${raw.replace(/^\.?\//,'')}`, hostLiveSiteOrigin || window.location.origin);
+    if(hostLiveSiteOrigin && absolute.origin === new URL(hostLiveSiteOrigin).origin){
+      return `${hostLiveAssetProxyPrefix}${absolute.pathname}${absolute.search}${absolute.hash}`;
+    }
+    return absolute.toString();
+  }catch{
+    if(/^\/assets\//i.test(raw)) return `${hostLiveAssetProxyPrefix}${raw}`;
+    if(/^assets\//i.test(raw)) return `${hostLiveAssetProxyPrefix}/${raw}`;
+    return raw;
+  }
+}
+function ensureImportedEditorFonts(){
+  if(document.getElementById('importedEditorFonts')) return;
+  const style=document.createElement('style');
+  style.id='importedEditorFonts';
+  style.textContent = `
+    @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-solid-900.woff2') format('woff2'); font-weight: 900; font-style: normal; font-display: block; }
+    @font-face { font-family: 'Font Awesome 6 Brands'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-brands-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+    .custom-html-widget .fa, .custom-html-widget .fas, .custom-html-widget .fa-solid { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
+    .custom-html-widget .fab, .custom-html-widget .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
+    .custom-html-widget [class^='fa-']::before, .custom-html-widget [class*=' fa-']::before, .custom-html-widget .icon-btn::before, .custom-html-widget .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
+  `;
+  document.head.appendChild(style);
+}
+function importedBackgroundSource(node){
+  if(!node || node.tagName.toLowerCase()==='img') return '';
+  return node.getAttribute('data-bg-src') || node.getAttribute('data-background') || node.getAttribute('data-image') || '';
+}
+function hydrateImportedAssets(root){
+  if(!root) return;
+  ensureImportedEditorFonts();
+  root.querySelectorAll('img').forEach((img)=>{
+    const dataSrc = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '';
+    const dataSrcset = img.getAttribute('data-srcset') || img.getAttribute('data-lazy-srcset') || '';
+    const currentSrc = img.getAttribute('src') || '';
+    if(dataSrc && (!currentSrc || currentSrc === '#' || /placeholder/i.test(currentSrc))) img.setAttribute('src', dataSrc);
+    if(dataSrcset && !img.getAttribute('srcset')) img.setAttribute('srcset', dataSrcset);
+    const normalizedSrc = normalizeImportedAssetUrl(img.getAttribute('src') || '');
+    if(normalizedSrc) img.setAttribute('src', normalizedSrc);
+    const normalizedSrcset = normalizeImportedAssetUrl(img.getAttribute('srcset') || '');
+    if(normalizedSrcset && !/\s\d+w/.test(normalizedSrcset)) img.setAttribute('srcset', normalizedSrcset);
+    img.setAttribute('loading','eager');
+    img.setAttribute('decoding','async');
+    img.onerror = ()=> {
+      const fallback = normalizeImportedAssetUrl(dataSrc || currentSrc);
+      if(fallback && img.getAttribute('src') !== fallback) img.setAttribute('src', fallback);
+    };
+  });
+  root.querySelectorAll('source').forEach((source)=>{
+    const dataSrcset = source.getAttribute('data-srcset') || '';
+    if(dataSrcset && !source.getAttribute('srcset')) source.setAttribute('srcset', normalizeImportedAssetUrl(dataSrcset));
+  });
+  root.querySelectorAll('*').forEach((node)=>{
+    node.setAttribute('data-import-hoverable','true');
+    const bg = importedBackgroundSource(node);
+    if(bg){
+      node.style.backgroundImage = `url("${normalizeImportedAssetUrl(bg)}")`;
+      if(!node.style.backgroundSize) node.style.backgroundSize = 'cover';
+      if(!node.style.backgroundPosition) node.style.backgroundPosition = 'center center';
+      if(!node.style.backgroundRepeat) node.style.backgroundRepeat = 'no-repeat';
+    }
+    const mask = node.getAttribute('data-mask-src');
+    if(mask){
+      const normalizedMask = normalizeImportedAssetUrl(mask);
+      node.style.maskImage = `url("${normalizedMask}")`;
+      node.style.webkitMaskImage = `url("${normalizedMask}")`;
+    }
+  });
+}
+function ensureImportedNodeId(node){
+  if(!node) return '';
+  let id = node.getAttribute('data-import-id');
+  if(!id){
+    id = `imp_${importedEditorIdCounter++}`;
+    node.setAttribute('data-import-id', id);
+  }
+  return id;
+}
+function getImportedSelectableNode(target){
+  if(!isImportedExactPageMode()) return null;
+  const root = getImportedHtmlRoot();
+  if(!root || !target || !root.contains(target)) return null;
+  let node = target.nodeType===3 ? target.parentElement : target;
+  while(node && node!==root){
+    const tag = (node.tagName || '').toLowerCase();
+    if(tag && !['script','style','link','meta','head','body'].includes(tag)) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+function importedElementType(node){
+  const tag = String(node?.tagName || '').toLowerCase();
+  if(tag==='img') return 'image';
+  if(tag==='a' || tag==='button') return 'button';
+  if(/^h[1-6]$/.test(tag)) return 'heading';
+  if(['p','span','li','label','strong','em','small'].includes(tag)) return 'text';
+  return 'container';
+}
+function getImportedStyleValue(node, field){
+  if(!node) return '';
+  const inline = node.style ? node.style[field] : '';
+  if(inline) return inline;
+  try{
+    return window.getComputedStyle(node)[field] || '';
+  }catch{
+    return '';
+  }
+}
+function describeImportedNode(node){
+  if(!node) return null;
+  ensureImportedNodeId(node);
+  const tag = String(node.tagName || '').toLowerCase();
+  return {
+    id: node.getAttribute('data-import-id') || '',
+    tagName: tag,
+    type: importedElementType(node),
+    label: tag ? tag.toUpperCase() : 'Element',
+    text: String(node.textContent || '').trim(),
+    src: tag==='img' ? (node.getAttribute('src') || '') : '',
+    alt: tag==='img' ? (node.getAttribute('alt') || '') : '',
+    url: tag==='a' ? (node.getAttribute('href') || '#') : '',
+    styles: {
+      color: getImportedStyleValue(node,'color'),
+      backgroundColor: getImportedStyleValue(node,'backgroundColor'),
+      fontSize: getImportedStyleValue(node,'fontSize'),
+      fontWeight: getImportedStyleValue(node,'fontWeight'),
+      textAlign: getImportedStyleValue(node,'textAlign'),
+      width: getImportedStyleValue(node,'width'),
+      height: getImportedStyleValue(node,'height'),
+      minHeight: getImportedStyleValue(node,'minHeight'),
+      maxWidth: getImportedStyleValue(node,'maxWidth'),
+      display: getImportedStyleValue(node,'display'),
+      opacity: getImportedStyleValue(node,'opacity'),
+      marginTop: getImportedStyleValue(node,'marginTop'),
+      marginRight: getImportedStyleValue(node,'marginRight'),
+      marginBottom: getImportedStyleValue(node,'marginBottom'),
+      marginLeft: getImportedStyleValue(node,'marginLeft'),
+      paddingTop: getImportedStyleValue(node,'paddingTop'),
+      paddingRight: getImportedStyleValue(node,'paddingRight'),
+      paddingBottom: getImportedStyleValue(node,'paddingBottom'),
+      paddingLeft: getImportedStyleValue(node,'paddingLeft'),
+      borderStyle: getImportedStyleValue(node,'borderStyle'),
+      borderColor: getImportedStyleValue(node,'borderColor'),
+      borderTopWidth: getImportedStyleValue(node,'borderTopWidth'),
+      borderRightWidth: getImportedStyleValue(node,'borderRightWidth'),
+      borderBottomWidth: getImportedStyleValue(node,'borderBottomWidth'),
+      borderLeftWidth: getImportedStyleValue(node,'borderLeftWidth'),
+      borderTopLeftRadius: getImportedStyleValue(node,'borderTopLeftRadius'),
+      borderTopRightRadius: getImportedStyleValue(node,'borderTopRightRadius'),
+      borderBottomRightRadius: getImportedStyleValue(node,'borderBottomRightRadius'),
+      borderBottomLeftRadius: getImportedStyleValue(node,'borderBottomLeftRadius')
+    }
+  };
+}
+function syncImportedHtmlToModel(reason='imported-edit', push=false){
+  const root = getImportedHtmlRoot();
+  const model = getImportedHtmlElementModel();
+  if(!root || !model) return;
+  model.content.code = root.innerHTML;
+  markDirty();
+  if(push) pushHistory();
+  notifyHost('MWU_LIVE_HTML_UPDATED', {
+    reason,
+    bodyHtml: model.content.code,
+    fullHtml: buildPublishedHtml()
+  });
+}
+function clearImportedSelection(){
+  if(importedSelectionNode) importedSelectionNode.removeAttribute('data-import-selected');
+  importedSelectionNode = null;
+  importedSelectionId = '';
+}
+function applyImportedStyle(field, value){
+  if(!importedSelectionNode) return;
+  importedSelectionNode.style[field] = value;
+  syncImportedHtmlToModel('imported-style');
+}
+function duplicateImportedSelection(){
+  if(!importedSelectionNode || !importedSelectionNode.parentElement) return;
+  const clone = importedSelectionNode.cloneNode(true);
+  importedSelectionNode.insertAdjacentElement('afterend', clone);
+  hydrateImportedAssets(getImportedHtmlRoot());
+  syncImportedHtmlToModel('imported-duplicate', true);
+  selectImportedNode(clone);
+  showToast('Element duplicated');
+}
+function deleteImportedSelection(){
+  if(!importedSelectionNode || !importedSelectionNode.parentElement) return;
+  const next = importedSelectionNode.previousElementSibling || importedSelectionNode.nextElementSibling || null;
+  importedSelectionNode.remove();
+  clearImportedSelection();
+  syncImportedHtmlToModel('imported-delete', true);
+  if(next) selectImportedNode(next);
+  else switchLeftView('elements');
+  showToast('Element deleted');
+}
+function bindImportedColorPair(id, field){
+  const colorNode = document.getElementById(`f_${id}`);
+  const textNode = document.getElementById(`t_${id}`);
+  if(!colorNode || !textNode) return;
+  colorNode.addEventListener('input', ()=>{ textNode.value = colorNode.value; applyImportedStyle(field, colorNode.value); });
+  colorNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  textNode.addEventListener('input', ()=>{ if(/^#[0-9A-Fa-f]{6}$/.test(textNode.value)) colorNode.value = textNode.value; applyImportedStyle(field, textNode.value); });
+  textNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+}
+function bindImportedTextField(id, field){
+  const node = document.getElementById(`f_${id}`);
+  if(!node) return;
+  node.addEventListener('input', ()=> applyImportedStyle(field, node.value));
+  node.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+}
+function renderImportedSettings(node){
+  const details = describeImportedNode(node);
+  if(!details) return;
+  importedSelectionNode = node;
+  importedSelectionId = details.id;
+  document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : 'columns',15);
+  document.getElementById('settingsTitle').textContent = details.label;
+  document.getElementById('settingsSub').textContent = 'Imported page element';
+  const contentBox = document.getElementById('contentFields');
+  const styleBox = document.getElementById('styleFields');
+  const advancedBox = document.getElementById('advancedFields');
+  const textEditable = ['heading','text','button'].includes(details.type) && details.text;
+  contentBox.innerHTML = `
+    <div class="field-hint">Imported page editing is active. Double-click visible text to edit inline.</div>
+    ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
+    ${details.type==='button' ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
+    ${details.type==='image' ? fieldInput('Image URL', 'importedImageUrl', details.src || '') : ''}
+    ${details.type==='image' ? fieldInput('Alt text', 'importedImageAlt', details.alt || '') : ''}
+    ${details.type==='image' ? `<div class="field-group"><div class="field-group-label">Replace image</div>${imageUploadHtml('importedImageUpload')}</div>` : ''}
+  `;
+  styleBox.innerHTML = `
+    ${fieldInput('Font size', 'importedFontSize', details.styles.fontSize || '')}
+    ${selectField('Font weight', 'importedFontWeight', [['','Default'],['400','400'],['500','500'],['600','600'],['700','700'],['800','800'],['900','900']], details.styles.fontWeight || '')}
+    ${colorField('Text color', 'importedColor', details.styles.color && details.styles.color.startsWith('#') ? details.styles.color : '#081933')}
+    ${colorField('Background', 'importedBackgroundColor', details.styles.backgroundColor && details.styles.backgroundColor.startsWith('#') ? details.styles.backgroundColor : '#ffffff')}
+    ${selectField('Text align', 'importedTextAlign', [['','Default'],['left','Left'],['center','Center'],['right','Right'],['justify','Justify']], details.styles.textAlign || '')}
+    ${fieldInput('Width', 'importedWidth', details.styles.width || '')}
+    ${fieldInput('Height', 'importedHeight', details.styles.height || '')}
+    ${fieldInput('Minimum height', 'importedMinHeight', details.styles.minHeight || '')}
+    ${fieldInput('Max width', 'importedMaxWidth', details.styles.maxWidth || '')}
+  `;
+  advancedBox.innerHTML = `
+    ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
+    ${fieldInput('Opacity', 'importedOpacity', details.styles.opacity || '')}
+    ${linkedQuadField('Margin', 'importedMargin', {
+      top: parseInt(details.styles.marginTop,10) || 0,
+      right: parseInt(details.styles.marginRight,10) || 0,
+      bottom: parseInt(details.styles.marginBottom,10) || 0,
+      left: parseInt(details.styles.marginLeft,10) || 0
+    }, false, -200, 200)}
+    ${linkedQuadField('Padding', 'importedPadding', {
+      top: parseInt(details.styles.paddingTop,10) || 0,
+      right: parseInt(details.styles.paddingRight,10) || 0,
+      bottom: parseInt(details.styles.paddingBottom,10) || 0,
+      left: parseInt(details.styles.paddingLeft,10) || 0
+    }, false, 0, 200)}
+    ${selectField('Border style', 'importedBorderStyle', [['','Default'],['none','None'],['solid','Solid'],['dashed','Dashed'],['dotted','Dotted']], details.styles.borderStyle || '')}
+    ${colorField('Border color', 'importedBorderColor', details.styles.borderColor && details.styles.borderColor.startsWith('#') ? details.styles.borderColor : '#d7e3f2')}
+    ${linkedQuadField('Border width', 'importedBorderWidth', {
+      top: parseInt(details.styles.borderTopWidth,10) || 0,
+      right: parseInt(details.styles.borderRightWidth,10) || 0,
+      bottom: parseInt(details.styles.borderBottomWidth,10) || 0,
+      left: parseInt(details.styles.borderLeftWidth,10) || 0
+    }, false, 0, 100)}
+    ${linkedQuadField('Border radius', 'importedBorderRadius', {
+      top: parseInt(details.styles.borderTopLeftRadius,10) || 0,
+      right: parseInt(details.styles.borderTopRightRadius,10) || 0,
+      bottom: parseInt(details.styles.borderBottomRightRadius,10) || 0,
+      left: parseInt(details.styles.borderBottomLeftRadius,10) || 0
+    }, false, 0, 200)}
+  `;
+  const textNode = document.getElementById('f_importedTextContent');
+  if(textNode){
+    textNode.addEventListener('input', ()=>{ importedSelectionNode.textContent = textNode.value; syncImportedHtmlToModel('imported-text'); });
+    textNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-text', true));
+  }
+  const linkNode = document.getElementById('f_importedLinkUrl');
+  if(linkNode){
+    linkNode.addEventListener('input', ()=> importedSelectionNode.setAttribute('href', linkNode.value || '#'));
+    linkNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-link', true));
+  }
+  const imageNode = document.getElementById('f_importedImageUrl');
+  if(imageNode){
+    imageNode.addEventListener('input', ()=>{ importedSelectionNode.setAttribute('src', normalizeImportedAssetUrl(imageNode.value)); syncImportedHtmlToModel('imported-image'); });
+    imageNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-image', true));
+  }
+  const altNode = document.getElementById('f_importedImageAlt');
+  if(altNode){
+    altNode.addEventListener('input', ()=> importedSelectionNode.setAttribute('alt', altNode.value));
+    altNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-image-alt', true));
+  }
+  bindImportedTextField('importedFontSize', 'fontSize');
+  const fontWeightNode = document.getElementById('f_importedFontWeight');
+  if(fontWeightNode){
+    fontWeightNode.addEventListener('change', ()=>{ applyImportedStyle('fontWeight', fontWeightNode.value); syncImportedHtmlToModel('imported-style', true); });
+  }
+  bindImportedColorPair('importedColor', 'color');
+  bindImportedColorPair('importedBackgroundColor', 'backgroundColor');
+  const alignNode = document.getElementById('f_importedTextAlign');
+  if(alignNode){
+    alignNode.addEventListener('change', ()=>{ applyImportedStyle('textAlign', alignNode.value); syncImportedHtmlToModel('imported-style', true); });
+  }
+  ['Width','Height','MinHeight','MaxWidth','Opacity'].forEach((name)=>{
+    const fieldMap = { Width:'width', Height:'height', MinHeight:'minHeight', MaxWidth:'maxWidth', Opacity:'opacity' };
+    bindImportedTextField(`imported${name}`, fieldMap[name]);
+  });
+  const displayNode = document.getElementById('f_importedDisplay');
+  if(displayNode){
+    displayNode.addEventListener('change', ()=>{ applyImportedStyle('display', displayNode.value); syncImportedHtmlToModel('imported-style', true); });
+  }
+  const borderStyleNode = document.getElementById('f_importedBorderStyle');
+  if(borderStyleNode){
+    borderStyleNode.addEventListener('change', ()=>{ applyImportedStyle('borderStyle', borderStyleNode.value); syncImportedHtmlToModel('imported-style', true); });
+  }
+  bindImportedColorPair('importedBorderColor', 'borderColor');
+  const bindImportedSides = (prefix, styleFields) => {
+    ['Top','Right','Bottom','Left'].forEach((side, index)=>{
+      const input = document.getElementById(`${prefix}${side}`);
+      if(!input) return;
+      input.addEventListener('input', ()=>{
+        importedSelectionNode.style[styleFields[index]] = `${Number(input.value)||0}px`;
+        syncImportedHtmlToModel('imported-style');
+      });
+      input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+    });
+  };
+  bindImportedSides('importedMargin', ['marginTop','marginRight','marginBottom','marginLeft']);
+  bindImportedSides('importedPadding', ['paddingTop','paddingRight','paddingBottom','paddingLeft']);
+  bindImportedSides('importedBorderWidth', ['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth']);
+  const radiusInputs = ['Top','Right','Bottom','Left'].map((side)=>document.getElementById(`importedBorderRadius${side}`));
+  const radiusProps = ['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius'];
+  radiusInputs.forEach((input, index)=>{
+    if(!input) return;
+    input.addEventListener('input', ()=>{
+      importedSelectionNode.style[radiusProps[index]] = `${Number(input.value)||0}px`;
+      syncImportedHtmlToModel('imported-style');
+    });
+    input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  });
+  bindImageUpload('importedImageUpload', (src)=>{
+    if(importedSelectionNode && importedSelectionNode.tagName && importedSelectionNode.tagName.toLowerCase()==='img'){
+      importedSelectionNode.setAttribute('src', src);
+      syncImportedHtmlToModel('imported-image-upload', true);
+      renderImportedSettings(importedSelectionNode);
+    }
+  });
+  switchLeftView('settings');
+  document.querySelectorAll('.settings-tab').forEach(t=>t.classList.toggle('active', t.dataset.stab==='content'));
+  document.querySelectorAll('.settings-panel-tab').forEach(p=>p.classList.toggle('active', p.dataset.spanel==='content'));
+}
+function selectImportedNode(node){
+  const target = getImportedSelectableNode(node);
+  if(!target) return;
+  clearImportedSelection();
+  selectedId = null;
+  document.querySelectorAll('.el-wrap.selected').forEach(w=>w.classList.remove('selected'));
+  ensureImportedNodeId(target);
+  target.setAttribute('data-import-selected','true');
+  importedSelectionNode = target;
+  importedSelectionId = target.getAttribute('data-import-id') || '';
+  renderImportedSettings(target);
+}
+function initializeImportedPage(){
+  if(!isImportedExactPageMode()) return;
+  const root = getImportedHtmlRoot();
+  if(!root || root.getAttribute('data-import-initialized')==='true') return;
+  root.setAttribute('data-import-initialized','true');
+  hydrateImportedAssets(root);
+  root.addEventListener('click', (event)=>{
+    const target = getImportedSelectableNode(event.target);
+    if(!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    selectImportedNode(event.shiftKey && target.parentElement && target.parentElement!==root ? target.parentElement : target);
+  }, true);
+  root.addEventListener('dblclick', (event)=>{
+    const target = getImportedSelectableNode(event.target);
+    if(!target) return;
+    if(String(target.tagName || '').toLowerCase()==='img'){
+      selectImportedNode(target);
+      const uploader = document.querySelector('#contentFields #importedImageUpload');
+      if(uploader) uploader.click();
+      return;
+    }
+    const hasOnlyTextChildren = !Array.from(target.children || []).length;
+    if(!hasOnlyTextChildren) return;
+    event.preventDefault();
+    event.stopPropagation();
+    selectImportedNode(target);
+    target.contentEditable = 'true';
+    target.focus();
+    const finish = ()=>{
+      target.contentEditable = 'false';
+      syncImportedHtmlToModel('imported-inline-text', true);
+      renderImportedSettings(target);
+      target.removeEventListener('blur', finish);
+    };
+    target.addEventListener('blur', finish);
+  }, true);
+}
 
 /* ============================================================
    RENDER: WIDGET PALETTE
@@ -966,7 +1396,12 @@ document.addEventListener('click', ()=>{ deselectAll(); });
 canvasPage.addEventListener('click', (e)=> e.stopPropagation());
 
 function deselectAll(){
-  if(selectedId === null) return;
+  const hadImportedSelection = !!importedSelectionNode;
+  clearImportedSelection();
+  if(selectedId === null){
+    if(hadImportedSelection) switchLeftView('elements');
+    return;
+  }
   selectedId = null;
   document.querySelectorAll('.el-wrap.selected').forEach(w=>w.classList.remove('selected'));
   switchLeftView('elements');
@@ -1072,8 +1507,14 @@ document.querySelectorAll('.settings-tab').forEach(tab=>{
   });
 });
 
-document.getElementById('dupBtn').addEventListener('click', ()=>{ if(selectedId) duplicateElement(selectedId); });
-document.getElementById('delBtn').addEventListener('click', ()=>{ if(selectedId) deleteElement(selectedId); });
+document.getElementById('dupBtn').addEventListener('click', ()=>{
+  if(importedSelectionNode){ duplicateImportedSelection(); return; }
+  if(selectedId) duplicateElement(selectedId);
+});
+document.getElementById('delBtn').addEventListener('click', ()=>{
+  if(importedSelectionNode){ deleteImportedSelection(); return; }
+  if(selectedId) deleteElement(selectedId);
+});
 
 function reRenderElement(el){
   const wrap = canvasPage.querySelector(`.el-wrap[data-id="${el.id}"]`);
@@ -1759,11 +2200,10 @@ document.getElementById('previewBtn').addEventListener('click', ()=>{
 ============================================================ */
 function renderAll(){
   renderCanvas();
+  initializeImportedPage();
   if(document.getElementById('viewLayers').classList.contains('active')) renderLayers();
 }
 elements.forEach(el=>{ el.advanced = el.advanced || {}; });
-renderAll();
-pushHistory();
 
 /* ============================================================
    ENHANCED FUNCTIONAL DEMO
@@ -1802,8 +2242,8 @@ WIDGETS.push(
 );
 
 let pageSettings = {
-  title:'Robe Integrated Research Center', slug:'robe-integrated-research-center', status:'draft',
-  seoTitle:'Robe Integrated Research Center | MWU', seoDescription:'Explore research, public health, agriculture, and rural development initiatives at Madda Walabu University.',
+  title:'Untitled Page', slug:'untitled-page', status:'draft',
+  seoTitle:'', seoDescription:'',
   canvasBg:'#ffffff', bodyBg:'#EEF0F3', fontFamily:'Inter', updatedAt:null
 };
 let dirty = false;
@@ -1812,6 +2252,10 @@ const HOST_QUERY = new URLSearchParams(window.location.search);
 const BUILDER_INSTANCE_KEY = (HOST_QUERY.get('pageId') || HOST_QUERY.get('page') || 'demo').trim() || 'demo';
 const STORAGE_KEY = `mwu_visual_builder_${BUILDER_INSTANCE_KEY}_v3`;
 const PUBLISH_KEY = `mwu_visual_builder_published_${BUILDER_INSTANCE_KEY}_v3`;
+const IS_HOSTED_BUILDER = window.parent && window.parent !== window;
+
+renderAll();
+pushHistory();
 
 const _defaultsFor = defaultsFor;
 defaultsFor = function(type){
@@ -2253,6 +2697,13 @@ wireCanvasEvents = function(){
     const id = wrap.dataset.id;
     wrap.addEventListener('click', (e)=>{
       e.stopPropagation();
+      if(isImportedExactPageMode() && e.target.closest('.custom-html-widget') && !e.target.closest('.el-controls')){
+        const importedTarget = getImportedSelectableNode(e.target);
+        if(importedTarget){
+          selectImportedNode(importedTarget);
+          return;
+        }
+      }
       if(e.target.closest('.drop-zone')) return;
       selectElement(id);
     });
@@ -2450,6 +2901,20 @@ renderStyleFields = function(el){
 
 const _buildPublishedHtml = buildPublishedHtml;
 buildPublishedHtml = function(){
+  if(isImportedExactPageMode()){
+    const root = getImportedHtmlRoot();
+    const model = getImportedHtmlElementModel();
+    const bodyHtml = root ? root.innerHTML : ((model && model.content && model.content.code) || '');
+    const cssLinks = (hostImportCssLinks || []).filter(Boolean).map((href)=>`<link rel="stylesheet" href="${href}">`).join('');
+    const fontStyle = `<style>
+      @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-solid-900.woff2') format('woff2'); font-weight: 900; font-style: normal; font-display: block; }
+      @font-face { font-family: 'Font Awesome 6 Brands'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-brands-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+      .fa, .fas, .fa-solid { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
+      .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
+      [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
+    </style>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${fontStyle}</head><body>${bodyHtml}</body></html>`;
+  }
   elements = ensureTreeDefaults(elements);
   const customRules = [];
   const renderPublishedTree = (items)=>{
@@ -2550,10 +3015,14 @@ function syncHostStylesheets(urls=[]){
 function loadHostSnapshot(data={}){
   const nextPageSettings=data.pageSettings&&typeof data.pageSettings==='object'?data.pageSettings:{};
   pageSettings={...pageSettings,...nextPageSettings};
-  syncHostStylesheets(Array.isArray(data.importCssLinks)?data.importCssLinks:[]);
+  hostImportCssLinks = Array.isArray(data.importCssLinks)?data.importCssLinks:[];
+  hostLiveAssetProxyPrefix = data.liveAssetProxyPrefix || hostLiveAssetProxyPrefix;
+  hostLiveSiteOrigin = data.liveSiteOrigin || hostLiveSiteOrigin;
+  syncHostStylesheets(hostImportCssLinks);
   if(Array.isArray(data.elements)) elements=migrateLegacyColumns(data.elements);
   if(data.device) currentDevice=data.device;
   document.body.classList.toggle('imported-page-mode', !!pageSettings.exactImport);
+  clearImportedSelection();
   selectedId=null;
   history=[];historyIndex=-1;
   syncPageSettingsToUi();
@@ -2591,14 +3060,14 @@ document.addEventListener('keydown',e=>{
   const typing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)||document.activeElement.isContentEditable;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveDraft(false)}
   if(!typing&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo()}
   if(!typing&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}
-  if(!typing&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&selectedId){e.preventDefault();duplicateElement(selectedId)}
-  if(!typing&&e.key==='Delete'&&selectedId){e.preventDefault();deleteElement(selectedId)}
+  if(!typing&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&(selectedId||importedSelectionNode)){e.preventDefault();if(importedSelectionNode) duplicateImportedSelection(); else duplicateElement(selectedId)}
+  if(!typing&&e.key==='Delete'&&(selectedId||importedSelectionNode)){e.preventDefault();if(importedSelectionNode) deleteImportedSelection(); else deleteElement(selectedId)}
   if(e.key==='Escape'){if(document.getElementById('modalBackdrop').classList.contains('open'))closeModal();else if(document.body.classList.contains('preview-mode'))document.getElementById('previewBtn').click();else deselectAll()}
 });
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
-// Restore the most recent local draft when available, then refresh enhanced UI.
-if(restoreDraft()){
+// Restore local draft only when the builder is opened standalone, not when the CRM hosts a real page payload.
+if(!IS_HOSTED_BUILDER && restoreDraft()){
   syncPageSettingsToUi();
   document.querySelectorAll('[data-device]').forEach(b=>b.classList.toggle('active',b.dataset.device===currentDevice));canvasPage.classList.toggle('tablet',currentDevice==='tablet');canvasPage.classList.toggle('mobile',currentDevice==='mobile');
   history=[];historyIndex=-1;_pushHistory();

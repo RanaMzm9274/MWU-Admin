@@ -1343,10 +1343,18 @@ const buildHtmlVisualBuilderFallbackElements = (page = {}) => {
     return sectionElements;
   }
 
-  return [
-    createHtmlBuilderHeadingElement(page?.title || "Untitled Page", "h1"),
-    createHtmlBuilderTextElement(page?.summary || "This page did not have a saved builder snapshot, so the editor started with a basic fallback layout.")
-  ];
+  const hasMeaningfulPageContent = Boolean(
+    String(page?.title || "").trim() ||
+    String(page?.summary || "").trim() ||
+    String(page?.heroHeadline || "").trim() ||
+    String(page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html || "").trim()
+  );
+
+  if (!hasMeaningfulPageContent || String(page?.slug || "").trim() === "untitled-page") {
+    return [];
+  }
+
+  return [];
 };
 
 const buildHtmlVisualBuilderInitPayload = (page = {}) => {
@@ -1366,6 +1374,8 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
       bodyBg: !storedElements.length && hasImportedHtml ? "#eef0f3" : buildHtmlBuilderPageSettings(page, storedPageSettings).bodyBg
     },
     importCssLinks: !storedElements.length && hasImportedHtml ? proxiedSiteCssLinks : [],
+    liveAssetProxyPrefix: LIVE_ASSET_PROXY_PREFIX,
+    liveSiteOrigin: LIVE_SITE_ORIGIN,
     elements: storedElements.length
       ? storedElements
       : hasImportedHtml
