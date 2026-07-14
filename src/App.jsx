@@ -605,6 +605,7 @@ const defaultPageStyles = {
   canvasWidth: "1200",
   backgroundColor: "#ffffff",
   accentColor: "#d6a128",
+  textColor: "#18212f",
   fontFamily: "Inter, Segoe UI, Arial, sans-serif"
 };
 
@@ -967,6 +968,654 @@ const getGeneratedThumbnailForPage = (page = {}) => {
   const dataUri = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   GENERATED_THUMBNAIL_CACHE.set(cacheKey, dataUri);
   return dataUri;
+};
+
+const VISUAL_BUILDER_COMMENT_PREFIX = "MWU_VISUAL_BUILDER:";
+
+const VISUAL_WIDGET_LIBRARY = {
+  heading: {
+    label: "Heading",
+    settings: {
+      text: "Add a compelling heading",
+      tag: "h2",
+      color: "#081933",
+      fontSize: "42px",
+      fontWeight: "700",
+      align: "left",
+      maxWidth: "820px"
+    }
+  },
+  text: {
+    label: "Text",
+    settings: {
+      text: "Write supporting page copy here. Use this widget for paragraphs, explanations, and narrative content.",
+      color: "#667085",
+      fontSize: "18px",
+      lineHeight: "1.7",
+      align: "left",
+      maxWidth: "820px"
+    }
+  },
+  button: {
+    label: "Button",
+    settings: {
+      label: "Primary Action",
+      url: "#",
+      color: "#ffffff",
+      backgroundColor: "#1a4b96",
+      borderRadius: "10px",
+      paddingY: "14px",
+      paddingX: "20px",
+      fontSize: "16px",
+      fontWeight: "800",
+      align: "left"
+    }
+  },
+  image: {
+    label: "Image",
+    settings: {
+      src: assets.hero,
+      alt: "Visual content",
+      height: "320px",
+      objectFit: "cover",
+      borderRadius: "18px",
+      boxShadow: true
+    }
+  },
+  divider: {
+    label: "Divider",
+    settings: {
+      color: "#d9e2dc",
+      thickness: "1px",
+      width: "100%"
+    }
+  },
+  spacer: {
+    label: "Spacer",
+    settings: {
+      height: "32px"
+    }
+  }
+};
+
+const createVisualWidget = (widgetType = "heading", overrides = {}) => {
+  const definition = VISUAL_WIDGET_LIBRARY[widgetType] || VISUAL_WIDGET_LIBRARY.heading;
+  return {
+    id: overrides.id || makeId(),
+    elType: "widget",
+    widgetType,
+    isInner: Boolean(overrides.isInner),
+    settings: {
+      ...definition.settings,
+      ...(overrides.settings || {})
+    },
+    elements: [],
+    ...overrides
+  };
+};
+
+const createVisualContainer = (overrides = {}) => ({
+  id: overrides.id || makeId(),
+  elType: "container",
+  isInner: Boolean(overrides.isInner),
+  settings: {
+    direction: "column",
+    gap: "24px",
+    padding: "28px",
+    backgroundColor: "#ffffff",
+    textColor: "#18212f",
+    borderRadius: "20px",
+    borderColor: "rgba(8,25,51,0.08)",
+    borderWidth: "1px",
+    contentWidth: "boxed",
+    maxWidth: "1180px",
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+    minHeight: "",
+    boxShadow: false,
+    ...(overrides.settings || {})
+  },
+  elements: Array.isArray(overrides.elements) ? overrides.elements : [],
+  ...overrides
+});
+
+const createVisualBuilderContent = (page = {}) => {
+  const heroCopy = createVisualContainer({
+    isInner: true,
+    settings: {
+      backgroundColor: "transparent",
+      borderWidth: "0px",
+      borderRadius: "0px",
+      boxShadow: false,
+      padding: "0px",
+      gap: "18px",
+      justifyContent: "center",
+      alignItems: "flex-start"
+    },
+    elements: [
+      createVisualWidget("heading", {
+        settings: {
+          text: page.heroHeadline || "Create pages visually with a modern builder",
+          tag: "h1",
+          color: "#ffffff",
+          fontSize: "56px",
+          maxWidth: "680px"
+        }
+      }),
+      createVisualWidget("text", {
+        settings: {
+          text: page.summary || "Build full layouts using containers and widgets instead of editing raw HTML.",
+          color: "#eaf1f7",
+          maxWidth: "640px"
+        }
+      }),
+      createVisualWidget("button", {
+        settings: {
+          label: page.ctaLabel || "Learn More",
+          url: page.ctaUrl || "#",
+          backgroundColor: "#d6a128",
+          color: "#081933"
+        }
+      })
+    ]
+  });
+
+  const heroImage = createVisualContainer({
+    isInner: true,
+    settings: {
+      backgroundColor: "transparent",
+      borderWidth: "0px",
+      borderRadius: "0px",
+      boxShadow: false,
+      padding: "0px",
+      justifyContent: "center",
+      alignItems: "stretch"
+    },
+    elements: [
+      createVisualWidget("image", {
+        settings: {
+          src: page.heroImage || assets.hero,
+          alt: page.title || "Page preview image",
+          height: "420px",
+          objectFit: "cover"
+        }
+      })
+    ]
+  });
+
+  const card = (title, body) =>
+    createVisualContainer({
+      isInner: true,
+      settings: {
+        backgroundColor: "#ffffff",
+        borderColor: "#d7e3f2",
+        borderWidth: "1px",
+        borderRadius: "18px",
+        padding: "24px",
+        gap: "12px",
+        boxShadow: true
+      },
+      elements: [
+        createVisualWidget("heading", {
+          settings: {
+            text: title,
+            tag: "h3",
+            fontSize: "28px"
+          }
+        }),
+        createVisualWidget("text", {
+          settings: {
+            text: body,
+            fontSize: "16px"
+          }
+        })
+      ]
+    });
+
+  return [
+    createVisualContainer({
+      settings: {
+        direction: "row",
+        gap: "32px",
+        padding: "72px",
+        backgroundColor: "#081933",
+        textColor: "#ffffff",
+        borderWidth: "0px",
+        contentWidth: "boxed",
+        alignItems: "center"
+      },
+      elements: [heroCopy, heroImage]
+    }),
+    createVisualContainer({
+      settings: {
+        direction: "column",
+        gap: "16px",
+        padding: "48px",
+        backgroundColor: "#ffffff",
+        borderColor: "#d7e3f2",
+        borderWidth: "1px",
+        boxShadow: true
+      },
+      elements: [
+        createVisualWidget("heading", {
+          settings: {
+            text: page.title || "New Visual Page",
+            tag: "h2",
+            fontSize: "38px"
+          }
+        }),
+        createVisualWidget("text", {
+          settings: {
+            text: "Use the widget palette to add headings, copy, buttons, images, spacers, and more. Use containers to build full-width hero areas, boxed sections, columns, and feature layouts."
+          }
+        })
+      ]
+    }),
+    createVisualContainer({
+      settings: {
+        direction: "row",
+        gap: "20px",
+        padding: "0px",
+        backgroundColor: "transparent",
+        borderWidth: "0px",
+        boxShadow: false,
+        alignItems: "stretch"
+      },
+      elements: [
+        card("Container-first layout", "Build rows, columns, and nested structures visually."),
+        card("Widget-driven content", "Each widget stores its own settings like text, image, button, and spacing controls."),
+        card("Design controls", "Style and advanced settings update the live preview without writing raw code.")
+      ]
+    })
+  ];
+};
+
+const createDefaultVisualBuilderModel = (page = {}) => ({
+  version: "1.0",
+  content: createVisualBuilderContent(page)
+});
+
+const cloneVisualBuilderModel = (model = {}, regenerateIds = false) => ({
+  version: model?.version || "1.0",
+  content: Array.isArray(model?.content)
+    ? model.content.map((element) => cloneVisualBuilderElement(element, regenerateIds))
+    : []
+});
+
+const cloneVisualBuilderElement = (element = {}, regenerateIds = false) => {
+  if (!element || typeof element !== "object") return element;
+  const cloned = {
+    ...element,
+    id: regenerateIds ? makeId() : element.id,
+    settings: { ...(element.settings || {}) },
+    elements: Array.isArray(element.elements)
+      ? element.elements.map((child) => cloneVisualBuilderElement(child, regenerateIds))
+      : []
+  };
+  return cloned;
+};
+
+const normalizeVisualBuilderElement = (element = {}) => {
+  if (element?.elType === "widget") {
+    return createVisualWidget(element.widgetType || "heading", {
+      ...element,
+      settings: { ...((VISUAL_WIDGET_LIBRARY[element.widgetType || "heading"] || VISUAL_WIDGET_LIBRARY.heading).settings), ...(element.settings || {}) },
+      elements: []
+    });
+  }
+
+  return createVisualContainer({
+    ...element,
+    elements: Array.isArray(element?.elements) ? element.elements.map(normalizeVisualBuilderElement) : []
+  });
+};
+
+const normalizeVisualBuilderModel = (model = {}, page = {}) => {
+  const content = Array.isArray(model?.content)
+    ? model.content.map(normalizeVisualBuilderElement)
+    : Array.isArray(model?.elements)
+      ? model.elements.map(normalizeVisualBuilderElement)
+      : [];
+
+  return {
+    version: model?.version || "1.0",
+    content: content.length ? content : createVisualBuilderContent(page)
+  };
+};
+
+const serializeVisualBuilderModel = (model = {}) => {
+  try {
+    return `<!--${VISUAL_BUILDER_COMMENT_PREFIX}${encodeURIComponent(JSON.stringify(model))}-->`;
+  } catch {
+    return "";
+  }
+};
+
+const extractVisualBuilderModelFromMarkup = (html = "") => {
+  const match = String(html || "").match(/<!--MWU_VISUAL_BUILDER:([\s\S]*?)-->/i);
+  if (!match?.[1]) return null;
+
+  try {
+    return JSON.parse(decodeURIComponent(match[1]));
+  } catch {
+    return null;
+  }
+};
+
+const getVisualContainerInlineStyle = (container = {}, isRoot = false) => {
+  const settings = container.settings || {};
+  const borderWidth = toCssUnit(settings.borderWidth || "0px", "0px");
+  const hasBorder = String(borderWidth || "0").replace(/[^0-9.]/g, "") !== "0";
+  return [
+    "display:flex",
+    `flex-direction:${settings.direction || "column"}`,
+    `gap:${toCssUnit(settings.gap || "24px", "24px")}`,
+    `padding:${toCssUnit(settings.padding || "0px", "0px")}`,
+    `justify-content:${settings.justifyContent || "flex-start"}`,
+    `align-items:${settings.alignItems || "stretch"}`,
+    `background:${settings.backgroundColor || "transparent"}`,
+    `color:${settings.textColor || "inherit"}`,
+    `border-radius:${toCssUnit(settings.borderRadius || "0px", "0px")}`,
+    `border:${hasBorder ? `${borderWidth} solid ${settings.borderColor || "transparent"}` : "0"}`,
+    `box-shadow:${settings.boxShadow ? "0 20px 52px rgba(8,25,51,0.10)" : "none"}`,
+    `width:${settings.contentWidth === "full" ? "100%" : "min(100%, " + (settings.maxWidth || "1180px") + ")"}`,
+    `${isRoot ? "margin:0 auto" : ""}`,
+    settings.minHeight ? `min-height:${toCssUnit(settings.minHeight, settings.minHeight)}` : ""
+  ].filter(Boolean).join(";");
+};
+
+const getVisualWidgetWrapperStyle = (widget = {}) => {
+  const settings = widget.settings || {};
+  return [
+    settings.width ? `width:${toCssUnit(settings.width, settings.width)}` : "",
+    settings.maxWidth ? `max-width:${toCssUnit(settings.maxWidth, settings.maxWidth)}` : "",
+    settings.padding ? `padding:${toCssUnit(settings.padding, settings.padding)}` : "",
+    settings.marginTop ? `margin-top:${toCssUnit(settings.marginTop, settings.marginTop)}` : "",
+    settings.marginBottom ? `margin-bottom:${toCssUnit(settings.marginBottom, settings.marginBottom)}` : "",
+    settings.align ? `text-align:${settings.align}` : "",
+    settings.backgroundColor ? `background:${settings.backgroundColor}` : "",
+    settings.borderRadius ? `border-radius:${toCssUnit(settings.borderRadius, settings.borderRadius)}` : ""
+  ].filter(Boolean).join(";");
+};
+
+const buildVisualWidgetMarkup = (widget = {}) => {
+  const settings = widget.settings || {};
+  const wrapperStyle = getVisualWidgetWrapperStyle(widget);
+
+  if (widget.widgetType === "heading") {
+    const tag = settings.tag || "h2";
+    return `<div class="mwu-vb-widget-wrap mwu-vb-widget-heading" style="${wrapperStyle}"><${tag} style="margin:0;color:${settings.color || "#081933"};font-size:${toCssUnit(settings.fontSize || "42px", "42px")};font-weight:${settings.fontWeight || "700"};line-height:1.12;">${escapeHtml(settings.text || "Heading")}</${tag}></div>`;
+  }
+
+  if (widget.widgetType === "text") {
+    const paragraphs = String(settings.text || "")
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => `<p style="margin:0 0 14px;color:${settings.color || "#667085"};font-size:${toCssUnit(settings.fontSize || "18px", "18px")};line-height:${settings.lineHeight || "1.7"};">${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+    return `<div class="mwu-vb-widget-wrap mwu-vb-widget-text" style="${wrapperStyle}">${paragraphs || `<p style="margin:0;color:${settings.color || "#667085"};">Text widget</p>`}</div>`;
+  }
+
+  if (widget.widgetType === "button") {
+    return `<div class="mwu-vb-widget-wrap mwu-vb-widget-button" style="${wrapperStyle}"><a href="${escapeHtml(settings.url || "#")}" style="display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:${toCssUnit(settings.paddingY || "14px", "14px")} ${toCssUnit(settings.paddingX || "20px", "20px")};border-radius:${toCssUnit(settings.borderRadius || "10px", "10px")};background:${settings.backgroundColor || "#1a4b96"};color:${settings.color || "#ffffff"};font-size:${toCssUnit(settings.fontSize || "16px", "16px")};font-weight:${settings.fontWeight || "800"};text-decoration:none;">${escapeHtml(settings.label || "Button")}</a></div>`;
+  }
+
+  if (widget.widgetType === "image") {
+    return `<div class="mwu-vb-widget-wrap mwu-vb-widget-image" style="${wrapperStyle}"><img src="${escapeHtml(settings.src || assets.hero)}" alt="${escapeHtml(settings.alt || "")}" style="width:100%;height:${toCssUnit(settings.height || "320px", "320px")};object-fit:${settings.objectFit || "cover"};border-radius:${toCssUnit(settings.borderRadius || "18px", "18px")};box-shadow:${settings.boxShadow ? "0 20px 45px rgba(8,25,51,0.12)" : "none"};" /></div>`;
+  }
+
+  if (widget.widgetType === "divider") {
+    return `<div class="mwu-vb-widget-wrap mwu-vb-widget-divider" style="${wrapperStyle}"><hr style="margin:0;border:0;border-top:${toCssUnit(settings.thickness || "1px", "1px")} solid ${settings.color || "#d9e2dc"};width:${toCssUnit(settings.width || "100%", "100%")};" /></div>`;
+  }
+
+  if (widget.widgetType === "spacer") {
+    return `<div class="mwu-vb-widget-wrap mwu-vb-widget-spacer" style="${wrapperStyle}"><div style="height:${toCssUnit(settings.height || "32px", "32px")};"></div></div>`;
+  }
+
+  return "";
+};
+
+const buildVisualBuilderElementsMarkup = (elements = [], isRoot = false) =>
+  (elements || []).map((element) => {
+    if (element?.elType === "widget") {
+      return buildVisualWidgetMarkup(element);
+    }
+
+    const tagName = isRoot ? "section" : "div";
+    return `<${tagName} class="mwu-vb-container${element?.isInner ? " is-inner" : ""}" style="${getVisualContainerInlineStyle(element, isRoot)}">${buildVisualBuilderElementsMarkup(element?.elements || [], false)}</${tagName}>`;
+  }).join("");
+
+const buildVisualBuilderBodyMarkup = (page = {}) => {
+  const pageStyles = getPageStyles(page);
+  const model = normalizeVisualBuilderModel(page.visualBuilder || page.visual_builder || {}, page);
+  const metadata = serializeVisualBuilderModel(model);
+  return `${metadata}<main class="mwu-visual-builder-page" style="background:${pageStyles.backgroundColor};color:${pageStyles.textColor};font-family:${pageStyles.fontFamily};padding:24px 0 56px;">${buildVisualBuilderElementsMarkup(model.content, true)}</main>`;
+};
+
+const isVisualBuilderPage = (page = {}) =>
+  String(page?.builderKind || page?.builder_kind || "").toLowerCase() === "visual";
+
+const getVisualBuilderModelFromPage = (page = {}) =>
+  normalizeVisualBuilderModel(
+    page?.visualBuilder ||
+      page?.visual_builder ||
+      extractVisualBuilderModelFromMarkup(page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html || "") ||
+      {},
+    page
+  );
+
+const getVisualBuilderElementLabel = (element = {}) => {
+  if (element?.elType === "widget") {
+    return VISUAL_WIDGET_LIBRARY[element.widgetType]?.label || "Widget";
+  }
+
+  return element?.settings?.name || (element?.isInner ? "Inner Container" : "Container");
+};
+
+const walkVisualBuilderElements = (elements = [], visitor, depth = 0, parent = null) => {
+  (elements || []).forEach((element, index) => {
+    visitor({
+      element,
+      index,
+      depth,
+      parent,
+      parentId: parent?.id || null,
+      siblings: elements
+    });
+
+    if (element?.elType === "container" && Array.isArray(element?.elements) && element.elements.length) {
+      walkVisualBuilderElements(element.elements, visitor, depth + 1, element);
+    }
+  });
+};
+
+const findVisualBuilderElementMeta = (elements = [], targetId = "") => {
+  if (!targetId) {
+    return null;
+  }
+
+  let found = null;
+  walkVisualBuilderElements(elements, (meta) => {
+    if (!found && String(meta.element?.id) === String(targetId)) {
+      found = meta;
+    }
+  });
+  return found;
+};
+
+const resolveVisualBuilderTargetContainerId = (model = {}, selectedId = "") => {
+  const content = Array.isArray(model?.content) ? model.content : [];
+  const selectedMeta = findVisualBuilderElementMeta(content, selectedId);
+  if (selectedMeta?.element?.elType === "container") {
+    return selectedMeta.element.id;
+  }
+  if (selectedMeta?.parent?.elType === "container") {
+    return selectedMeta.parent.id;
+  }
+  return content.find((element) => element?.elType === "container")?.id || null;
+};
+
+const updateVisualBuilderElements = (elements = [], targetId = "", updater) =>
+  (elements || []).map((element) => {
+    if (String(element?.id) === String(targetId)) {
+      return updater(element);
+    }
+
+    if (element?.elType === "container" && Array.isArray(element?.elements)) {
+      return {
+        ...element,
+        elements: updateVisualBuilderElements(element.elements, targetId, updater)
+      };
+    }
+
+    return element;
+  });
+
+const appendVisualBuilderElement = (elements = [], parentId = null, nextElement = null) => {
+  if (!nextElement) {
+    return Array.isArray(elements) ? elements : [];
+  }
+
+  if (!parentId) {
+    return [...(Array.isArray(elements) ? elements : []), nextElement];
+  }
+
+  const appendToLevel = (level = []) => {
+    let inserted = false;
+    const nextLevel = level.map((element) => {
+      if (String(element?.id) === String(parentId) && element?.elType === "container") {
+        inserted = true;
+        return {
+          ...element,
+          elements: [...(element.elements || []), nextElement]
+        };
+      }
+
+      if (element?.elType === "container" && Array.isArray(element?.elements)) {
+        const result = appendToLevel(element.elements);
+        if (result.inserted) {
+          inserted = true;
+          return {
+            ...element,
+            elements: result.level
+          };
+        }
+      }
+
+      return element;
+    });
+
+    return {
+      inserted,
+      level: inserted ? nextLevel : level
+    };
+  };
+
+  const result = appendToLevel(elements);
+  return result.inserted ? result.level : [...(elements || []), nextElement];
+};
+
+const removeVisualBuilderElement = (elements = [], targetId = "") => {
+  let removed = false;
+  const nextElements = (elements || [])
+    .filter((element) => {
+      const shouldKeep = String(element?.id) !== String(targetId);
+      removed = removed || !shouldKeep;
+      return shouldKeep;
+    })
+    .map((element) => {
+      if (element?.elType === "container" && Array.isArray(element?.elements)) {
+        const nextChildren = removeVisualBuilderElement(element.elements, targetId);
+        if (nextChildren !== element.elements) {
+          removed = true;
+          return {
+            ...element,
+            elements: nextChildren
+          };
+        }
+      }
+
+      return element;
+    });
+
+  return removed ? nextElements : elements;
+};
+
+const duplicateVisualBuilderElement = (elements = [], targetId = "") => {
+  let duplicatedId = "";
+  const duplicateInLevel = (level = []) => {
+    let changed = false;
+    const nextLevel = [];
+
+    level.forEach((element) => {
+      if (String(element?.id) === String(targetId)) {
+        const duplicate = cloneVisualBuilderElement(element, true);
+        duplicatedId = duplicate.id;
+        nextLevel.push(element, duplicate);
+        changed = true;
+        return;
+      }
+
+      if (element?.elType === "container" && Array.isArray(element?.elements)) {
+        const nextChildren = duplicateInLevel(element.elements);
+        if (nextChildren !== element.elements) {
+          nextLevel.push({
+            ...element,
+            elements: nextChildren
+          });
+          changed = true;
+          return;
+        }
+      }
+
+      nextLevel.push(element);
+    });
+
+    return changed ? nextLevel : level;
+  };
+
+  return {
+    elements: duplicateInLevel(elements),
+    duplicatedId
+  };
+};
+
+const moveVisualBuilderElement = (elements = [], targetId = "", direction = "down") => {
+  const moveInLevel = (level = []) => {
+    const index = level.findIndex((element) => String(element?.id) === String(targetId));
+    if (index >= 0) {
+      const destination = direction === "up" ? index - 1 : index + 1;
+      if (destination < 0 || destination >= level.length) {
+        return level;
+      }
+
+      const nextLevel = [...level];
+      const [moved] = nextLevel.splice(index, 1);
+      nextLevel.splice(destination, 0, moved);
+      return nextLevel;
+    }
+
+    let changed = false;
+    const nextLevel = level.map((element) => {
+      if (element?.elType === "container" && Array.isArray(element?.elements)) {
+        const nextChildren = moveInLevel(element.elements);
+        if (nextChildren !== element.elements) {
+          changed = true;
+          return {
+            ...element,
+            elements: nextChildren
+          };
+        }
+      }
+
+      return element;
+    });
+
+    return changed ? nextLevel : level;
+  };
+
+  return moveInLevel(elements);
 };
 
 const buildStructuredBodyMarkup = (value = "") => {
