@@ -196,6 +196,26 @@
   }
   .canvas-page.tablet{ max-width:760px; }
   .canvas-page.mobile{ max-width:380px; }
+  body.imported-page-mode .canvas-page{
+    max-width:100%;
+    padding:0;
+    border-radius:0;
+    box-shadow:none;
+    background:#ffffff;
+  }
+  body.imported-page-mode .canvas-page-grid{
+    background-image:none;
+  }
+  body.imported-page-mode .el-wrap{
+    margin:0;
+  }
+  body.imported-page-mode .el-inner{
+    width:100% !important;
+    max-width:100% !important;
+  }
+  body.imported-page-mode .custom-html-widget{
+    width:100%;
+  }
 
   .drop-zone{ height:0; margin:0; border-radius:6px; transition:.13s ease; position:relative; overflow:hidden; }
   .drop-zone.active-zone{ height:44px; background: var(--gold-050); border:1.5px dashed var(--gold-500); display:flex; align-items:center; justify-content:center; overflow:visible; }
@@ -2517,11 +2537,23 @@ function syncPageSettingsToUi(){
   document.title=(pageSettings.title||'Page Builder')+' | MWU Visual Builder';
   document.body.style.fontFamily=(pageSettings.fontFamily||'Inter')+',sans-serif';
 }
+function syncHostStylesheets(urls=[]){
+  document.querySelectorAll('link[data-host-import="true"]').forEach(node=>node.remove());
+  (urls||[]).filter(Boolean).forEach((href)=>{
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href=href;
+    link.setAttribute('data-host-import','true');
+    document.head.appendChild(link);
+  });
+}
 function loadHostSnapshot(data={}){
   const nextPageSettings=data.pageSettings&&typeof data.pageSettings==='object'?data.pageSettings:{};
   pageSettings={...pageSettings,...nextPageSettings};
+  syncHostStylesheets(Array.isArray(data.importCssLinks)?data.importCssLinks:[]);
   if(Array.isArray(data.elements)) elements=migrateLegacyColumns(data.elements);
   if(data.device) currentDevice=data.device;
+  document.body.classList.toggle('imported-page-mode', !!pageSettings.exactImport);
   selectedId=null;
   history=[];historyIndex=-1;
   syncPageSettingsToUi();

@@ -2,6 +2,7 @@
 import react from "@vitejs/plugin-react";
 
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
+const LIVE_API_ORIGIN = "https://api.maddauni.online";
 
 const liveProxy = {
   target: LIVE_SITE_ORIGIN,
@@ -25,6 +26,16 @@ export default defineConfig({
       "/__live_asset": {
         ...liveProxy,
         rewrite: (path) => path.replace(/^\/__live_asset/, "") || "/"
+      },
+      "/__live_api": {
+        target: LIVE_API_ORIGIN,
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/__live_api/, "") || "/"
+      },
+      "/__live_media": {
+        ...liveProxy,
+        rewrite: (path) => path.replace(/^\/__live_media/, "") || "/"
       }
     }
   }

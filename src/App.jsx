@@ -69,8 +69,21 @@ const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
 const CRM_UI_STATE_KEY = "mwu_admin_ui_state_v1";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const MEDIA_API_BASE_URL = (import.meta.env.VITE_MEDIA_API_BASE_URL || `${LIVE_SITE_ORIGIN}/api`).replace(/\/$/, "");
+const DEV_API_PROXY_PREFIX = "/__live_api";
+const DEV_MEDIA_PROXY_PREFIX = "/__live_media";
+const normalizeDevProxyBaseUrl = (value, devPrefix) => {
+  const raw = String(value || "").replace(/\/$/, "");
+  if (!raw) return "";
+  if (!import.meta.env.DEV) return raw;
+  try {
+    const url = new URL(raw);
+    return `${devPrefix}${url.pathname}`.replace(/\/$/, "");
+  } catch {
+    return raw;
+  }
+};
+const API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_API_BASE_URL || "", DEV_API_PROXY_PREFIX);
+const MEDIA_API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_MEDIA_API_BASE_URL || `${LIVE_SITE_ORIGIN}/api`, DEV_MEDIA_PROXY_PREFIX);
 const LIVE_ASSET_PROXY_PREFIX = "/__live_asset";
 const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 const MEDIA_API_PATH = "/admin/media";
@@ -170,7 +183,7 @@ const getCrmUrl = () => {
   return url.toString();
 };
 
-const openPageEditorTab = (pageId) => {
+const openStandalonePageEditorTab = (pageId) => {
   const url = new URL(window.location.href);
   url.search = "";
   url.hash = "";
@@ -1023,20 +1036,341 @@ const extractHtmlVisualBuilderSnapshot = (markup = "") => {
 const getHtmlVisualBuilderSnapshotFromPage = (page = {}) =>
   extractHtmlVisualBuilderSnapshot(page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html || "");
 
+const createHtmlBuilderElement = (type, overrides = {}) => ({
+  id: overrides.id || makeId(),
+  type,
+  ...overrides
+});
+
+const defaultHtmlBuilderBox = (overrides = {}) => ({
+  bg: "transparent",
+  bgImage: "",
+  bgSize: "cover",
+  bgPosition: "center center",
+  borderWidth: 0,
+  borderStyle: "solid",
+  borderColor: "#E4E7ED",
+  borderRadius: 0,
+  width: 0,
+  widthUnit: "px",
+  height: 0,
+  heightUnit: "px",
+  minHeight: 0,
+  minHeightUnit: "px",
+  displayMode: "block",
+  flexGrow: 0,
+  shadow: false,
+  shadowBlur: 18,
+  shadowSpread: 0,
+  shadowTop: 0,
+  shadowRight: 0,
+  shadowBottom: 0,
+  shadowLeft: 0,
+  shadowColor: "#0f172a",
+  ...overrides
+});
+
+const defaultHtmlBuilderAdvanced = (overrides = {}) => ({
+  marginTop: 0,
+  marginRight: 0,
+  marginBottom: 0,
+  marginLeft: 0,
+  paddingTop: 0,
+  paddingRight: 0,
+  paddingBottom: 0,
+  paddingLeft: 0,
+  opacity: 100,
+  hideDesktop: false,
+  hideTablet: false,
+  hideMobile: false,
+  animation: "none",
+  cssClasses: "",
+  customCss: "",
+  ...overrides
+});
+
+const buildHtmlBuilderPageSettings = (page = {}, storedPageSettings = {}) => ({
+  title: page?.title || storedPageSettings.title || "Untitled Page",
+  slug: page?.slug || storedPageSettings.slug || "untitled-page",
+  status: String(page?.status || storedPageSettings.status || "Draft").toLowerCase(),
+  seoTitle: page?.seoTitle || storedPageSettings.seoTitle || page?.title || "Untitled Page",
+  seoDescription: page?.seoDescription || storedPageSettings.seoDescription || page?.summary || "",
+  canvasBg: storedPageSettings.canvasBg || "#ffffff",
+  bodyBg: storedPageSettings.bodyBg || "#f4f6fb",
+  fontFamily: storedPageSettings.fontFamily || "Inter"
+});
+
+const htmlBuilderSpacingFromNode = (node, key) => {
+  const inlineStyle = node?.style?.[key];
+  if (!inlineStyle) return 0;
+  const match = String(inlineStyle).match(/-?\d+(\.\d+)?/);
+  return match ? Math.round(Number(match[0])) : 0;
+};
+
+const htmlBuilderColorFromNode = (node, key) => {
+  const value = String(node?.style?.[key] || "").trim();
+  return value || "";
+};
+
+const extractHtmlBuilderSourceMarkup = (page = {}) => {
+  const storedDocument = getStoredEditableDocument(page);
+  if (storedDocument?.bodyHtml) {
+    return storedDocument.bodyHtml;
+  }
+
+  const sectionMarkup = (page.sections || [])
+    .map((section) => section?.html || section?.rawHtml || section?.raw_html || section?.body || section?.content || "")
+    .filter(Boolean)
+    .join("\n");
+
+  return sectionMarkup || "";
+};
+
+const createHtmlBuilderTextElement = (text = "") =>
+  createHtmlBuilderElement("text", {
+    content: { text },
+    style: { fontSize: 15, lineHeight: 1.7, color: "#4B5468", align: "left", letterSpacing: 0 },
+    box: defaultHtmlBuilderBox(),
+    advanced: defaultHtmlBuilderAdvanced()
+  });
+
+const createHtmlBuilderHeadingElement = (text = "", tag = "h2") =>
+  createHtmlBuilderElement("heading", {
+    content: { text, tag },
+    style: { fontSize: tag === "h1" ? 40 : tag === "h2" ? 32 : 24, fontWeight: "700", color: "#161D2B", align: "left", letterSpacing: 0, transform: "none" },
+    box: defaultHtmlBuilderBox(),
+    advanced: defaultHtmlBuilderAdvanced()
+  });
+
+const createHtmlBuilderImageElement = (src = "", alt = "") =>
+  createHtmlBuilderElement("image", {
+    content: { src: src || assets.hero, alt: alt || "Image" },
+    style: { width: 100, widthUnit: "%", height: 0, heightUnit: "px", fit: "cover", radius: 12, align: "left" },
+    box: defaultHtmlBuilderBox({ displayMode: "fullwidth" }),
+    advanced: defaultHtmlBuilderAdvanced()
+  });
+
+const createHtmlBuilderButtonElement = (text = "Learn More", link = "#") =>
+  createHtmlBuilderElement("button", {
+    content: { text, link },
+    style: { bg: "#C99A3B", color: "#0B1830", radius: 8, size: "md", align: "left", borderWidth: 0, borderColor: "#0B1830" },
+    box: defaultHtmlBuilderBox(),
+    advanced: defaultHtmlBuilderAdvanced()
+  });
+
+const createHtmlBuilderListElement = (items = []) =>
+  createHtmlBuilderElement("list", {
+    content: { items: items.join("\n") },
+    style: { color: "#161D2B", fontSize: 14, markerColor: "#C99A3B", gap: 9 },
+    box: defaultHtmlBuilderBox(),
+    advanced: defaultHtmlBuilderAdvanced()
+  });
+
+const createHtmlBuilderSpacerElement = (height = 32) =>
+  createHtmlBuilderElement("spacer", {
+    content: {},
+    style: { height },
+    box: defaultHtmlBuilderBox(),
+    advanced: defaultHtmlBuilderAdvanced()
+  });
+
+const createHtmlBuilderContainerElement = (children = [], overrides = {}) =>
+  createHtmlBuilderElement("container", {
+    content: { name: overrides.name || "Container" },
+    style: {
+      flow: overrides.flow || "column",
+      gap: overrides.gap ?? 0,
+      justify: overrides.justify || "flex-start",
+      alignItems: overrides.alignItems || "stretch"
+    },
+    box: defaultHtmlBuilderBox(overrides.box || {}),
+    advanced: defaultHtmlBuilderAdvanced(overrides.advanced || {}),
+    children
+  });
+
+const createHtmlBuilderImportedPageElement = (page = {}) => {
+  const storedDocument = getStoredEditableDocument(page);
+  const importedBodyHtml =
+    storedDocument?.bodyHtml ||
+    page?.bodyHtml ||
+    page?.body_html ||
+    extractBodyHtml(page?.rawHtml || page?.raw_html || "") ||
+    "";
+
+  return createHtmlBuilderElement("html", {
+    content: { code: importedBodyHtml },
+    style: {},
+    box: defaultHtmlBuilderBox({
+      displayMode: "fullwidth",
+      width: 100,
+      widthUnit: "%",
+      bg: "transparent",
+      borderWidth: 0,
+      borderRadius: 0,
+      shadow: false
+    }),
+    advanced: defaultHtmlBuilderAdvanced({
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0
+    })
+  });
+};
+
+const convertDomNodeToHtmlBuilderElements = (node) => {
+  if (!node) return [];
+
+  if (node.nodeType === 3) {
+    const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
+    return text ? [createHtmlBuilderTextElement(text)] : [];
+  }
+
+  if (node.nodeType !== 1) {
+    return [];
+  }
+
+  const tag = String(node.tagName || "").toLowerCase();
+  if (["script", "style", "noscript"].includes(tag)) {
+    return [];
+  }
+
+  const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
+  const children = Array.from(node.childNodes || []).flatMap(convertDomNodeToHtmlBuilderElements);
+
+  if (/^h[1-6]$/.test(tag) && text) {
+    return [createHtmlBuilderHeadingElement(text, tag)];
+  }
+
+  if (tag === "p" && text) {
+    return [createHtmlBuilderTextElement(text)];
+  }
+
+  if (tag === "img") {
+    return [createHtmlBuilderImageElement(node.getAttribute("src") || "", node.getAttribute("alt") || "")];
+  }
+
+  if ((tag === "a" || tag === "button") && text && text.length <= 80) {
+    return [createHtmlBuilderButtonElement(text, node.getAttribute("href") || "#")];
+  }
+
+  if ((tag === "ul" || tag === "ol")) {
+    const items = Array.from(node.querySelectorAll(":scope > li"))
+      .map((item) => String(item.textContent || "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    return items.length ? [createHtmlBuilderListElement(items)] : children;
+  }
+
+  if (tag === "hr") {
+    return [createHtmlBuilderElement("divider", {
+      content: {},
+      style: { color: "#E4E7ED", thickness: 1, width: 100, align: "center", lineStyle: "solid" },
+      box: defaultHtmlBuilderBox(),
+      advanced: defaultHtmlBuilderAdvanced()
+    })];
+  }
+
+  if (!children.length) {
+    if (text && ["div", "span", "article", "section"].includes(tag)) {
+      return [createHtmlBuilderTextElement(text)];
+    }
+    return [];
+  }
+
+  const isRowLike = /(^|\s)(row|columns?|grid|d-flex|flex-row)(\s|$)/i.test(node.className || "") ||
+    /flex-direction\s*:\s*row/i.test(node.getAttribute("style") || "");
+
+  const backgroundColor = htmlBuilderColorFromNode(node, "backgroundColor");
+  const borderColor = htmlBuilderColorFromNode(node, "borderColor");
+
+  return [createHtmlBuilderContainerElement(children, {
+    name: tag === "section" ? "Section" : "Container",
+    flow: isRowLike ? "row" : "column",
+    gap: 0,
+    box: {
+      bg: backgroundColor || "transparent",
+      borderColor: borderColor || "#E4E7ED",
+      borderWidth: borderColor ? 1 : 0,
+      borderRadius: htmlBuilderSpacingFromNode(node, "borderRadius"),
+      displayMode: "fullwidth"
+    },
+    advanced: {
+      marginTop: htmlBuilderSpacingFromNode(node, "marginTop"),
+      marginRight: htmlBuilderSpacingFromNode(node, "marginRight"),
+      marginBottom: htmlBuilderSpacingFromNode(node, "marginBottom"),
+      marginLeft: htmlBuilderSpacingFromNode(node, "marginLeft"),
+      paddingTop: htmlBuilderSpacingFromNode(node, "paddingTop"),
+      paddingRight: htmlBuilderSpacingFromNode(node, "paddingRight"),
+      paddingBottom: htmlBuilderSpacingFromNode(node, "paddingBottom"),
+      paddingLeft: htmlBuilderSpacingFromNode(node, "paddingLeft")
+    }
+  })];
+};
+
+const buildHtmlVisualBuilderFallbackElements = (page = {}) => {
+  const markup = extractHtmlBuilderSourceMarkup(page);
+  if (markup && typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<body>${markup}</body>`, "text/html");
+      const bodyChildren = Array.from(doc.body.childNodes || []);
+      const elements = bodyChildren.flatMap(convertDomNodeToHtmlBuilderElements).filter(Boolean);
+      if (elements.length) {
+        return elements;
+      }
+    } catch {
+      // Fall through to structured/data defaults.
+    }
+  }
+
+  const sectionElements = (page.sections || [])
+    .flatMap((section) => {
+      const parts = [];
+      if (section?.title) {
+        parts.push(createHtmlBuilderHeadingElement(section.title, "h2"));
+      }
+      if (section?.body || section?.content) {
+        parts.push(createHtmlBuilderTextElement(section.body || section.content));
+      }
+      return parts.length ? [createHtmlBuilderContainerElement(parts, { name: section?.type || "Section", box: { displayMode: "fullwidth" } })] : [];
+    });
+
+  if (sectionElements.length) {
+    return sectionElements;
+  }
+
+  return [
+    createHtmlBuilderHeadingElement(page?.title || "Untitled Page", "h1"),
+    createHtmlBuilderTextElement(page?.summary || "This page did not have a saved builder snapshot, so the editor started with a basic fallback layout.")
+  ];
+};
+
 const buildHtmlVisualBuilderInitPayload = (page = {}) => {
-  const storedSnapshot = page?.visualBuilder || page?.visual_builder || getHtmlVisualBuilderSnapshotFromPage(page) || {};
+  const embeddedSnapshot = getHtmlVisualBuilderSnapshotFromPage(page) || {};
+  const directSnapshot = page?.visualBuilder || page?.visual_builder || {};
+  const storedSnapshot = Array.isArray(directSnapshot?.elements) ? directSnapshot : embeddedSnapshot;
   const storedPageSettings = storedSnapshot?.pageSettings || {};
+  const storedElements = Array.isArray(storedSnapshot?.elements) ? storedSnapshot.elements : [];
+  const hasImportedHtml = hasPersistedEditableMarkup(page);
 
   return {
     ...(storedSnapshot || {}),
     pageSettings: {
-      ...storedPageSettings,
-      title: page?.title || storedPageSettings.title || "Untitled Page",
-      slug: page?.slug || storedPageSettings.slug || "untitled-page",
-      status: String(page?.status || storedPageSettings.status || "Draft").toLowerCase(),
-      seoTitle: page?.seoTitle || storedPageSettings.seoTitle || page?.title || "Untitled Page",
-      seoDescription: page?.seoDescription || storedPageSettings.seoDescription || page?.summary || ""
-    }
+      ...buildHtmlBuilderPageSettings(page, storedPageSettings),
+      exactImport: !storedElements.length && hasImportedHtml,
+      canvasBg: !storedElements.length && hasImportedHtml ? "#ffffff" : buildHtmlBuilderPageSettings(page, storedPageSettings).canvasBg,
+      bodyBg: !storedElements.length && hasImportedHtml ? "#eef0f3" : buildHtmlBuilderPageSettings(page, storedPageSettings).bodyBg
+    },
+    importCssLinks: !storedElements.length && hasImportedHtml ? proxiedSiteCssLinks : [],
+    elements: storedElements.length
+      ? storedElements
+      : hasImportedHtml
+        ? [createHtmlBuilderImportedPageElement(page)]
+        : buildHtmlVisualBuilderFallbackElements(page)
   };
 };
 
@@ -4481,6 +4815,184 @@ function App() {
   const importInputRef = useRef(null);
   const noticeTimeoutRef = useRef(null);
   const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
+  const pageEditorBuilderInitPayload = useMemo(() => buildHtmlVisualBuilderInitPayload(formPage), [
+    formPage.id,
+    formPage.title,
+    formPage.slug,
+    formPage.status,
+    formPage.seoTitle,
+    formPage.seoDescription,
+    formPage.summary,
+    formPage.bodyHtml,
+    formPage.body_html,
+    formPage.rawHtml,
+    formPage.raw_html,
+    formPage.visualBuilder,
+    formPage.visual_builder
+  ]);
+  const pageEditorEditableSrcDoc = useMemo(() => {
+    const storedDocument = getStoredEditableDocument(formPage);
+    const sourceHtml = storedDocument.fullHtml || mergeBodyIntoHtml("", storedDocument.bodyHtml || formPage.bodyHtml || formPage.body_html || "");
+    if (!sourceHtml) {
+      return "";
+    }
+    return buildEditableLiveDocument(
+      {
+        ...formPage,
+        title: formPage.title,
+        customCss: formPage.customCss || formPage.custom_css || ""
+      },
+      sourceHtml
+    );
+  }, [
+    formPage.id,
+    formPage.title,
+    formPage.bodyHtml,
+    formPage.body_html,
+    formPage.rawHtml,
+    formPage.raw_html,
+    formPage.customCss,
+    formPage.custom_css
+  ]);
+
+  const loadDetailedPageForEditor = async (pageId) => {
+    const listPage = pages.find((page) => String(page.id) === String(pageId)) || null;
+    let nextPage = listPage ? normalizePage(listPage) : null;
+
+    try {
+      const detailResponse = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(pageId)}`), {
+        headers: getAuthHeaders(adminToken)
+      });
+      if (detailResponse.ok) {
+        const detailPayload = await readOptionalJson(detailResponse);
+        nextPage = normalizePage({
+          ...(nextPage || {}),
+          ...(detailPayload?.page || detailPayload?.data?.page || {}),
+          sections: detailPayload?.sections || detailPayload?.data?.sections || detailPayload?.page?.sections || detailPayload?.data?.page?.sections || nextPage?.sections || []
+        });
+      }
+    } catch {
+      // Fall back to the list payload and live HTML fetch below.
+    }
+
+    if (!nextPage) {
+      return null;
+    }
+
+    const hasHtmlBuilderSnapshot = Array.isArray(nextPage?.visualBuilder?.elements) ||
+      Array.isArray(nextPage?.visual_builder?.elements) ||
+      Array.isArray(getHtmlVisualBuilderSnapshotFromPage(nextPage)?.elements);
+
+    if (!hasHtmlBuilderSnapshot && !hasPersistedEditableMarkup(nextPage)) {
+      const candidates = getEditableFetchCandidates(nextPage);
+      for (const fetchPath of candidates) {
+        try {
+          const response = await fetch(fetchPath, { headers: { Accept: "text/html" } });
+          if (!response.ok) continue;
+          const html = await response.text();
+          if (!html || !/<body[\s>]/i.test(html) || !looksLikeUsableHtmlDocument(html)) {
+            continue;
+          }
+          nextPage = normalizePage({
+            ...nextPage,
+            sourceUrl: nextPage.sourceUrl || getLivePageUrl(nextPage),
+            rawHtml: html,
+            bodyHtml: extractBodyHtml(html),
+            sections: [
+              normalizeSection({
+                id: nextPage.sections?.[0]?.id,
+                type: "Raw HTML",
+                title: nextPage.title || "Page Markup",
+                html: extractBodyHtml(html),
+                body: extractBodyHtml(html),
+                layout: "Legacy HTML",
+                visible: true
+              })
+            ]
+          });
+          break;
+        } catch {
+          // Try next candidate.
+        }
+      }
+    }
+
+    return nextPage;
+  };
+
+  const openPageEditorTab = async (pageId, tab = "content") => {
+    setActivePageId(pageId);
+    const targetPage = await loadDetailedPageForEditor(pageId);
+    if (targetPage) {
+      setFormPage(targetPage);
+      setPages((current) => current.map((page) => (String(page.id) === String(targetPage.id) ? targetPage : page)));
+      setActivePageId(targetPage.id);
+    }
+    setEditorTab(tab);
+    setActiveView("page-editor");
+  };
+
+  const persistInAppPageEditorBuilderState = async (builderState, saveMode = "draft") => {
+    const snapshot = builderState?.snapshot || {};
+    const snapshotPageSettings = snapshot.pageSettings || {};
+    const publishedHtml = String(builderState?.publishedHtml || "").trim();
+
+    if (!publishedHtml) {
+      setNotice("Visual builder returned no HTML to save.");
+      return;
+    }
+
+    const persistedBodyHtml = `${serializeHtmlVisualBuilderSnapshot(snapshot)}${extractBodyHtml(publishedHtml)}`;
+    const extractedCustomCss = extractInlineStylesFromHtmlDocument(publishedHtml);
+    const nextTitle = snapshotPageSettings.title || formPage.title;
+    const nextSlug = slugify(snapshotPageSettings.slug || formPage.slug || nextTitle);
+    const requestedStatus = saveMode === "publish"
+      ? "Published"
+      : titleCaseStatus(snapshotPageSettings.status || "Draft");
+    const nextStatus = requestedStatus === "Published" && saveMode !== "publish" ? "Draft" : requestedStatus;
+    const pageOverride = {
+      builderKind: "visual",
+      visualBuilder: snapshot,
+      title: nextTitle,
+      slug: nextSlug,
+      status: nextStatus,
+      seoTitle: snapshotPageSettings.seoTitle || formPage.seoTitle || nextTitle,
+      seoDescription: snapshotPageSettings.seoDescription || formPage.seoDescription || "",
+      bodyHtml: persistedBodyHtml,
+      rawHtml: publishedHtml,
+      customCss: extractedCustomCss,
+      sections: [
+        normalizeSection({
+          id: formPage.sections?.[0]?.id,
+          type: "Raw HTML",
+          title: nextTitle || "Page Markup",
+          html: persistedBodyHtml,
+          body: persistedBodyHtml,
+          layout: "Legacy HTML",
+          visible: true
+        })
+      ]
+    };
+
+    updateField("builderKind", pageOverride.builderKind);
+    updateField("visualBuilder", pageOverride.visualBuilder);
+    updateField("title", pageOverride.title);
+    updateField("slug", pageOverride.slug);
+    updateField("status", pageOverride.status);
+    updateField("seoTitle", pageOverride.seoTitle);
+    updateField("seoDescription", pageOverride.seoDescription);
+    updateField("bodyHtml", persistedBodyHtml);
+    updateField("rawHtml", publishedHtml);
+    updateField("customCss", extractedCustomCss);
+    await savePage({ preventDefault() {} }, pageOverride);
+  };
+
+  const handleInAppEditableHtmlUpdate = (data = {}) => {
+    const bodyHtml = restoreLiveAssetUrls(data.bodyHtml || "");
+    const fullHtml = restoreLiveAssetUrls(data.fullHtml || mergeBodyIntoHtml(formPage.rawHtml || formPage.raw_html || "", bodyHtml));
+    updateField("bodyHtml", bodyHtml);
+    updateField("rawHtml", fullHtml);
+  };
 
   useEffect(() => {
     window.localStorage.removeItem("mwu-crm-pages-v1");
@@ -6239,44 +6751,10 @@ function App() {
         {activeView === "page-editor" && (
           <PageEditor
             page={formPage}
-            menuGroupChoices={liveMenuGroupChoices}
-            mediaItems={mediaLibrary}
-            editorTab={editorTab}
-            setEditorTab={setEditorTab}
-            updateField={updateField}
-            updateSection={updateSection}
-            addSection={addSection}
-            duplicateSection={duplicateSection}
-            moveSection={moveSection}
-            removeSection={removeSection}
-            savePage={savePage}
-            updateActiveStatus={updateActiveStatus}
-            duplicatePage={duplicatePage}
-            deletePage={deletePage}
-            restoreRevision={restoreRevision}
-            exportPage={exportPage}
-            helpers={{
-              pageTypes,
-              statusOptions,
-              layoutOptions,
-              layoutPresets,
-              sectionTypes,
-              templateOptions,
-              visibilityOptions,
-              getSeoScore,
-              getSectionStyles,
-              getPageStyles,
-              getLivePageUrl,
-              hasLegacyHtml,
-              buildPreviewDocument,
-              formatHtmlPreview,
-              slugify,
-              toCssUnit,
-              defaultPageStyles,
-              defaultSectionStyles,
-              sectionCanvasStyle,
-              formatDate
-            }}
+            editableSrcDoc={pageEditorEditableSrcDoc}
+            builderInitPayload={pageEditorBuilderInitPayload}
+            onPersistBuilderState={persistInAppPageEditorBuilderState}
+            onEditableHtmlUpdate={handleInAppEditableHtmlUpdate}
           />
         )}
 
@@ -6413,7 +6891,8 @@ function StandalonePageEditor({
   copyMediaUrl,
   onLogout
 }) {
-  const [activeSectionId, setActiveSectionId] = useState(page.sections?.[0]?.id || "");
+  const safePage = page && typeof page === "object" ? { ...emptyPage(), ...page, sections: Array.isArray(page.sections) ? page.sections : emptyPage().sections } : emptyPage();
+  const [activeSectionId, setActiveSectionId] = useState(safePage.sections?.[0]?.id || "");
   const [canvasMode, setCanvasMode] = useState("exact");
   const [devicePreview, setDevicePreview] = useState("desktop");
   const [editableSourceHtml, setEditableSourceHtml] = useState("");
@@ -6430,36 +6909,36 @@ function StandalonePageEditor({
   const editedFullHtmlRef = useRef("");
   const htmlBuilderStateRequestRef = useRef(null);
   const pendingImageReplaceIdRef = useRef("");
-  const livePageUrl = getLivePageUrl(page);
-  const htmlBuilderSrc = `/visual-page-builder.html?pageId=${encodeURIComponent(page.id || page.slug || "new-page")}`;
-  const htmlBuilderInitPayload = useMemo(() => buildHtmlVisualBuilderInitPayload(page), [
-    page.id,
-    page.title,
-    page.slug,
-    page.status,
-    page.seoTitle,
-    page.seoDescription,
-    page.summary,
-    page.bodyHtml,
-    page.body_html,
-    page.rawHtml,
-    page.raw_html
+  const livePageUrl = getLivePageUrl(safePage);
+  const htmlBuilderSrc = `/visual-page-builder.html?pageId=${encodeURIComponent(safePage.id || safePage.slug || "new-page")}`;
+  const htmlBuilderInitPayload = useMemo(() => buildHtmlVisualBuilderInitPayload(safePage), [
+    safePage.id,
+    safePage.title,
+    safePage.slug,
+    safePage.status,
+    safePage.seoTitle,
+    safePage.seoDescription,
+    safePage.summary,
+    safePage.bodyHtml,
+    safePage.body_html,
+    safePage.rawHtml,
+    safePage.raw_html
   ]);
   const activeSection =
-    (page.sections || []).find((section) => String(section.id) === String(activeSectionId)) ||
-    page.sections?.[0];
+    (safePage.sections || []).find((section) => String(section.id) === String(activeSectionId)) ||
+    safePage.sections?.[0];
 
   const editableSrcDoc = useMemo(() => {
     if (!editableSourceHtml) return "";
     return buildEditableLiveDocument(
       {
-        ...page,
-        title: page.title,
-        customCss: page.customCss || page.custom_css || ""
+        ...safePage,
+        title: safePage.title,
+        customCss: safePage.customCss || safePage.custom_css || ""
       },
       editableSourceHtml
     );
-  }, [editableSourceHtml, page.id, page.title, page.customCss, page.custom_css]);
+  }, [editableSourceHtml, safePage.id, safePage.title, safePage.customCss, safePage.custom_css]);
 
   const editorMediaItems = useMemo(() => {
     const query = mediaPickerQuery.trim().toLowerCase();
@@ -6499,8 +6978,8 @@ function StandalonePageEditor({
   });
 
   const loadEditableHtml = async ({ force = false } = {}) => {
-    const storedDocument = getStoredEditableDocument(page);
-    const hasSavedEditableMarkup = hasPersistedEditableMarkup(page);
+    const storedDocument = getStoredEditableDocument(safePage);
+    const hasSavedEditableMarkup = hasPersistedEditableMarkup(safePage);
 
     if (!force && hasSavedEditableMarkup && storedDocument.fullHtml) {
       setEditableSourceHtml(storedDocument.fullHtml);
@@ -6514,7 +6993,7 @@ function StandalonePageEditor({
     setEditableStatus("loading");
     setEditableError("");
 
-    const candidates = getEditableFetchCandidates(page);
+    const candidates = getEditableFetchCandidates(safePage);
     const errors = [];
 
     for (const fetchPath of candidates) {
@@ -6568,13 +7047,13 @@ function StandalonePageEditor({
   };
 
   useEffect(() => {
-    if (!page.sections?.some((section) => String(section.id) === String(activeSectionId))) {
-      setActiveSectionId(page.sections?.[0]?.id || "");
+    if (!safePage.sections?.some((section) => String(section.id) === String(activeSectionId))) {
+      setActiveSectionId(safePage.sections?.[0]?.id || "");
     }
-  }, [activeSectionId, page.id, page.sections]);
+  }, [activeSectionId, safePage.id, safePage.sections]);
 
   useEffect(() => {
-    const storedDocument = getStoredEditableDocument(page);
+    const storedDocument = getStoredEditableDocument(safePage);
     setHtmlBuilderReady(false);
     setEditableSourceHtml("");
     setEditableStatus("idle");
@@ -6589,7 +7068,7 @@ function StandalonePageEditor({
       window.clearTimeout(htmlBuilderStateRequestRef.current.timeoutId);
     }
     htmlBuilderStateRequestRef.current = null;
-  }, [page.id]);
+  }, [safePage.id]);
 
   const openMediaLibraryPicker = (elementId) => {
     const nextElementId = elementId || selectedLiveElement?.id || "";
@@ -6687,7 +7166,7 @@ function StandalonePageEditor({
       type: "MWU_HTML_BUILDER_INIT",
       payload: htmlBuilderInitPayload
     }, "*");
-  }, [canvasMode, htmlBuilderInitPayload, htmlBuilderReady, page.id]);
+  }, [canvasMode, htmlBuilderInitPayload, htmlBuilderReady, safePage.id]);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -6739,7 +7218,7 @@ function StandalonePageEditor({
       }
 
       const bodyHtml = restoreLiveAssetUrls(data.bodyHtml || "");
-      const fullHtml = restoreLiveAssetUrls(data.fullHtml || mergeBodyIntoHtml(editableSourceHtml || page.rawHtml || page.raw_html || "", bodyHtml));
+      const fullHtml = restoreLiveAssetUrls(data.fullHtml || mergeBodyIntoHtml(editableSourceHtml || safePage.rawHtml || safePage.raw_html || "", bodyHtml));
       editedBodyRef.current = bodyHtml;
       editedFullHtmlRef.current = fullHtml;
       updateField("bodyHtml", bodyHtml);
@@ -6754,7 +7233,7 @@ function StandalonePageEditor({
       }
       htmlBuilderStateRequestRef.current = null;
     };
-  }, [editableSourceHtml, openMediaLibraryPicker, page.rawHtml, page.raw_html, persistHtmlBuilderState, selectedLiveElement?.id, updateField]);
+  }, [editableSourceHtml, openMediaLibraryPicker, safePage.rawHtml, safePage.raw_html, persistHtmlBuilderState, selectedLiveElement?.id, updateField]);
 
   const applyLiveElementStyle = (field, value) => {
     if (!selectedLiveElement?.id) {
@@ -6823,7 +7302,7 @@ function StandalonePageEditor({
     setNotice(`Added ${preset.title} sections.`);
   };
 
-  const persistHtmlBuilderState = async (event, builderState, saveMode = "draft") => {
+  async function persistHtmlBuilderState(event, builderState, saveMode = "draft") {
     const snapshot = builderState?.snapshot || {};
     const snapshotPageSettings = snapshot.pageSettings || {};
     const publishedHtml = String(builderState?.publishedHtml || "").trim();
@@ -6835,8 +7314,8 @@ function StandalonePageEditor({
 
     const persistedBodyHtml = `${serializeHtmlVisualBuilderSnapshot(snapshot)}${extractBodyHtml(publishedHtml)}`;
     const extractedCustomCss = extractInlineStylesFromHtmlDocument(publishedHtml);
-    const nextTitle = snapshotPageSettings.title || page.title;
-    const nextSlug = slugify(snapshotPageSettings.slug || page.slug || nextTitle);
+    const nextTitle = snapshotPageSettings.title || safePage.title;
+    const nextSlug = slugify(snapshotPageSettings.slug || safePage.slug || nextTitle);
     const requestedStatus = saveMode === "publish"
       ? "Published"
       : titleCaseStatus(snapshotPageSettings.status || "Draft");
@@ -6847,14 +7326,14 @@ function StandalonePageEditor({
       title: nextTitle,
       slug: nextSlug,
       status: nextStatus,
-      seoTitle: snapshotPageSettings.seoTitle || page.seoTitle || nextTitle,
-      seoDescription: snapshotPageSettings.seoDescription || page.seoDescription || "",
+      seoTitle: snapshotPageSettings.seoTitle || safePage.seoTitle || nextTitle,
+      seoDescription: snapshotPageSettings.seoDescription || safePage.seoDescription || "",
       bodyHtml: persistedBodyHtml,
       rawHtml: publishedHtml,
       customCss: extractedCustomCss,
       sections: [
         normalizeSection({
-          id: page.sections?.[0]?.id,
+          id: safePage.sections?.[0]?.id,
           type: "Raw HTML",
           title: nextTitle || "Page Markup",
           html: persistedBodyHtml,
@@ -6878,7 +7357,7 @@ function StandalonePageEditor({
     updateField("rawHtml", publishedHtml);
     updateField("customCss", extractedCustomCss);
     await savePage(event, pageOverride);
-  };
+  }
 
   const saveEditablePage = async (event) => {
     if (canvasMode === "editable") {
@@ -6897,7 +7376,7 @@ function StandalonePageEditor({
       return;
     }
 
-    const pendingBodyHtml = editedBodyRef.current || page.bodyHtml || page.body_html || "";
+    const pendingBodyHtml = editedBodyRef.current || safePage.bodyHtml || safePage.body_html || "";
     if (hasEmbeddedImageData(pendingBodyHtml)) {
       event?.preventDefault?.();
       setNotice("Save blocked: the page still contains embedded base64 image data. Replace it with a website media item or another hosted image URL first.");
@@ -6917,9 +7396,9 @@ function StandalonePageEditor({
     if (editedBodyRef.current) {
       pageOverride.sections = [
         normalizeSection({
-          id: page.sections?.[0]?.id,
+          id: safePage.sections?.[0]?.id,
           type: "Raw HTML",
-          title: page.title || "Page Markup",
+          title: safePage.title || "Page Markup",
           html: editedBodyRef.current,
           body: editedBodyRef.current,
           layout: "Legacy HTML",
@@ -6964,11 +7443,11 @@ function StandalonePageEditor({
         <div className="standalone-brand">
           <div>
             <span className="eyebrow">Elementor Style Page Editor</span>
-            <h1>{page.title}</h1>
+            <h1>{safePage.title}</h1>
           </div>
         </div>
         <div className="standalone-actions">
-          <StatusPill status={page.status} />
+          <StatusPill status={safePage.status} />
           <button className="ghost-button" type="button" onClick={() => { window.location.href = getCrmUrl(); }}>
             <ChevronRight size={17} />
             <span>CRM</span>
@@ -7019,7 +7498,7 @@ function StandalonePageEditor({
           {canvasMode === "exact" && (
             <div className={`standalone-exact-frame device-${devicePreview}`}>
               <iframe
-                title={`${page.title} exact live website`}
+                title={`${safePage.title} exact live website`}
                 src={livePageUrl}
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
               />
@@ -7036,7 +7515,7 @@ function StandalonePageEditor({
               )}
               <iframe
                 ref={editableFrameRef}
-                title={`${page.title} visual builder`}
+                title={`${safePage.title} visual builder`}
                 src={htmlBuilderSrc}
                 sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox"
               />
@@ -7048,26 +7527,26 @@ function StandalonePageEditor({
           <div className="inspector-card">
             <span className="eyebrow">Page Settings</span>
             <Field label="Page Title">
-              <input value={page.title} onChange={(event) => updateField("title", event.target.value)} />
+              <input value={safePage.title} onChange={(event) => updateField("title", event.target.value)} />
             </Field>
             <Field label="URL Slug">
-              <input value={page.slug} onChange={(event) => updateField("slug", event.target.value)} />
+              <input value={safePage.slug} onChange={(event) => updateField("slug", event.target.value)} />
             </Field>
             <Field label="Source URL">
-              <input value={page.sourceUrl || page.source_url || livePageUrl} onChange={(event) => updateField("sourceUrl", event.target.value)} />
+              <input value={safePage.sourceUrl || safePage.source_url || livePageUrl} onChange={(event) => updateField("sourceUrl", event.target.value)} />
             </Field>
             <Field label="Navigation Group">
-              <select value={page.menu || ""} onChange={(event) => updateField("menu", event.target.value)}>
+              <select value={safePage.menu || ""} onChange={(event) => updateField("menu", event.target.value)}>
                 {menuGroupChoices.map((group) => (
                   <option key={group.value} value={group.value}>{group.label}</option>
                 ))}
               </select>
             </Field>
             <Field label="Main Page">
-              <select value={page.parentSlug || ""} onChange={(event) => updateField("parentSlug", event.target.value)}>
+              <select value={safePage.parentSlug || ""} onChange={(event) => updateField("parentSlug", event.target.value)}>
                 <option value="">Default - main page</option>
                 {allPages
-                  .filter((item) => String(item.id) !== String(page.id))
+                  .filter((item) => String(item.id) !== String(safePage.id))
                   .filter((item) => !item.parentSlug)
                   .sort((a, b) => a.title.localeCompare(b.title))
                   .map((item) => (
@@ -7076,18 +7555,18 @@ function StandalonePageEditor({
               </select>
             </Field>
             <Field label="Navigation Order">
-              <input type="number" min="1" value={page.menuOrder || 1} onChange={(event) => updateField("menuOrder", event.target.value)} />
+              <input type="number" min="1" value={safePage.menuOrder || 1} onChange={(event) => updateField("menuOrder", event.target.value)} />
             </Field>
             <div className="field-grid one">
               <Field label="Status">
-                <select value={page.status} onChange={(event) => updateField("status", event.target.value)}>
+                <select value={safePage.status} onChange={(event) => updateField("status", event.target.value)}>
                   {statusOptions.map((status) => (
                     <option key={status}>{status}</option>
                   ))}
                 </select>
               </Field>
               <Field label="Page Type">
-                <select value={page.type} onChange={(event) => updateField("type", event.target.value)}>
+                <select value={safePage.type} onChange={(event) => updateField("type", event.target.value)}>
                   {pageTypes.map((type) => (
                     <option key={type}>{type}</option>
                   ))}
@@ -7140,10 +7619,10 @@ function StandalonePageEditor({
               </button>
             </div>
             <Field label="Stored body HTML">
-              <textarea rows="7" value={page.bodyHtml || ""} onChange={(event) => updateField("bodyHtml", event.target.value)} />
+              <textarea rows="7" value={safePage.bodyHtml || ""} onChange={(event) => updateField("bodyHtml", event.target.value)} />
             </Field>
             <Field label="Custom CSS">
-              <textarea rows="5" value={page.customCss || ""} onChange={(event) => updateField("customCss", event.target.value)} placeholder="CSS injected into this editable page" />
+              <textarea rows="5" value={safePage.customCss || ""} onChange={(event) => updateField("customCss", event.target.value)} placeholder="CSS injected into this editable page" />
             </Field>
           </div>
 
