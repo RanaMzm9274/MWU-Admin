@@ -843,6 +843,33 @@ function getImportedContentNode(node){
   }
   return node;
 }
+function importedNodeBackgroundSource(node){
+  if(!node || node.nodeType!==1) return '';
+  const inlineValue = String(node.style?.backgroundImage || '').trim();
+  const computedValue = (()=>{ try{ return String(window.getComputedStyle(node).backgroundImage || '').trim(); }catch{ return ''; } })();
+  const rawValue = inlineValue && inlineValue !== 'none' ? inlineValue : computedValue;
+  const match = rawValue.match(/url\((['"]?)(.*?)\1\)/i);
+  return match ? String(match[2] || '').trim() : '';
+}
+function isImportedBackgroundMediaNode(node){
+  return !!importedNodeBackgroundSource(node);
+}
+function getImportedEditableMediaTarget(node){
+  if(!node) return null;
+  const root = getImportedHtmlRoot();
+  let current = node.nodeType===3 ? node.parentElement : node;
+  while(current && current!==root){
+    const tag = String(current.tagName || '').toLowerCase();
+    if(tag==='img') return current;
+    if(isImportedBackgroundMediaNode(current)) return current;
+    current = current.parentElement;
+  }
+  if(node && node.querySelector){
+    const descendantImage = node.querySelector('img');
+    if(descendantImage && root && root.contains(descendantImage)) return descendantImage;
+  }
+  return null;
+}
 function importedElementType(node){
   const tag = String(node?.tagName || '').toLowerCase();
   if(tag==='img') return 'image';
@@ -886,6 +913,9 @@ function describeImportedNode(node){
   if(!node) return null;
   ensureImportedNodeId(node);
   const tag = String(node.tagName || '').toLowerCase();
+  const mediaTarget = getImportedEditableMediaTarget(node);
+  const mediaTag = String(mediaTarget?.tagName || '').toLowerCase();
+  const mediaIsImage = mediaTag==='img';
   return {
     id: node.getAttribute('data-import-id') || '',
     tagName: tag,
@@ -895,6 +925,22 @@ function describeImportedNode(node){
     src: tag==='img' ? (node.getAttribute('src') || '') : '',
     alt: tag==='img' ? (node.getAttribute('alt') || '') : '',
     url: tag==='a' ? (node.getAttribute('href') || '#') : '',
+    media: mediaTarget ? {
+      id: ensureImportedNodeId(mediaTarget),
+      type: mediaIsImage ? 'image' : 'background',
+      src: mediaIsImage ? (mediaTarget.getAttribute('src') || '') : importedNodeBackgroundSource(mediaTarget),
+      alt: mediaIsImage ? (mediaTarget.getAttribute('alt') || '') : '',
+      objectFit: mediaIsImage
+        ? normalizeImportedSelectValue(getImportedStyleValue(mediaTarget,'objectFit'), ['cover','contain','fill','none','scale-down'], '')
+        : normalizeImportedSelectValue(getImportedStyleValue(mediaTarget,'backgroundSize'), ['cover','contain'], ''),
+      objectPosition: String(
+        mediaIsImage
+          ? (getImportedStyleValue(mediaTarget,'objectPosition') || '')
+          : (getImportedStyleValue(mediaTarget,'backgroundPosition') || '')
+      ).trim(),
+      width: normalizeImportedMetricValue(getImportedStyleValue(mediaTarget,'width')),
+      height: normalizeImportedMetricValue(getImportedStyleValue(mediaTarget,'height'))
+    } : null,
     styles: {
       color: normalizeImportedColorValue(getImportedStyleValue(node,'color'), '#081933'),
       backgroundColor: normalizeImportedColorValue(getImportedStyleValue(node,'backgroundColor'), '#ffffff'),
@@ -944,14 +990,56 @@ function syncImportedHtmlToModel(reason='imported-edit', push=false){
     fullHtml: buildPublishedHtml()
   });
 }
+function setImportedMediaSource(target, src){
+  if(!target || !src) return;
+  const normalizedSrc = normalizeImportedAssetUrl(src);
+  const tag = String(target.tagName || '').toLowerCase();
+  if(tag==='img'){
+    target.setAttribute('src', normalizedSrc);
+    target.removeAttribute('srcset');
+    target.removeAttribute('data-src');
+    target.removeAttribute('data-srcset');
+    return;
+  }
+  target.style.backgroundImage = `url("${normalizedSrc}")`;
+  if(!target.style.backgroundSize) target.style.backgroundSize = 'cover';
+  if(!target.style.backgroundPosition) target.style.backgroundPosition = 'center center';
+  if(!target.style.backgroundRepeat) target.style.backgroundRepeat = 'no-repeat';
+}
 function clearImportedSelection(){
   if(importedSelectionNode) importedSelectionNode.removeAttribute('data-import-selected');
   importedSelectionNode = null;
   importedSelectionId = '';
 }
+function normalizeImportedStyleValue(field, value){
+  const raw = String(value == null ? '' : value).trim();
+  if(raw==='') return '';
+  if(['fontWeight','lineHeight','textAlign','display','opacity','objectFit','objectPosition','borderStyle'].includes(field)) return raw;
+  if(/^-?\d+(\.\d+)?$/.test(raw) && /(fontSize|width|height|minHeight|maxWidth|margin|padding|border.*Width|border.*Radius|top|right|bottom|left)$/i.test(field)){
+    return `${raw}px`;
+  }
+  return raw;
+}
+function resolveImportedStyleTargets(field){
+  if(!importedSelectionNode) return [];
+  const primary = importedSelectionNode;
+  const isTypographyField = ['fontSize','fontWeight','lineHeight','color','textAlign'].includes(field);
+  const primaryType = importedElementType(primary);
+  if(!isTypographyField || ['heading','text','button'].includes(primaryType)) return [primary];
+  const textTargets = Array.from(primary.querySelectorAll('h1,h2,h3,h4,h5,h6,p,span,li,a,button,label,strong,em,small'))
+    .filter((node)=> (String(node.textContent || '').trim() || String(node.tagName || '').toLowerCase()==='button'));
+  return textTargets.length ? textTargets : [primary];
+}
 function applyImportedStyle(field, value){
   if(!importedSelectionNode) return;
-  importedSelectionNode.style[field] = value;
+  const nextValue = normalizeImportedStyleValue(field, value);
+  const targets = resolveImportedStyleTargets(field);
+  targets.forEach((node)=>{ node.style[field] = nextValue; });
+  syncImportedHtmlToModel('imported-style');
+}
+function applyImportedStyleToNode(target, field, value){
+  if(!target) return;
+  target.style[field] = normalizeImportedStyleValue(field, value);
   syncImportedHtmlToModel('imported-style');
 }
 function duplicateImportedSelection(){
@@ -991,6 +1079,10 @@ function bindImportedTextField(id, field){
 function renderImportedSettings(node){
   const details = describeImportedNode(node);
   if(!details) return;
+  const mediaTarget = getImportedEditableMediaTarget(node);
+  const mediaDetails = details.media || null;
+  const hasMediaTarget = !!mediaTarget;
+  const mediaIsImage = mediaDetails?.type === 'image';
   importedSelectionNode = node;
   importedSelectionId = details.id;
   document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : 'columns',15);
@@ -1004,9 +1096,9 @@ function renderImportedSettings(node){
     <div class="field-hint">Imported page editing is active. Double-click visible text to edit inline.</div>
     ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
     ${details.type==='button' ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
-    ${details.type==='image' ? fieldInput('Image URL', 'importedImageUrl', details.src || '') : ''}
-    ${details.type==='image' ? fieldInput('Alt text', 'importedImageAlt', details.alt || '') : ''}
-    ${details.type==='image' ? `<div class="field-group"><div class="field-group-label">Replace image</div>${imageUploadHtml('importedImageUpload')}</div>` : ''}
+    ${hasMediaTarget ? fieldInput('Image URL', 'importedImageUrl', mediaDetails?.src || details.src || '') : ''}
+    ${mediaIsImage ? fieldInput('Alt text', 'importedImageAlt', mediaDetails?.alt || details.alt || '') : ''}
+    ${hasMediaTarget ? `<div class="field-group"><div class="field-group-label">Replace image</div><div class="builder-file-stack"><button class="field-button" type="button" id="importedImageLibraryBtn">Media Library</button>${imageUploadHtml('importedImageUpload')}</div></div>` : ''}
   `;
   styleBox.innerHTML = `
     ${fieldInput('Font size', 'importedFontSize', details.styles.fontSize || '')}
@@ -1019,8 +1111,11 @@ function renderImportedSettings(node){
     ${fieldInput('Height', 'importedHeight', details.styles.height || '')}
     ${fieldInput('Minimum height', 'importedMinHeight', details.styles.minHeight || '')}
     ${fieldInput('Max width', 'importedMaxWidth', details.styles.maxWidth || '')}
-    ${details.type==='image' ? selectField('Object fit', 'importedObjectFit', [['','Default'],['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None'],['scale-down','Scale down']], details.styles.objectFit || '') : ''}
-    ${details.type==='image' ? fieldInput('Object position', 'importedObjectPosition', details.styles.objectPosition || '') : ''}
+    ${hasMediaTarget ? `<div class="panel-section-label" style="padding:8px 0 10px;">Image</div>` : ''}
+    ${hasMediaTarget ? fieldInput('Image width', 'importedImageWidth', mediaDetails?.width || '') : ''}
+    ${hasMediaTarget ? fieldInput('Image height', 'importedImageHeight', mediaDetails?.height || '') : ''}
+    ${hasMediaTarget ? selectField('Object fit', 'importedObjectFit', [['','Default'],['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None'],['scale-down','Scale down']], mediaDetails?.objectFit || '') : ''}
+    ${hasMediaTarget ? fieldInput('Object position', 'importedObjectPosition', mediaDetails?.objectPosition || '') : ''}
   `;
   advancedBox.innerHTML = `
     ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
@@ -1064,12 +1159,12 @@ function renderImportedSettings(node){
   }
   const imageNode = document.getElementById('f_importedImageUrl');
   if(imageNode){
-    imageNode.addEventListener('input', ()=>{ importedSelectionNode.setAttribute('src', normalizeImportedAssetUrl(imageNode.value)); syncImportedHtmlToModel('imported-image'); });
+    imageNode.addEventListener('input', ()=>{ if(mediaTarget){ setImportedMediaSource(mediaTarget, imageNode.value); syncImportedHtmlToModel('imported-image'); } });
     imageNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-image', true));
   }
   const altNode = document.getElementById('f_importedImageAlt');
   if(altNode){
-    altNode.addEventListener('input', ()=> importedSelectionNode.setAttribute('alt', altNode.value));
+    altNode.addEventListener('input', ()=>{ if(mediaTarget && mediaIsImage) mediaTarget.setAttribute('alt', altNode.value); });
     altNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-image-alt', true));
   }
   bindImportedTextField('importedFontSize', 'fontSize');
@@ -1088,11 +1183,31 @@ function renderImportedSettings(node){
     const fieldMap = { Width:'width', Height:'height', MinHeight:'minHeight', MaxWidth:'maxWidth', Opacity:'opacity' };
     bindImportedTextField(`imported${name}`, fieldMap[name]);
   });
+  ['Width','Height'].forEach((name)=>{
+    const input = document.getElementById(`f_importedImage${name}`);
+    const fieldMap = { Width:'width', Height:'height' };
+    if(!input || !mediaTarget) return;
+    input.addEventListener('input', ()=> applyImportedStyleToNode(mediaTarget, fieldMap[name], input.value));
+    input.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  });
   const objectFitNode = document.getElementById('f_importedObjectFit');
   if(objectFitNode){
-    objectFitNode.addEventListener('change', ()=>{ applyImportedStyle('objectFit', objectFitNode.value); syncImportedHtmlToModel('imported-style', true); });
+    objectFitNode.addEventListener('change', ()=>{
+      if(!mediaTarget) return;
+      if(mediaIsImage) applyImportedStyleToNode(mediaTarget, 'objectFit', objectFitNode.value);
+      else applyImportedStyleToNode(mediaTarget, 'backgroundSize', objectFitNode.value || 'cover');
+      syncImportedHtmlToModel('imported-style', true);
+    });
   }
-  bindImportedTextField('importedObjectPosition', 'objectPosition');
+  const objectPositionNode = document.getElementById('f_importedObjectPosition');
+  if(objectPositionNode){
+    objectPositionNode.addEventListener('input', ()=>{
+      if(!mediaTarget) return;
+      if(mediaIsImage) applyImportedStyleToNode(mediaTarget, 'objectPosition', objectPositionNode.value);
+      else applyImportedStyleToNode(mediaTarget, 'backgroundPosition', objectPositionNode.value);
+    });
+    objectPositionNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
   const displayNode = document.getElementById('f_importedDisplay');
   if(displayNode){
     displayNode.addEventListener('change', ()=>{ applyImportedStyle('display', displayNode.value); syncImportedHtmlToModel('imported-style', true); });
@@ -1127,12 +1242,19 @@ function renderImportedSettings(node){
     input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
   });
   bindImageUpload('importedImageUpload', (src)=>{
-    if(importedSelectionNode && importedSelectionNode.tagName && importedSelectionNode.tagName.toLowerCase()==='img'){
-      importedSelectionNode.setAttribute('src', src);
+    if(mediaTarget){
+      setImportedMediaSource(mediaTarget, src);
       syncImportedHtmlToModel('imported-image-upload', true);
-      renderImportedSettings(importedSelectionNode);
+      renderImportedSettings(importedSelectionNode || node);
     }
   });
+  const mediaLibraryButton = document.getElementById('importedImageLibraryBtn');
+  if(mediaLibraryButton && mediaTarget){
+    mediaLibraryButton.addEventListener('click', ()=>{
+      ensureImportedNodeId(mediaTarget);
+      notifyHost('MWU_REQUEST_IMAGE_PICKER', { elementId: mediaTarget.getAttribute('data-import-id') || '' });
+    });
+  }
   switchLeftView('settings');
   document.querySelectorAll('.settings-tab').forEach(t=>t.classList.toggle('active', t.dataset.stab==='content'));
   document.querySelectorAll('.settings-panel-tab').forEach(p=>p.classList.toggle('active', p.dataset.spanel==='content'));
@@ -1156,7 +1278,8 @@ function initializeImportedPage(){
   root.setAttribute('data-import-initialized','true');
   hydrateImportedAssets(root);
   root.addEventListener('click', (event)=>{
-    const target = getImportedContentNode(getImportedSelectableNode(event.target));
+    const rawTarget = getImportedSelectableNode(event.target);
+    const target = getImportedEditableMediaTarget(rawTarget) || getImportedContentNode(rawTarget);
     if(!target) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1165,14 +1288,14 @@ function initializeImportedPage(){
   root.addEventListener('dblclick', (event)=>{
     const directTarget = getImportedSelectableNode(event.target);
     if(!directTarget) return;
-    const directTag = String(directTarget.tagName || '').toLowerCase();
-    if(directTag==='img'){
+    const mediaTarget = getImportedEditableMediaTarget(directTarget);
+    if(mediaTarget){
       event.preventDefault();
       event.stopPropagation();
-      selectImportedNode(directTarget);
+      selectImportedNode(mediaTarget);
       window.setTimeout(()=>{
-        const uploader = document.querySelector('#contentFields #importedImageUpload');
-        if(uploader) uploader.showPicker ? uploader.showPicker() : uploader.click();
+        const mediaButton = document.getElementById('importedImageLibraryBtn');
+        if(mediaButton) mediaButton.click();
       }, 0);
       return;
     }
@@ -3127,6 +3250,19 @@ window.addEventListener('message',event=>{
   }
   if(data.type==='MWU_HTML_BUILDER_REQUEST_STATE'){
     notifyHost('MWU_HTML_BUILDER_STATE', getBridgeState());
+    return;
+  }
+  if(data.type==='MWU_REPLACE_IMAGE_SOURCE'){
+    const root = getImportedHtmlRoot();
+    if(!root || !data.elementId || !data.src) return;
+    const escapedId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(data.elementId)) : String(data.elementId).replace(/"/g, '\\"');
+    const target = root.querySelector(`[data-import-id="${escapedId}"]`);
+    if(!target) return;
+    setImportedMediaSource(target, data.src);
+    syncImportedHtmlToModel('imported-image-library', true);
+    if(importedSelectionNode===target || importedSelectionId===String(data.elementId)){
+      renderImportedSettings(target);
+    }
   }
 });
 notifyHost('MWU_HTML_BUILDER_READY', { instanceKey: BUILDER_INSTANCE_KEY });

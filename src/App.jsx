@@ -1366,16 +1366,24 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
   const storedPageSettings = storedSnapshot?.pageSettings || {};
   const storedElements = Array.isArray(storedSnapshot?.elements) ? storedSnapshot.elements : [];
   const hasImportedHtml = hasPersistedEditableMarkup(page);
+  const isImportedSnapshot =
+    hasImportedHtml &&
+    (
+      storedPageSettings?.exactImport ||
+      (storedElements.length === 1 && String(storedElements?.[0]?.type || "").toLowerCase() === "html")
+    );
+  const nextPageSettings = buildHtmlBuilderPageSettings(page, storedPageSettings);
+  const exactImport = Boolean(hasImportedHtml && (isImportedSnapshot || !storedElements.length));
 
   return {
     ...(storedSnapshot || {}),
     pageSettings: {
-      ...buildHtmlBuilderPageSettings(page, storedPageSettings),
-      exactImport: !storedElements.length && hasImportedHtml,
-      canvasBg: !storedElements.length && hasImportedHtml ? "#ffffff" : buildHtmlBuilderPageSettings(page, storedPageSettings).canvasBg,
-      bodyBg: !storedElements.length && hasImportedHtml ? "#eef0f3" : buildHtmlBuilderPageSettings(page, storedPageSettings).bodyBg
+      ...nextPageSettings,
+      exactImport,
+      canvasBg: exactImport ? "#ffffff" : nextPageSettings.canvasBg,
+      bodyBg: exactImport ? "#eef0f3" : nextPageSettings.bodyBg
     },
-    importCssLinks: !storedElements.length && hasImportedHtml ? proxiedSiteCssLinks : [],
+    importCssLinks: exactImport ? proxiedSiteCssLinks : [],
     liveAssetProxyPrefix: LIVE_ASSET_PROXY_PREFIX,
     liveSiteOrigin: LIVE_SITE_ORIGIN,
     elements: storedElements.length
