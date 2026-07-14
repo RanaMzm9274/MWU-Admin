@@ -31,6 +31,8 @@ import {
   ListTree,
   LogOut,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   PanelRight,
   Pencil,
   Plus,
@@ -5253,9 +5255,35 @@ function App() {
   useEffect(() => {
     const selected = pages.find((page) => String(page.id) === String(activePageId));
     if (selected) {
-      setFormPage(selected);
+      setFormPage((current) => {
+        if (String(current?.id || "") === String(selected.id) && hasPersistedEditableMarkup(current)) {
+          return current;
+        }
+        return selected;
+      });
     }
   }, [activePageId, pages]);
+
+  useEffect(() => {
+    if (isStandaloneEditor || activeView !== "page-editor" || !activePageId || !pages.length) {
+      return;
+    }
+
+    if (String(formPage?.id || "") === String(activePageId) && hasPersistedEditableMarkup(formPage)) {
+      return;
+    }
+
+    let cancelled = false;
+    loadDetailedPageForEditor(activePageId).then((targetPage) => {
+      if (cancelled || !targetPage) return;
+      setFormPage(targetPage);
+      setPages((current) => current.map((page) => (String(page.id) === String(targetPage.id) ? targetPage : page)));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePageId, activeView, formPage, isStandaloneEditor, pages.length]);
 
   const contentManagedPages = useMemo(() => pages.filter((page) => !isSiteChromePage(page)), [pages]);
 
@@ -6584,12 +6612,15 @@ function App() {
             className="icon-button nav-close"
             type="button"
             onClick={() => {
-              setMobileNavOpen(false);
-              setSidebarCollapsed(true);
+              if (window.innerWidth <= 860) {
+                setMobileNavOpen(false);
+                return;
+              }
+              setSidebarCollapsed((current) => !current);
             }}
-            aria-label="Close sidebar"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <X size={18} />
+            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
 
@@ -6601,6 +6632,8 @@ function App() {
                 key={item.id}
                 type="button"
                 className={activeView === item.id ? "active" : ""}
+                title={item.label}
+                aria-label={item.label}
                 onClick={() => {
                   if (item.id === "site-chrome") {
                     openSiteChromeView(siteChromeTab);
@@ -6617,13 +6650,25 @@ function App() {
           })}
         </nav>
 
-        <div className="sidebar-panel">
-          <span>Website Status</span>
-          <strong>Live content sync</strong>
-          <p>{stats.published} published pages, {stats.review} in review.</p>
-          <div className="mini-meter">
-            <i style={{ width: `${Math.min(stats.averageSeo, 100)}%` }} />
+        <div className="sidebar-bottom">
+          <div className="sidebar-panel">
+            <span>Website Status</span>
+            <strong>Live content sync</strong>
+            <p>{stats.published} published pages, {stats.review} in review.</p>
+            <div className="mini-meter">
+              <i style={{ width: `${Math.min(stats.averageSeo, 100)}%` }} />
+            </div>
           </div>
+          <button
+            className="sidebar-logout"
+            type="button"
+            onClick={handleLogout}
+            title="Logout"
+            aria-label="Logout"
+          >
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
         </div>
       </aside>
 
@@ -6641,7 +6686,7 @@ function App() {
               }}
               aria-label="Open sidebar"
             >
-              <ListTree size={19} />
+              <PanelLeftOpen size={19} />
             </button>
             <div>
               <span className="eyebrow">Madda Walabu University</span>
@@ -6655,9 +6700,6 @@ function App() {
               <button className="primary-button" type="button" onClick={createNewPage}>
                 <Plus size={17} />
                 <span>Add Page</span>
-              </button>
-              <button className="icon-button" type="button" onClick={handleLogout} aria-label="Logout">
-                <LogOut size={18} />
               </button>
             </div>
           </header>

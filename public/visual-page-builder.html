@@ -816,13 +816,32 @@ function getImportedSelectableNode(target){
   if(!isImportedExactPageMode()) return null;
   const root = getImportedHtmlRoot();
   if(!root || !target || !root.contains(target)) return null;
+  if(target.nodeType===1){
+    const directTag = String(target.tagName || '').toLowerCase();
+    if(directTag==='img') return target;
+  }
   let node = target.nodeType===3 ? target.parentElement : target;
   while(node && node!==root){
     const tag = (node.tagName || '').toLowerCase();
+    if(tag==='img') return node;
     if(tag && !['script','style','link','meta','head','body'].includes(tag)) return node;
     node = node.parentElement;
   }
   return null;
+}
+function getImportedContentNode(node){
+  if(!node) return null;
+  const root = getImportedHtmlRoot();
+  let current = node;
+  if(String(current.tagName || '').toLowerCase()==='img') return current;
+  while(current && current!==root){
+    const tag = String(current.tagName || '').toLowerCase();
+    if(['section','article','div','main','aside','header','footer','nav','figure','figcaption','ul','ol','li','a','button','img','h1','h2','h3','h4','h5','h6','p','span','strong','em','small','form','label','input','textarea','select'].includes(tag)){
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return node;
 }
 function importedElementType(node){
   const tag = String(node?.tagName || '').toLowerCase();
@@ -842,6 +861,27 @@ function getImportedStyleValue(node, field){
     return '';
   }
 }
+function normalizeImportedColorValue(value, fallback='#ffffff'){
+  const raw = String(value || '').trim().toLowerCase();
+  if(!raw || raw==='initial' || raw==='inherit') return fallback;
+  if(raw==='transparent' || raw==='rgba(0, 0, 0, 0)' || raw==='rgba(0,0,0,0)') return '#ffffff';
+  if(/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+  const match = raw.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if(match){
+    const toHex = (part)=> Number(part).toString(16).padStart(2,'0');
+    return `#${toHex(match[1])}${toHex(match[2])}${toHex(match[3])}`;
+  }
+  return fallback;
+}
+function normalizeImportedSelectValue(value, allowed=[], fallback=''){
+  const raw = String(value || '').trim().toLowerCase();
+  return allowed.includes(raw) ? raw : fallback;
+}
+function normalizeImportedMetricValue(value, fallback=''){
+  const raw = String(value || '').trim();
+  if(!raw || raw==='normal' || raw==='auto' || raw==='none') return fallback;
+  return raw;
+}
 function describeImportedNode(node){
   if(!node) return null;
   ensureImportedNodeId(node);
@@ -856,17 +896,20 @@ function describeImportedNode(node){
     alt: tag==='img' ? (node.getAttribute('alt') || '') : '',
     url: tag==='a' ? (node.getAttribute('href') || '#') : '',
     styles: {
-      color: getImportedStyleValue(node,'color'),
-      backgroundColor: getImportedStyleValue(node,'backgroundColor'),
-      fontSize: getImportedStyleValue(node,'fontSize'),
-      fontWeight: getImportedStyleValue(node,'fontWeight'),
-      textAlign: getImportedStyleValue(node,'textAlign'),
-      width: getImportedStyleValue(node,'width'),
-      height: getImportedStyleValue(node,'height'),
-      minHeight: getImportedStyleValue(node,'minHeight'),
-      maxWidth: getImportedStyleValue(node,'maxWidth'),
-      display: getImportedStyleValue(node,'display'),
-      opacity: getImportedStyleValue(node,'opacity'),
+      color: normalizeImportedColorValue(getImportedStyleValue(node,'color'), '#081933'),
+      backgroundColor: normalizeImportedColorValue(getImportedStyleValue(node,'backgroundColor'), '#ffffff'),
+      fontSize: normalizeImportedMetricValue(getImportedStyleValue(node,'fontSize')),
+      fontWeight: String(getImportedStyleValue(node,'fontWeight') || '').trim(),
+      lineHeight: normalizeImportedMetricValue(getImportedStyleValue(node,'lineHeight')),
+      textAlign: normalizeImportedSelectValue(getImportedStyleValue(node,'textAlign'), ['left','center','right','justify'], ''),
+      width: normalizeImportedMetricValue(getImportedStyleValue(node,'width')),
+      height: normalizeImportedMetricValue(getImportedStyleValue(node,'height')),
+      minHeight: normalizeImportedMetricValue(getImportedStyleValue(node,'minHeight')),
+      maxWidth: normalizeImportedMetricValue(getImportedStyleValue(node,'maxWidth')),
+      display: normalizeImportedSelectValue(getImportedStyleValue(node,'display'), ['block','inline','inline-block','flex','grid','none'], ''),
+      opacity: String(getImportedStyleValue(node,'opacity') || '').trim(),
+      objectFit: normalizeImportedSelectValue(getImportedStyleValue(node,'objectFit'), ['cover','contain','fill','none','scale-down'], ''),
+      objectPosition: String(getImportedStyleValue(node,'objectPosition') || '').trim(),
       marginTop: getImportedStyleValue(node,'marginTop'),
       marginRight: getImportedStyleValue(node,'marginRight'),
       marginBottom: getImportedStyleValue(node,'marginBottom'),
@@ -875,8 +918,8 @@ function describeImportedNode(node){
       paddingRight: getImportedStyleValue(node,'paddingRight'),
       paddingBottom: getImportedStyleValue(node,'paddingBottom'),
       paddingLeft: getImportedStyleValue(node,'paddingLeft'),
-      borderStyle: getImportedStyleValue(node,'borderStyle'),
-      borderColor: getImportedStyleValue(node,'borderColor'),
+      borderStyle: normalizeImportedSelectValue(getImportedStyleValue(node,'borderStyle'), ['none','solid','dashed','dotted','double'], ''),
+      borderColor: normalizeImportedColorValue(getImportedStyleValue(node,'borderColor'), '#d7e3f2'),
       borderTopWidth: getImportedStyleValue(node,'borderTopWidth'),
       borderRightWidth: getImportedStyleValue(node,'borderRightWidth'),
       borderBottomWidth: getImportedStyleValue(node,'borderBottomWidth'),
@@ -968,6 +1011,7 @@ function renderImportedSettings(node){
   styleBox.innerHTML = `
     ${fieldInput('Font size', 'importedFontSize', details.styles.fontSize || '')}
     ${selectField('Font weight', 'importedFontWeight', [['','Default'],['400','400'],['500','500'],['600','600'],['700','700'],['800','800'],['900','900']], details.styles.fontWeight || '')}
+    ${fieldInput('Line height', 'importedLineHeight', details.styles.lineHeight || '')}
     ${colorField('Text color', 'importedColor', details.styles.color && details.styles.color.startsWith('#') ? details.styles.color : '#081933')}
     ${colorField('Background', 'importedBackgroundColor', details.styles.backgroundColor && details.styles.backgroundColor.startsWith('#') ? details.styles.backgroundColor : '#ffffff')}
     ${selectField('Text align', 'importedTextAlign', [['','Default'],['left','Left'],['center','Center'],['right','Right'],['justify','Justify']], details.styles.textAlign || '')}
@@ -975,6 +1019,8 @@ function renderImportedSettings(node){
     ${fieldInput('Height', 'importedHeight', details.styles.height || '')}
     ${fieldInput('Minimum height', 'importedMinHeight', details.styles.minHeight || '')}
     ${fieldInput('Max width', 'importedMaxWidth', details.styles.maxWidth || '')}
+    ${details.type==='image' ? selectField('Object fit', 'importedObjectFit', [['','Default'],['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None'],['scale-down','Scale down']], details.styles.objectFit || '') : ''}
+    ${details.type==='image' ? fieldInput('Object position', 'importedObjectPosition', details.styles.objectPosition || '') : ''}
   `;
   advancedBox.innerHTML = `
     ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
@@ -1027,6 +1073,7 @@ function renderImportedSettings(node){
     altNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-image-alt', true));
   }
   bindImportedTextField('importedFontSize', 'fontSize');
+  bindImportedTextField('importedLineHeight', 'lineHeight');
   const fontWeightNode = document.getElementById('f_importedFontWeight');
   if(fontWeightNode){
     fontWeightNode.addEventListener('change', ()=>{ applyImportedStyle('fontWeight', fontWeightNode.value); syncImportedHtmlToModel('imported-style', true); });
@@ -1041,6 +1088,11 @@ function renderImportedSettings(node){
     const fieldMap = { Width:'width', Height:'height', MinHeight:'minHeight', MaxWidth:'maxWidth', Opacity:'opacity' };
     bindImportedTextField(`imported${name}`, fieldMap[name]);
   });
+  const objectFitNode = document.getElementById('f_importedObjectFit');
+  if(objectFitNode){
+    objectFitNode.addEventListener('change', ()=>{ applyImportedStyle('objectFit', objectFitNode.value); syncImportedHtmlToModel('imported-style', true); });
+  }
+  bindImportedTextField('importedObjectPosition', 'objectPosition');
   const displayNode = document.getElementById('f_importedDisplay');
   if(displayNode){
     displayNode.addEventListener('change', ()=>{ applyImportedStyle('display', displayNode.value); syncImportedHtmlToModel('imported-style', true); });
@@ -1104,21 +1156,28 @@ function initializeImportedPage(){
   root.setAttribute('data-import-initialized','true');
   hydrateImportedAssets(root);
   root.addEventListener('click', (event)=>{
-    const target = getImportedSelectableNode(event.target);
+    const target = getImportedContentNode(getImportedSelectableNode(event.target));
     if(!target) return;
     event.preventDefault();
     event.stopPropagation();
     selectImportedNode(event.shiftKey && target.parentElement && target.parentElement!==root ? target.parentElement : target);
   }, true);
   root.addEventListener('dblclick', (event)=>{
-    const target = getImportedSelectableNode(event.target);
-    if(!target) return;
-    if(String(target.tagName || '').toLowerCase()==='img'){
-      selectImportedNode(target);
-      const uploader = document.querySelector('#contentFields #importedImageUpload');
-      if(uploader) uploader.click();
+    const directTarget = getImportedSelectableNode(event.target);
+    if(!directTarget) return;
+    const directTag = String(directTarget.tagName || '').toLowerCase();
+    if(directTag==='img'){
+      event.preventDefault();
+      event.stopPropagation();
+      selectImportedNode(directTarget);
+      window.setTimeout(()=>{
+        const uploader = document.querySelector('#contentFields #importedImageUpload');
+        if(uploader) uploader.showPicker ? uploader.showPicker() : uploader.click();
+      }, 0);
       return;
     }
+    const target = getImportedContentNode(directTarget);
+    if(!target) return;
     const hasOnlyTextChildren = !Array.from(target.children || []).length;
     if(!hasOnlyTextChildren) return;
     event.preventDefault();
@@ -3011,6 +3070,31 @@ function syncHostStylesheets(urls=[]){
     link.setAttribute('data-host-import','true');
     document.head.appendChild(link);
   });
+  ensureBuilderChromeStyles();
+}
+function ensureBuilderChromeStyles(){
+  let style = document.getElementById('builderChromeProtect');
+  if(!style){
+    style = document.createElement('style');
+    style.id = 'builderChromeProtect';
+    document.head.appendChild(style);
+  }
+  style.textContent = `
+    html body{ background: var(--bg) !important; }
+    body > .app{ display:flex !important; flex-direction:column !important; height:100vh !important; background: var(--bg) !important; color: var(--ink-900) !important; }
+    body > .app > .topbar{ height:52px !important; min-height:52px !important; background: var(--navy-900) !important; color:#fff !important; display:flex !important; align-items:center !important; justify-content:space-between !important; padding:0 14px !important; box-shadow: var(--shadow-md) !important; position:relative !important; z-index:20 !important; border:0 !important; }
+    body > .app > .workspace{ flex:1 !important; display:flex !important; min-height:0 !important; }
+    body > .app > .workspace > .side-panel{ width:300px !important; min-width:300px !important; flex-shrink:0 !important; background:#fff !important; border-right:1px solid var(--line) !important; display:flex !important; flex-direction:column !important; min-height:0 !important; position:relative !important; z-index:10 !important; box-shadow: 2px 0 12px rgba(15,23,42,0.04) !important; }
+    body > .app > .workspace > .side-panel .panel-search input{ color: var(--ink-900) !important; }
+    body > .app > .topbar .tb-icon-btn,
+    body > .app > .topbar .btn{ all: unset; box-sizing:border-box; }
+    body > .app > .topbar .tb-icon-btn{ width:32px !important; height:32px !important; border-radius:7px !important; color: rgba(255,255,255,.65) !important; display:flex !important; align-items:center !important; justify-content:center !important; cursor:pointer !important; }
+    body > .app > .topbar .tb-icon-btn.active{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
+    body > .app > .topbar .btn{ font-weight:700 !important; font-size:12.5px !important; border-radius:8px !important; padding:8px 14px !important; display:inline-flex !important; align-items:center !important; gap:6px !important; white-space:nowrap !important; cursor:pointer !important; }
+    body > .app > .topbar .btn-gold{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
+    body > .app > .topbar .btn-ghost-dark{ background: rgba(255,255,255,0.07) !important; color:#fff !important; border:1px solid rgba(255,255,255,0.16) !important; }
+    body > .app > .workspace > .canvas-area{ flex:1 !important; overflow-y:auto !important; overflow-x:hidden !important; background:#ffffff !important; padding:34px 30px 100px !important; display:flex !important; justify-content:center !important; }
+  `;
 }
 function loadHostSnapshot(data={}){
   const nextPageSettings=data.pageSettings&&typeof data.pageSettings==='object'?data.pageSettings:{};
