@@ -262,7 +262,20 @@ button:disabled {
   gap: 10px;
   padding: 10px 14px;
   font-weight: 650;
-  
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.sidebar-logout:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+.sidebar-logout span,
+.sidebar-logout svg {
+  color: #ffffff;
 }
 
 .sidebar-panel span,
@@ -1708,6 +1721,24 @@ button:disabled {
   justify-content: space-between;
 }
 
+.page-editor-media-close {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #d7dce5;
+  border-radius: 999px;
+  background: #fff;
+  color: #081933;
+}
+
+.page-editor-media-close:hover {
+  border-color: #b8c3d4;
+  background: #f8fafc;
+}
+
 .page-editor-media-head h2,
 .page-editor-media-copy h3 {
   margin: 4px 0 0;
@@ -1870,6 +1901,22 @@ button:disabled {
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
+}
+
+.page-editor-media-meta-url-row {
+  gap: 8px;
+}
+
+.page-editor-media-url-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.page-editor-media-url-inline .url {
+  flex: 1;
+  min-width: 0;
 }
 
 .page-editor-media-actions {
@@ -6824,9 +6871,14 @@ button:disabled {
     flex-wrap: wrap;
   }
 
+  .page-editor-media-url-inline {
+    flex-wrap: wrap;
+  }
+
   .page-editor-media-toolbar input,
   .page-editor-media-upload,
-  .page-editor-media-actions button {
+  .page-editor-media-actions button,
+  .page-editor-media-url-inline button {
     width: 100%;
   }
 

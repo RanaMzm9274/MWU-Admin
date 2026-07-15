@@ -334,11 +334,12 @@
   .canvas-empty svg{ width:44px; height:44px; color: var(--line); margin-bottom:16px; }
   .canvas-empty h3{ font-family:'Fraunces', serif; font-size:19px; font-weight:600; color: var(--ink-600); margin-bottom:6px; }
   .canvas-empty p{ font-size:12.5px; max-width:280px; line-height:1.6; }
-  .container-shell{min-height:84px;border:1.5px dashed #d9dfeb;border-radius:12px;background:rgba(248,250,252,0.92)}
+  .container-shell{min-height:84px;border:1.5px dashed #d9dfeb;border-radius:12px;background:rgba(248,250,252,0.92);position:relative}
+  .container-shell.has-background{background:transparent;border-color:transparent}
   .container-shell.is-row{display:flex;flex-direction:row;align-items:stretch;flex-wrap:nowrap}
   .container-shell.is-column{display:flex;flex-direction:column}
   .container-shell > .container-empty{padding:18px;font-size:11.5px;color:var(--ink-400);text-align:center}
-  .container-children{min-height:48px}
+  .container-children{min-height:48px;position:relative;z-index:1}
   .container-children > .drop-zone{margin:0}
   .container-children > .el-wrap{margin:0}
   .container-shell.is-row .container-children > .drop-zone{width:0;min-width:0;height:auto;align-self:stretch}
@@ -346,6 +347,10 @@
   .container-shell.is-row .container-children > .drop-zone.active-zone{width:18px;min-width:18px;margin:0 4px}
   .container-shell.is-column .container-children > .drop-zone{width:100%}
   .container-shell.is-column .container-children > .drop-zone.active-zone{margin:4px 0}
+  .container-bg-layer{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}
+  .container-bg-layer.is-image,
+  .container-bg-layer.is-color{background-repeat:no-repeat}
+  .container-bg-video{width:100%;height:100%;object-fit:cover;display:block}
 
   /* preview mode: hide all editor chrome */
   body.preview-mode .side-panel{ display:none; }
@@ -620,7 +625,7 @@ const IMAGE_PRESETS = [
   "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=600&auto=format&fit=crop",
 ];
 
-function defaultBox(){ return { bg:'transparent', bgImage:'', bgSize:'cover', bgPosition:'center center', borderWidth:0, borderTopWidth:0, borderRightWidth:0, borderBottomWidth:0, borderLeftWidth:0, borderWidthLinked:true, borderColor:'#E4E7ED', borderStyle:'solid', borderRadius:0, borderTopLeftRadius:0, borderTopRightRadius:0, borderBottomRightRadius:0, borderBottomLeftRadius:0, borderRadiusLinked:true, shadow:false, shadowTop:0, shadowRight:0, shadowBottom:0, shadowLeft:0, shadowLinked:true, shadowBlur:18, shadowSpread:0, shadowColor:'rgba(15,23,42,0.16)', width:0, widthUnit:'px', height:0, heightUnit:'px', minHeight:0, minHeightUnit:'px', displayMode:'block', flexGrow:0 }; }
+function defaultBox(){ return { bgMode:'color', bg:'transparent', bgImage:'', bgVideo:'', bgSize:'cover', bgPosition:'center center', bgAlignX:'center', bgAlignY:'center', bgOpacity:100, borderWidth:0, borderTopWidth:0, borderRightWidth:0, borderBottomWidth:0, borderLeftWidth:0, borderWidthLinked:true, borderColor:'#E4E7ED', borderStyle:'solid', borderRadius:0, borderTopLeftRadius:0, borderTopRightRadius:0, borderBottomRightRadius:0, borderBottomLeftRadius:0, borderRadiusLinked:true, shadow:false, shadowTop:0, shadowRight:0, shadowBottom:0, shadowLeft:0, shadowLinked:true, shadowBlur:18, shadowSpread:0, shadowColor:'rgba(15,23,42,0.16)', width:0, widthUnit:'px', height:0, heightUnit:'px', minHeight:0, minHeightUnit:'px', displayMode:'block', flexGrow:0 }; }
 function defaultAdvanced(){ return { marginTop:0, marginRight:0, marginBottom:0, marginLeft:0, marginLinked:true, paddingTop:0, paddingBottom:0, paddingLeft:0, paddingRight:0, paddingLinked:true, cssId:'', cssClasses:'', customCss:'', zIndex:'', opacity:100, hideDesktop:false, hideTablet:false, hideMobile:false, animation:'none' }; }
 
 function defaultsFor(type){
@@ -2714,12 +2719,16 @@ function elementInnerHTML(el){
 
 function composeWrapStyle(el){
   const a = el.advanced || {};
-  const b = el.box || defaultBox();
+  const b = { ...defaultBox(), ...(el.box || {}) };
   const mt = a.marginTop ?? 0, mr = a.marginRight ?? 0, mb = a.marginBottom ?? 0, ml = a.marginLeft ?? 0;
   const pt = a.paddingTop ?? 0, pb = a.paddingBottom ?? 0, pl = a.paddingLeft ?? 0, pr = a.paddingRight ?? 0;
   let style = `padding:${pt}px ${pr}px ${pb}px ${pl}px; margin:${mt}px ${mr}px ${mb}px ${ml}px;`;
-  style += `background-color:${b.bg||'transparent'};`;
-  if(b.bgImage) style += `background-image:url('${safeUrl(b.bgImage)}'); background-size:${b.bgSize||'cover'}; background-position:${b.bgPosition||'center center'}; background-repeat:no-repeat;`;
+  if(el.type !== 'container'){
+    style += `background-color:${b.bg||'transparent'};`;
+    if(b.bgImage) style += `background-image:url('${safeUrl(b.bgImage)}'); background-size:${b.bgSize||'cover'}; background-position:${resolveBoxBackgroundPosition(b)}; background-repeat:no-repeat;`;
+  } else {
+    style += `position:relative; overflow:hidden;`;
+  }
   const btw = Number(b.borderTopWidth ?? b.borderWidth ?? 0);
   const brw = Number(b.borderRightWidth ?? b.borderWidth ?? 0);
   const bbw = Number(b.borderBottomWidth ?? b.borderWidth ?? 0);
@@ -3320,7 +3329,28 @@ function renderStyleFields(el){
 }
 
 function renderBoxStyleFields(el){
-  const b = el.box || defaultBox();
+  const b = { ...defaultBox(), ...(el.box || {}) };
+  const bgMode = resolveBoxBackgroundMode(b);
+  const bgAlignment = resolveBoxBackgroundAlignment(b);
+  const backgroundFields = [
+    selectFieldGeneric('Background source', 'boxBgMode', [['color','Color'],['image','Image'],['video','Video']], bgMode),
+    bgMode === 'color'
+      ? colorFieldGeneric('Background color', 'boxBg', b.bg==='transparent' ? '#ffffff' : b.bg, 'box')
+      : '',
+    bgMode === 'image'
+      ? `<div class="field-group"><div class="field-group-label">Background image</div>${imageUploadHtml('boxBgImageUpload')}${fieldInput('Image URL', 'boxBgImageUrl', b.bgImage || '')}${b.bgImage?`<div class="field-hint" style="margin-top:10px;">Background image selected</div><button type="button" class="btn btn-light" id="clearBoxBgImageBtn" style="margin-top:10px;">Remove image</button>`:`<div class="field-hint" style="margin-top:10px;">Upload an image or paste a direct image URL.</div>`}</div>`
+      : '',
+    bgMode === 'video'
+      ? `${fieldInput('Video URL', 'boxBgVideoUrl', b.bgVideo || '')}<div class="field-hint">Use a direct video file URL such as MP4 or WebM. Background videos autoplay muted and loop.</div>`
+      : '',
+    bgMode !== 'color'
+      ? selectFieldGeneric('Media fit', 'boxBgSize', [['cover','Cover'],['contain','Contain'],['fill','Fill'],['auto','Auto']], b.bgSize || 'cover')
+      : '',
+    rangeField('Background opacity', 'boxBgOpacity', 0, 100, resolveBoxBackgroundOpacity(b), '%'),
+    bgMode !== 'color'
+      ? alignField('boxBgAlign', bgAlignment.x, bgAlignment.y === 'center' ? 'middle' : bgAlignment.y)
+      : ''
+  ].filter(Boolean).join('');
   return `
     <div class="panel-section-label" style="padding:4px 0 10px;">Box style</div>
     ${selectFieldGeneric('Container style', 'boxDisplayMode', [['block','Block'],['inline','Inline'],['fullwidth','Full width']], b.displayMode||'block')}
@@ -3330,8 +3360,8 @@ function renderBoxStyleFields(el){
       ${sliderWithUnitField('Height', 'boxHeight', b.height||0, [['px','PX'],['%','PC'],['vh','VH']], b.heightUnit||'px', 0, 100, 1)}
       ${sliderWithUnitField('Minimum height', 'boxMinHeight', b.minHeight||0, [['px','PX'],['%','PC'],['vh','VH']], b.minHeightUnit||'px', 0, 100, 1)}
     </div>
-    ${colorFieldGeneric('Background', 'boxBg', b.bg==='transparent' ? '#ffffff' : b.bg, 'box')}
-    <div class="field-group"><div class="field-group-label">Background image</div>${imageUploadHtml('boxBgImageUpload')}${b.bgImage?`<div class="field-hint" style="margin-top:10px;">Background image selected</div><button type="button" class="btn btn-light" id="clearBoxBgImageBtn" style="margin-top:10px;">Remove image</button>`:`<div class="field-hint" style="margin-top:10px;">Supports all standard browser image types.</div>`}</div>
+    <div class="panel-section-label" style="padding:4px 0 10px;">Background</div>
+    ${backgroundFields}
     ${linkedQuadField('Border width', 'boxBorderWidth', { top:b.borderTopWidth??b.borderWidth??0, right:b.borderRightWidth??b.borderWidth??0, bottom:b.borderBottomWidth??b.borderWidth??0, left:b.borderLeftWidth??b.borderWidth??0 }, b.borderWidthLinked !== false, 0, 100)}
     ${colorFieldGeneric('Border color', 'boxBorderColor', b.borderColor, 'box')}
     ${selectFieldGeneric('Border style', 'boxBorderStyle', [['solid','Solid'],['dashed','Dashed'],['dotted','Dotted']], b.borderStyle, 'box')}
@@ -3355,7 +3385,7 @@ function selectFieldGeneric(label, id, options, value){
     <select class="field-select" id="f_${id}">${options.map(([v,l])=>`<option value="${v}" ${v===value?'selected':''}>${l}</option>`).join('')}</select></div>`;
 }
 function bindBoxStyleEvents(el){
-  el.box = el.box || defaultBox();
+  el.box = { ...defaultBox(), ...(el.box || {}) };
   const b = el.box;
   const displayMode = document.getElementById('f_boxDisplayMode');
   if(displayMode){
@@ -3376,12 +3406,27 @@ function bindBoxStyleEvents(el){
     syncUnitValueSelect(minHeightUnit, b.minHeight||0);
     minHeightUnit.addEventListener('change', ()=>{ b.minHeightUnit = minHeightUnit.value; syncUnitValueSelect(minHeightUnit, b.minHeight||0); reRenderElement(el); pushHistory(); });
   }
+  const bgModeNode = document.getElementById('f_boxBgMode');
+  if(bgModeNode){
+    bgModeNode.addEventListener('change', ()=>{
+      b.bgMode = bgModeNode.value;
+      b.bgPosition = resolveBoxBackgroundPosition(b);
+      reRenderElement(el);
+      renderStyleFields(el);
+      pushHistory();
+    });
+  }
   const bgC = document.getElementById('f_boxBg'), bgT = document.getElementById('t_boxBg');
   if(bgC){
     bgC.addEventListener('input', ()=>{ b.bg = bgC.value; bgT.value = bgC.value; reRenderElement(el); });
     bgC.addEventListener('change', ()=> pushHistory());
     bgT.addEventListener('input', ()=>{ b.bg = bgT.value; if(/^#[0-9A-Fa-f]{6}$/.test(bgT.value)) bgC.value = bgT.value; reRenderElement(el); });
     bgT.addEventListener('blur', ()=> pushHistory());
+  }
+  const bgImageUrl = document.getElementById('f_boxBgImageUrl');
+  if(bgImageUrl){
+    bgImageUrl.addEventListener('input', ()=>{ b.bgImage = bgImageUrl.value; reRenderElement(el); });
+    bgImageUrl.addEventListener('blur', ()=>{ renderStyleFields(el); pushHistory(); });
   }
   bindImageUpload('boxBgImageUpload', src=>{ b.bgImage = src; reRenderElement(el); renderStyleFields(el); });
   const clearBoxBgImageBtn = document.getElementById('clearBoxBgImageBtn');
@@ -3391,6 +3436,51 @@ function bindBoxStyleEvents(el){
       reRenderElement(el);
       renderStyleFields(el);
       pushHistory();
+    });
+  }
+  const bgVideoUrl = document.getElementById('f_boxBgVideoUrl');
+  if(bgVideoUrl){
+    bgVideoUrl.addEventListener('input', ()=>{ b.bgVideo = bgVideoUrl.value; reRenderElement(el); });
+    bgVideoUrl.addEventListener('blur', ()=>{ renderStyleFields(el); pushHistory(); });
+  }
+  const bgSizeNode = document.getElementById('f_boxBgSize');
+  if(bgSizeNode){
+    bgSizeNode.addEventListener('change', ()=>{ b.bgSize = bgSizeNode.value; reRenderElement(el); pushHistory(); });
+  }
+  const bgOpacityNode = document.getElementById('f_boxBgOpacity');
+  if(bgOpacityNode){
+    bgOpacityNode.addEventListener('input', ()=>{
+      b.bgOpacity = Number(bgOpacityNode.value) || 0;
+      const label = document.getElementById('v_boxBgOpacity');
+      if(label) label.textContent = `${b.bgOpacity}%`;
+      reRenderElement(el);
+    });
+    bgOpacityNode.addEventListener('change', ()=> pushHistory());
+  }
+  const bgAlignH = document.getElementById('f_boxBgAlign_h');
+  if(bgAlignH){
+    bgAlignH.querySelectorAll('button').forEach((btn)=>{
+      btn.addEventListener('click', ()=>{
+        bgAlignH.querySelectorAll('button').forEach((node)=>node.classList.remove('active'));
+        btn.classList.add('active');
+        b.bgAlignX = btn.dataset.v;
+        b.bgPosition = resolveBoxBackgroundPosition(b);
+        reRenderElement(el);
+        pushHistory();
+      });
+    });
+  }
+  const bgAlignV = document.getElementById('f_boxBgAlign_v');
+  if(bgAlignV){
+    bgAlignV.querySelectorAll('button').forEach((btn)=>{
+      btn.addEventListener('click', ()=>{
+        bgAlignV.querySelectorAll('button').forEach((node)=>node.classList.remove('active'));
+        btn.classList.add('active');
+        b.bgAlignY = btn.dataset.v === 'middle' ? 'center' : btn.dataset.v;
+        b.bgPosition = resolveBoxBackgroundPosition(b);
+        reRenderElement(el);
+        pushHistory();
+      });
     });
   }
   const bc = document.getElementById('f_boxBorderColor'), bcT = document.getElementById('t_boxBorderColor');
@@ -3933,6 +4023,67 @@ function youtubeEmbed(url){
   if(/vimeo\.com\/(\d+)/.test(value)) return 'https://player.vimeo.com/video/'+value.match(/vimeo\.com\/(\d+)/)[1];
   return value;
 }
+function resolveBoxBackgroundMode(box = {}){
+  if(box.bgMode) return box.bgMode;
+  if(box.bgVideo) return 'video';
+  if(box.bgImage) return 'image';
+  return 'color';
+}
+function normalizeBackgroundAxisValue(value, axis='x'){
+  const raw = String(value || '').trim().toLowerCase();
+  if(!raw) return axis === 'x' ? 'center' : 'center';
+  if(raw === 'middle') return 'center';
+  if(raw === '50%' || raw === 'center center') return 'center';
+  if(axis === 'x' && ['left','center','right'].includes(raw)) return raw;
+  if(axis === 'y' && ['top','center','bottom'].includes(raw)) return raw;
+  if(axis === 'x' && raw.endsWith('%')) return Number(raw) <= 25 ? 'left' : Number(raw) >= 75 ? 'right' : 'center';
+  if(axis === 'y' && raw.endsWith('%')) return Number(raw) <= 25 ? 'top' : Number(raw) >= 75 ? 'bottom' : 'center';
+  return axis === 'x' ? 'center' : 'center';
+}
+function resolveBoxBackgroundAlignment(box = {}){
+  const position = String(box.bgPosition || '').trim().split(/\s+/).filter(Boolean);
+  const fallbackX = normalizeBackgroundAxisValue(position[0], 'x');
+  const fallbackY = normalizeBackgroundAxisValue(position[1], 'y');
+  return {
+    x: normalizeBackgroundAxisValue(box.bgAlignX || fallbackX, 'x'),
+    y: normalizeBackgroundAxisValue(box.bgAlignY || fallbackY, 'y')
+  };
+}
+function resolveBoxBackgroundPosition(box = {}){
+  const alignment = resolveBoxBackgroundAlignment(box);
+  return `${alignment.x} ${alignment.y}`;
+}
+function resolveBoxBackgroundOpacity(box = {}){
+  const value = Number(box.bgOpacity ?? 100);
+  return Math.max(0, Math.min(100, Number.isFinite(value) ? value : 100));
+}
+function resolveBoxBackgroundImageSize(box = {}){
+  const size = String(box.bgSize || 'cover').trim().toLowerCase();
+  if(size === 'fill') return '100% 100%';
+  if(['cover','contain','auto'].includes(size)) return size;
+  return 'cover';
+}
+function resolveBoxBackgroundVideoFit(box = {}){
+  const fit = String(box.bgSize || 'cover').trim().toLowerCase();
+  if(['cover','contain','fill'].includes(fit)) return fit;
+  return 'cover';
+}
+function buildContainerBackgroundLayer(box = {}){
+  const settings = { ...defaultBox(), ...(box || {}) };
+  const mode = resolveBoxBackgroundMode(settings);
+  const opacity = resolveBoxBackgroundOpacity(settings) / 100;
+  const position = resolveBoxBackgroundPosition(settings);
+  if(mode === 'video' && settings.bgVideo){
+    return `<div class="container-bg-layer is-video" style="opacity:${opacity};"><video class="container-bg-video" autoplay muted loop playsinline src="${safeUrl(settings.bgVideo)}" style="object-fit:${resolveBoxBackgroundVideoFit(settings)};object-position:${position};"></video></div>`;
+  }
+  if(mode === 'image' && settings.bgImage){
+    return `<div class="container-bg-layer is-image" style="opacity:${opacity};background-image:url('${safeUrl(settings.bgImage)}');background-size:${resolveBoxBackgroundImageSize(settings)};background-position:${position};"></div>`;
+  }
+  if(mode === 'color' && settings.bg && settings.bg !== 'transparent'){
+    return `<div class="container-bg-layer is-color" style="opacity:${opacity};background:${settings.bg};"></div>`;
+  }
+  return '';
+}
 function socialInitial(name){ return (name||'?').trim().slice(0,2).toUpperCase(); }
 function socialIconMarkup(name, size=16, color='currentColor'){
   const key = String(name || '').trim().toLowerCase();
@@ -4293,7 +4444,8 @@ function renderTreeElements(list, parentId=''){
       const gap = Number(el.style&&el.style.gap||0);
       const justify = (el.style&&el.style.justify) || 'flex-start';
       const alignItems = (el.style&&el.style.alignItems) || 'stretch';
-      innerHtml = `<div class="container-shell ${flowClass}" style="gap:${gap}px;justify-content:${justify};align-items:${alignItems};">
+      const backgroundLayer = buildContainerBackgroundLayer(el.box || {});
+      innerHtml = `${backgroundLayer}<div class="container-shell ${flowClass}${backgroundLayer ? ' has-background' : ''}" style="gap:${gap}px;justify-content:${justify};align-items:${alignItems};">
         <div class="container-children" data-container-id="${el.id}" style="display:flex;flex-direction:${(el.style&&el.style.flow)==='row'?'row':'column'};flex-wrap:nowrap;gap:${gap}px;justify-content:${justify};align-items:${alignItems};width:100%;">
           ${containerChildren.length ? renderTreeElements(containerChildren, el.id) : `${dropZoneHTML(0, el.id)}<div class="container-empty">Drag widgets here</div>`}
         </div>
@@ -4576,14 +4728,15 @@ buildPublishedHtml = function(){
       if(el.type === 'container'){
         const s = el.style || {};
         const inner = renderPublishedTree(el.children || []);
-        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}"><div style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;">${inner}</div></div>`;
+        const backgroundLayer = buildContainerBackgroundLayer(el.box || {});
+        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}">${backgroundLayer}<div class="container-shell ${backgroundLayer ? 'has-background' : ''}" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;min-height:84px;${backgroundLayer ? 'background:transparent;border-color:transparent;' : 'border:0;background:transparent;'}">${inner}</div></div>`;
       }
       return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}">${elementInnerHTML(el)}</div>`;
     }).join('\n');
   };
   const body = renderPublishedTree(elements);
   const custom = customRules.join('\n');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}.published-widget{padding-left:16px!important;padding-right:16px!important}}${custom}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}.container-shell{position:relative;border-radius:inherit}.container-shell.has-background{background:transparent;border-color:transparent}.container-bg-layer{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}.container-bg-video{width:100%;height:100%;object-fit:cover;display:block}.container-shell>.container-children,.container-shell>.published-widget,.container-shell>.drop-zone{position:relative;z-index:1}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}.published-widget{padding-left:16px!important;padding-right:16px!important}}${custom}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
 };
 
 canvasPage.addEventListener('dblclick',e=>{

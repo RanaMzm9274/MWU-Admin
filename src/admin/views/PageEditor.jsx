@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw, Trash2, X } from "lucide-react";
 
 const shortenMediaUrl = (value = "", maxLength = 54) => {
   const raw = String(value || "").trim();
@@ -273,8 +273,13 @@ export default function PageEditor({
                   <span className="eyebrow">Media Library</span>
                   <h2>Replace imported image</h2>
                 </div>
-                <button type="button" className="ghost-button compact" onClick={() => setMediaPickerOpen(false)}>
-                  Close
+                <button
+                  type="button"
+                  className="page-editor-media-close"
+                  onClick={() => setMediaPickerOpen(false)}
+                  aria-label="Close media library"
+                >
+                  <X size={18} />
                 </button>
               </div>
               <div className="page-editor-media-toolbar">
@@ -328,14 +333,28 @@ export default function PageEditor({
                     <h3>{selectedMediaItem.title || "Untitled media"}</h3>
                     <dl className="page-editor-media-meta">
                       {selectedMediaDetails.map(([label, value]) => (
-                        <div key={label}>
+                        <div
+                          key={label}
+                          className={label === "URL" ? "page-editor-media-meta-url-row" : ""}
+                        >
                           <dt>{label}</dt>
-                          <dd
-                            className={label === "URL" ? "url" : ""}
-                            title={label === "URL" ? value || "" : undefined}
-                          >
-                            {label === "URL" ? shortenMediaUrl(value || "") || "Unknown" : value || "Unknown"}
-                          </dd>
+                          {label === "URL" ? (
+                            <div className="page-editor-media-url-inline">
+                              <dd className="url" title={value || ""}>
+                                {shortenMediaUrl(value || "") || "Unknown"}
+                              </dd>
+                              <button
+                                type="button"
+                                className="ghost-button compact"
+                                onClick={copySelectedMediaUrl}
+                                disabled={!selectedMediaItem?.path}
+                              >
+                                Copy URL
+                              </button>
+                            </div>
+                          ) : (
+                            <dd>{value || "Unknown"}</dd>
+                          )}
                         </div>
                       ))}
                     </dl>
@@ -347,15 +366,9 @@ export default function PageEditor({
                 </div>
               )}
               <div className="page-editor-media-actions">
-                <button type="button" className="ghost-button" onClick={copySelectedMediaUrl} disabled={!selectedMediaItem?.path}>
-                  Copy URL
-                </button>
                 <button type="button" className="danger-button" onClick={deleteSelectedMedia} disabled={!selectedMediaItem?.id || uploadingMedia}>
                   <Trash2 size={16} />
                   <span>Delete</span>
-                </button>
-                <button type="button" className="ghost-button" onClick={() => setMediaPickerOpen(false)}>
-                  Cancel
                 </button>
                 <button type="button" className="primary-button" onClick={applySelectedMedia} disabled={!selectedMediaItem || uploadingMedia}>
                   Use selected image
