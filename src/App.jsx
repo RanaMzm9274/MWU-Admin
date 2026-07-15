@@ -54,25 +54,42 @@ import CrmView from "./admin/views/CrmView";
 import Dashboard from "./admin/views/Dashboard";
 import EventPagesView from "./admin/views/EventPagesView";
 import LoginView from "./admin/views/LoginView";
+import MediaView from "./admin/views/MediaView";
 import OtherPagesView from "./admin/views/OtherPagesView";
 import PageEditor from "./admin/views/PageEditor";
 import PagesView from "./admin/views/PagesView";
 import BlogPagesView from "./admin/views/BlogPagesView";
 import SettingsView from "./admin/views/SettingsView";
+import SiteChromeView from "./admin/views/SiteChromeView";
+import {
+  MEDIA_LIBRARY_KEY,
+  LIVE_SITE_ORIGIN,
+  LIVE_ASSET_PROXY_PREFIX,
+  assets,
+  initialMediaLibrary,
+  mediaApiUrl,
+  buildMediaDimensions,
+  normalizeMediaItem,
+  normalizeMediaApiItem,
+  mergeMediaLibraries,
+  getStoredMediaApiCredentials,
+  storeMediaApiCredentials,
+  getMediaApiAuthHeaders,
+  loadMediaLibrary,
+  readFileAsDataUrl,
+  readImageDimensions,
+  normalizeLiveAssetUrl,
+  canLoadRemoteImage
+} from "./admin/modules/mediaLibrary";
 
 const PROGRAM_CATEGORIES_KEY = "mwu-crm-program-categories-v1";
 const PROGRAMS_KEY = "mwu-crm-programs-v1";
-const MEDIA_LIBRARY_KEY = "mwu-crm-media-library-v1";
-const MEDIA_API_USERNAME_KEY = "mwu_media_api_username";
-const MEDIA_API_PASSWORD_KEY = "mwu_media_api_password";
 const ADMIN_TOKEN_KEY = "mwu_admin_token";
 const ADMIN_ACTIVITY_KEY = "mwu_admin_last_activity";
 const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
 const CRM_UI_STATE_KEY = "mwu_admin_ui_state_v1";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
-const LIVE_SITE_ORIGIN = "https://maddauni.online";
 const DEV_API_PROXY_PREFIX = "/__live_api";
-const DEV_MEDIA_PROXY_PREFIX = "/__live_media";
 const normalizeDevProxyBaseUrl = (value, devPrefix) => {
   const raw = String(value || "").replace(/\/$/, "");
   if (!raw) return "";
@@ -85,11 +102,7 @@ const normalizeDevProxyBaseUrl = (value, devPrefix) => {
   }
 };
 const API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_API_BASE_URL || "", DEV_API_PROXY_PREFIX);
-const MEDIA_API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_MEDIA_API_BASE_URL || `${LIVE_SITE_ORIGIN}/api`, DEV_MEDIA_PROXY_PREFIX);
-const LIVE_ASSET_PROXY_PREFIX = "/__live_asset";
 const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-const MEDIA_API_PATH = "/admin/media";
-const mediaApiUrl = (path = MEDIA_API_PATH) => `${MEDIA_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
 const getAuthHeaders = (token) => {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -194,252 +207,8 @@ const openStandalonePageEditorTab = (pageId) => {
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 };
 
-const assets = {
-  // All CRM/static assets should come from public/assets, not from the live-site proxy.
-  logoOfficial: "/assets/img/madda-logo.png",
-  logoWhite: "/assets/img/logo-white.svg",
-  logoBlack: "/assets/img/logo-black.svg",
-  hero: "/assets/img/hero-home.webp",
-  about: "/assets/img/about-mwu.jpg",
-  agriculture: "/assets/img/program-agriculture.jpg",
-  health: "/assets/img/program-health.jpg",
-  campus: "/assets/img/campus-mentor.webp",
-  blog: "/assets/img/blog-mou.jpg",
-  stories: "/assets/img/student-stories.jpg"
-};
-
-const initialMediaLibrary = [
-  {
-    id: "hero",
-    title: "Main Campus Hero",
-    type: "Hero",
-    path: assets.hero,
-    size: "1920 x 900",
-    uploadedAt: "2026-07-01",
-    dimensions: "1920 x 900",
-    mimeType: "image/webp"
-  },
-  {
-    id: "about",
-    title: "About MWU",
-    type: "About",
-    path: assets.about,
-    size: "1280 x 820",
-    uploadedAt: "2026-07-01",
-    dimensions: "1280 x 820",
-    mimeType: "image/jpeg"
-  },
-  {
-    id: "agriculture",
-    title: "Crop and Livestock",
-    type: "Program",
-    path: assets.agriculture,
-    size: "1200 x 780",
-    uploadedAt: "2026-07-01",
-    dimensions: "1200 x 780",
-    mimeType: "image/jpeg"
-  },
-  {
-    id: "health",
-    title: "Public Health Sciences",
-    type: "Program",
-    path: assets.health,
-    size: "1200 x 780",
-    uploadedAt: "2026-07-01",
-    dimensions: "1200 x 780",
-    mimeType: "image/jpeg"
-  },
-  {
-    id: "campus",
-    title: "Mentor Lecture",
-    type: "Campus",
-    path: assets.campus,
-    size: "1200 x 780",
-    uploadedAt: "2026-07-01",
-    dimensions: "1200 x 780",
-    mimeType: "image/webp"
-  },
-  {
-    id: "blog",
-    title: "Research and Community Impact",
-    type: "News",
-    path: assets.blog,
-    size: "1200 x 780",
-    uploadedAt: "2026-07-01",
-    dimensions: "1200 x 780",
-    mimeType: "image/jpeg"
-  },
-  {
-    id: "stories",
-    title: "Student Stories",
-    type: "Story",
-    path: assets.stories,
-    size: "1200 x 780",
-    uploadedAt: "2026-07-01",
-    dimensions: "1200 x 780",
-    mimeType: "image/jpeg"
-  }
-];
-
-const formatMediaByteSize = (bytes) => {
-  const value = Number(bytes || 0);
-  if (!Number.isFinite(value) || value <= 0) return "";
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(value < 10 * 1024 ? 1 : 0)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
-};
-
 const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 const todayIso = () => new Date().toISOString();
-
-const estimateDataUrlBytes = (value = "") => {
-  const match = String(value || "").match(/^data:.*?;base64,(.+)$/);
-  if (!match?.[1]) return 0;
-  return Math.floor((match[1].length * 3) / 4);
-};
-
-const buildMediaDimensions = (width, height, fallback = "") => {
-  const parsedWidth = Number(width || 0);
-  const parsedHeight = Number(height || 0);
-  if (parsedWidth > 0 && parsedHeight > 0) {
-    return `${parsedWidth} x ${parsedHeight}`;
-  }
-  return fallback;
-};
-
-const normalizeMediaItem = (media) => {
-  const path = String(media?.path || "");
-  const size = String(media?.size || "").trim();
-  const derivedByteSize = estimateDataUrlBytes(path);
-  return {
-    id: media?.id || makeId(),
-    title: media?.title || "Untitled media",
-    type: media?.type || "Image",
-    path,
-    size: size || formatMediaByteSize(media?.bytes || derivedByteSize),
-    bytes: Number(media?.bytes || derivedByteSize || 0),
-    uploadedAt: media?.uploadedAt || todayIso(),
-    dimensions: media?.dimensions || buildMediaDimensions(media?.width, media?.height, size),
-    width: Number(media?.width || 0),
-    height: Number(media?.height || 0),
-    mimeType: media?.mimeType || (path.startsWith("data:") ? path.slice(5, path.indexOf(";")) : "image/jpeg")
-  };
-};
-
-const normalizeMediaApiItem = (media = {}) =>
-  normalizeMediaItem({
-    id: media.id || media.media_id || media.file_id || media.uuid,
-    title: media.title || media.name || media.filename || media.original_name,
-    type: media.type || media.media_type || media.kind || "Image",
-    path: media.path || media.url || media.file_url || media.public_url || media.src,
-    size: media.size_label || media.size,
-    bytes: media.bytes || media.file_size || media.size_bytes,
-    uploadedAt: media.uploaded_at || media.created_at || media.updated_at,
-    dimensions: media.dimensions,
-    width: media.width,
-    height: media.height,
-    mimeType: media.mime_type || media.mimeType || media.content_type
-  });
-
-const mergeMediaLibraries = (...collections) => {
-  const seen = new Set();
-  const merged = [];
-  collections.flat().forEach((item) => {
-    const normalized = normalizeMediaItem(item);
-    const key = normalized.path || normalized.id;
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    merged.push(normalized);
-  });
-  return merged;
-};
-
-const getStoredMediaApiCredentials = () => ({
-  username: window.sessionStorage.getItem(MEDIA_API_USERNAME_KEY) || "",
-  password: window.sessionStorage.getItem(MEDIA_API_PASSWORD_KEY) || ""
-});
-
-const storeMediaApiCredentials = ({ username = "", password = "" } = {}) => {
-  if (username) {
-    window.sessionStorage.setItem(MEDIA_API_USERNAME_KEY, username);
-  } else {
-    window.sessionStorage.removeItem(MEDIA_API_USERNAME_KEY);
-  }
-  if (password) {
-    window.sessionStorage.setItem(MEDIA_API_PASSWORD_KEY, password);
-  } else {
-    window.sessionStorage.removeItem(MEDIA_API_PASSWORD_KEY);
-  }
-};
-
-const getMediaApiAuthHeaders = (credentials = getStoredMediaApiCredentials()) => {
-  if (!credentials.username || !credentials.password) {
-    return {};
-  }
-  const basicToken = window.btoa(`${credentials.username}:${credentials.password}`);
-  return { Authorization: `Basic ${basicToken}` };
-};
-
-const loadMediaLibrary = () => {
-  try {
-    const stored = window.localStorage.getItem(MEDIA_LIBRARY_KEY);
-    const parsed = stored ? JSON.parse(stored) : initialMediaLibrary;
-    const normalized = Array.isArray(parsed) ? parsed.map(normalizeMediaItem) : initialMediaLibrary.map(normalizeMediaItem);
-    const existingIds = new Set(normalized.map((item) => item.id));
-    const missingSeedItems = initialMediaLibrary
-      .map(normalizeMediaItem)
-      .filter((item) => !existingIds.has(item.id));
-    return [...normalized, ...missingSeedItems];
-  } catch {
-    return initialMediaLibrary.map(normalizeMediaItem);
-  }
-};
-
-let mediaLibrary = loadMediaLibrary();
-
-const readFileAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("Could not read file."));
-    reader.readAsDataURL(file);
-  });
-
-const readImageDimensions = (src) =>
-  new Promise((resolve) => {
-    const image = new window.Image();
-    image.onload = () => resolve({ width: image.naturalWidth || 0, height: image.naturalHeight || 0 });
-    image.onerror = () => resolve({ width: 0, height: 0 });
-    image.src = src;
-  });
-
-const normalizeLiveAssetUrl = (value = "") => {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("/")) return `${LIVE_SITE_ORIGIN}${raw}`;
-  if (raw.startsWith("assets/")) return `${LIVE_SITE_ORIGIN}/${raw}`;
-  return "";
-};
-
-const canLoadRemoteImage = (url) =>
-  new Promise((resolve) => {
-    if (!url) {
-      resolve(false);
-      return;
-    }
-    const image = new window.Image();
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      resolve(value);
-    };
-    image.onload = () => finish(true);
-    image.onerror = () => finish(false);
-    image.src = `${url}${url.includes("?") ? "&" : "?"}mwu_asset_check=${Date.now()}`;
-    window.setTimeout(() => finish(false), 5000);
-  });
 
 const pageTypes = [
   "Static Page",
@@ -714,31 +483,35 @@ const normalizeAssetUrlForEditableCanvas = (value = "") => {
     return rawValue;
   }
 
-  if (/^\/assets\//i.test(rawValue)) {
+  if (rawValue.startsWith(LIVE_ASSET_PROXY_PREFIX)) {
     return rawValue;
   }
 
+  if (/^\/assets\//i.test(rawValue)) {
+    return `${LIVE_ASSET_PROXY_PREFIX}${rawValue}`;
+  }
+
   if (/^(assets\/|\.\/assets\/)/i.test(rawValue)) {
-    return `/${rawValue.replace(/^\.\//, "")}`;
+    return `${LIVE_ASSET_PROXY_PREFIX}/${rawValue.replace(/^\.\//, "")}`;
   }
 
   if (/^\.\.\/assets\//i.test(rawValue)) {
-    return `/${rawValue.replace(/^(\.\.\/)+/, "")}`;
+    return `${LIVE_ASSET_PROXY_PREFIX}/${rawValue.replace(/^(\.\.\/)+/, "")}`;
   }
 
   if (/^\/legacy\/assets\//i.test(rawValue)) {
-    return rawValue.replace(/^\/legacy/, "");
+    return `${LIVE_ASSET_PROXY_PREFIX}${rawValue.replace(/^\/legacy/, "")}`;
   }
 
   if (/^\/legacy\//i.test(rawValue) && /\/assets\//i.test(rawValue)) {
-    return rawValue.replace(/^\/legacy[^/]*\//i, "/");
+    return `${LIVE_ASSET_PROXY_PREFIX}${rawValue.replace(/^\/legacy[^/]*\//i, "/")}`;
   }
 
   if (/^\/\//.test(rawValue)) {
     try {
       const protocolRelative = new URL(`https:${rawValue}`);
       if (protocolRelative.hostname.replace(/^www\./, "") === "maddauni.online" && protocolRelative.pathname.startsWith("/assets/")) {
-        return `${protocolRelative.pathname}${protocolRelative.search}${protocolRelative.hash}`;
+        return `${LIVE_ASSET_PROXY_PREFIX}${protocolRelative.pathname}${protocolRelative.search}${protocolRelative.hash}`;
       }
     } catch {
       return rawValue;
@@ -750,8 +523,7 @@ const normalizeAssetUrlForEditableCanvas = (value = "") => {
     const liveOrigin = new URL(LIVE_SITE_ORIGIN).origin;
 
     if (absoluteUrl.origin === liveOrigin && absoluteUrl.pathname.startsWith("/assets/")) {
-      // User has the existing website assets in /public/assets, so keep them local.
-      return `${absoluteUrl.pathname}${absoluteUrl.search}${absoluteUrl.hash}`;
+      return `${LIVE_ASSET_PROXY_PREFIX}${absoluteUrl.pathname}${absoluteUrl.search}${absoluteUrl.hash}`;
     }
 
     if (absoluteUrl.origin === liveOrigin) {
@@ -1366,6 +1138,27 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
   const storedPageSettings = storedSnapshot?.pageSettings || {};
   const storedElements = Array.isArray(storedSnapshot?.elements) ? storedSnapshot.elements : [];
   const hasImportedHtml = hasPersistedEditableMarkup(page);
+  const shouldStartBlank =
+    !hasImportedHtml &&
+    !storedElements.length &&
+    Boolean(
+      page?.isLocalDraft ||
+      page?._isLocalDraft ||
+      page?.localOnly
+    );
+  const storedDocument = getStoredEditableDocument(page);
+  const sourceImportHtml =
+    storedDocument?.fullHtml ||
+    page?.rawHtml ||
+    page?.raw_html ||
+    mergeBodyIntoHtml(
+      "",
+      storedDocument?.bodyHtml ||
+        page?.bodyHtml ||
+        page?.body_html ||
+        extractBodyHtml(page?.rawHtml || page?.raw_html || "") ||
+        ""
+    );
   const isImportedSnapshot =
     hasImportedHtml &&
     (
@@ -1374,6 +1167,8 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
     );
   const nextPageSettings = buildHtmlBuilderPageSettings(page, storedPageSettings);
   const exactImport = Boolean(hasImportedHtml && (isImportedSnapshot || !storedElements.length));
+  const importCssLinks = exactImport ? resolveHtmlBuilderImportCssLinks(sourceImportHtml) : [];
+  const importInlineCss = exactImport ? extractInlineStylesFromHtmlDocument(sourceImportHtml) : "";
 
   return {
     ...(storedSnapshot || {}),
@@ -1383,14 +1178,17 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
       canvasBg: exactImport ? "#ffffff" : nextPageSettings.canvasBg,
       bodyBg: exactImport ? "#eef0f3" : nextPageSettings.bodyBg
     },
-    importCssLinks: exactImport ? proxiedSiteCssLinks : [],
+    importCssLinks,
+    importInlineCss,
     liveAssetProxyPrefix: LIVE_ASSET_PROXY_PREFIX,
     liveSiteOrigin: LIVE_SITE_ORIGIN,
     elements: storedElements.length
       ? storedElements
       : hasImportedHtml
         ? [createHtmlBuilderImportedPageElement(page)]
-        : buildHtmlVisualBuilderFallbackElements(page)
+        : shouldStartBlank
+          ? []
+          : buildHtmlVisualBuilderFallbackElements(page)
   };
 };
 
@@ -1399,6 +1197,55 @@ const extractInlineStylesFromHtmlDocument = (html = "") =>
     .map((match) => String(match?.[1] || "").trim())
     .filter(Boolean)
     .join("\n\n");
+
+const extractStylesheetLinksFromHtmlDocument = (html = "") => {
+  const rawHtml = String(html || "");
+  const discoveredLinks = [];
+
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHtml, "text/html");
+      doc.querySelectorAll('link[rel~="stylesheet"][href]').forEach((node) => {
+        const href = String(node.getAttribute("href") || "").trim();
+        if (href) {
+          discoveredLinks.push(href);
+        }
+      });
+    } catch {
+      // Fall back to regex extraction below.
+    }
+  }
+
+  if (!discoveredLinks.length) {
+    Array.from(rawHtml.matchAll(/<link\b[^>]*href=(['"])([^"']+)\1[^>]*>/gi)).forEach((match) => {
+      const markup = String(match?.[0] || "");
+      if (!/\brel=(['"])[^"']*stylesheet[^"']*\1/i.test(markup)) {
+        return;
+      }
+      const href = String(match?.[2] || "").trim();
+      if (href) {
+        discoveredLinks.push(href);
+      }
+    });
+  }
+
+  return Array.from(
+    new Set(
+      discoveredLinks
+        .map((href) => normalizeStylesheetUrlForEditableCanvas(href))
+        .filter(Boolean)
+    )
+  );
+};
+
+const resolveHtmlBuilderImportCssLinks = (html = "") => {
+  const discoveredLinks = extractStylesheetLinksFromHtmlDocument(html);
+  if (!discoveredLinks.length) {
+    return proxiedSiteCssLinks;
+  }
+  return Array.from(new Set([...discoveredLinks, ...proxiedSiteCssLinks]));
+};
 
 const VISUAL_WIDGET_LIBRARY = {
   heading: {
@@ -3703,7 +3550,11 @@ const normalizePage = (page) => {
   const pageType = normalizeIncomingPageType(page?.type || page?.page_type || page?.pageType || "Static Page");
   const rawMenuGroup = page?.menu ?? page?.menu_group ?? page?.menuGroup ?? "";
   const menuGroup = rawMenuGroup == null ? "" : String(rawMenuGroup).trim();
-  const pageSections = page?.sections || page?.page_sections || page?.pageSections || [];
+  const explicitSections =
+    Array.isArray(page?.sections) ? page.sections
+      : Array.isArray(page?.page_sections) ? page.page_sections
+        : Array.isArray(page?.pageSections) ? page.pageSections
+          : null;
 
   return {
     ...emptyPage(),
@@ -3739,8 +3590,8 @@ const normalizePage = (page) => {
     createdAt: page?.createdAt || page?.created_at || page?.updatedAt || page?.updated_at || todayIso(),
     updatedBy: page?.updatedBy || page?.updated_by || "Content Editor",
     revisions: Array.isArray(page?.revisions) ? page.revisions : [],
-    sections: Array.isArray(pageSections) && pageSections.length
-      ? pageSections.map(normalizeSection)
+    sections: explicitSections
+      ? explicitSections.map(normalizeSection)
       : page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html
         ? [normalizeSection({ type: "Raw HTML", title: pageTitle, html: page?.bodyHtml || page?.body_html || page?.rawHtml || page?.raw_html, layout: "Legacy HTML" })]
         : [createSection()]
@@ -4169,6 +4020,28 @@ const emptyPage = () => ({
   scheduledAt: "",
   revisions: [],
   sections: [createSection("Hero Banner"), createSection("Text Block"), createSection("CTA Banner")]
+});
+
+const createBlankLocalDraftPage = (overrides = {}) => ({
+  ...emptyPage(),
+  title: "Untitled Page",
+  slug: "untitled-page",
+  heroHeadline: "",
+  heroTag: "",
+  summary: "",
+  heroImage: "",
+  ctaLabel: "",
+  ctaUrl: "",
+  seoTitle: "",
+  seoDescription: "",
+  rawHtml: "",
+  bodyHtml: "",
+  customCss: "",
+  visualBuilder: null,
+  sections: [],
+  isLocalDraft: true,
+  localOnly: true,
+  ...overrides
 });
 
 const getSiteChromeConfig = (kind = "header") => SITE_CHROME_CONFIGS[kind] || SITE_CHROME_CONFIGS.header;
@@ -4822,7 +4695,7 @@ function App() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [menuFilter, setMenuFilter] = useState("All");
   const [sortKey, setSortKey] = useState("updatedAt");
-  const [mediaLibraryVersion, setMediaLibraryVersion] = useState(0);
+  const [mediaLibrary, setMediaLibrary] = useState(loadMediaLibrary);
   const [mediaStorageMode, setMediaStorageMode] = useState("local");
   const [siteChromeTab, setSiteChromeTab] = useState("header");
   const [navigationSource, setNavigationSource] = useState("");
@@ -4832,9 +4705,31 @@ function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [dangerDialog, setDangerDialog] = useState(null);
+  const [pageEditorBuilderInitRevision, setPageEditorBuilderInitRevision] = useState(0);
   const importInputRef = useRef(null);
   const noticeTimeoutRef = useRef(null);
+  const suppressInAppBuilderReinitRef = useRef(false);
   const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
+  const pageEditorBuilderSourceSignature = useMemo(() => JSON.stringify({
+    id: formPage.id || "",
+    title: formPage.title || "",
+    slug: formPage.slug || "",
+    status: formPage.status || "",
+    bodyHtml: formPage.bodyHtml || formPage.body_html || "",
+    rawHtml: formPage.rawHtml || formPage.raw_html || "",
+    visualBuilder: formPage.visualBuilder || formPage.visual_builder || null
+  }), [
+    formPage.id,
+    formPage.title,
+    formPage.slug,
+    formPage.status,
+    formPage.bodyHtml,
+    formPage.body_html,
+    formPage.rawHtml,
+    formPage.raw_html,
+    formPage.visualBuilder,
+    formPage.visual_builder
+  ]);
   const pageEditorBuilderInitPayload = useMemo(() => buildHtmlVisualBuilderInitPayload(formPage), [
     formPage.id,
     formPage.title,
@@ -4875,8 +4770,22 @@ function App() {
     formPage.custom_css
   ]);
 
+  useEffect(() => {
+    if (activeView !== "page-editor") {
+      return;
+    }
+    if (suppressInAppBuilderReinitRef.current) {
+      suppressInAppBuilderReinitRef.current = false;
+      return;
+    }
+    setPageEditorBuilderInitRevision((current) => current + 1);
+  }, [activeView, pageEditorBuilderSourceSignature]);
+
   const loadDetailedPageForEditor = async (pageId) => {
     const listPage = pages.find((page) => String(page.id) === String(pageId)) || null;
+    if (listPage && isLocalDraftPage(listPage)) {
+      return listPage;
+    }
     let nextPage = listPage ? normalizePage(listPage) : null;
 
     try {
@@ -4994,6 +4903,7 @@ function App() {
       ]
     };
 
+    suppressInAppBuilderReinitRef.current = true;
     updateField("builderKind", pageOverride.builderKind);
     updateField("visualBuilder", pageOverride.visualBuilder);
     updateField("title", pageOverride.title);
@@ -5010,6 +4920,7 @@ function App() {
   const handleInAppEditableHtmlUpdate = (data = {}) => {
     const bodyHtml = restoreLiveAssetUrls(data.bodyHtml || "");
     const fullHtml = restoreLiveAssetUrls(data.fullHtml || mergeBodyIntoHtml(formPage.rawHtml || formPage.raw_html || "", bodyHtml));
+    suppressInAppBuilderReinitRef.current = true;
     updateField("bodyHtml", bodyHtml);
     updateField("rawHtml", fullHtml);
   };
@@ -5111,7 +5022,23 @@ function App() {
         let resolvedNavigationSource = "";
         try {
           let menu = [];
-          const adminNavigationResponse = await fetch(apiUrl("/admin/navigation/header"), {
+
+          if (import.meta.env.DEV) {
+            const staticHeaderResponse = await fetch(getFetchableLiveAssetUrl(SITE_CHROME_CONFIGS.header.sourceUrl), {
+              headers: { Accept: "text/html" },
+              cache: "no-store"
+            });
+            if (staticHeaderResponse.ok) {
+              const staticHeaderHtml = await staticHeaderResponse.text();
+              menu = parseStaticHeaderNavigation(staticHeaderHtml);
+              if (menu.length) {
+                resolvedNavigationSource = "static-header";
+              }
+            }
+          }
+
+          if (!menu.length) {
+            const adminNavigationResponse = await fetch(apiUrl("/admin/navigation/header"), {
             headers: getAuthHeaders(adminToken)
           });
 
@@ -5126,8 +5053,9 @@ function App() {
               resolvedNavigationSource = "api";
             }
           }
+          }
 
-          if (!menu.length) {
+          if (!menu.length && !import.meta.env.DEV) {
             const publicNavigationResponse = await fetch(apiUrl("/navigation/header"), {
               headers: { Accept: "application/json" }
             });
@@ -5169,15 +5097,23 @@ function App() {
           return;
         }
 
-        const firstNormalPage = apiPages.find(isNormalWebsitePage) || apiPages[0] || emptyPage();
-        setPages(apiPages);
+        const requestedPageId = String(activePageId || storedUiState.activePageId || "");
+        const shouldRestoreBlankEditorDraft =
+          !isStandaloneEditor &&
+          String(activeView || storedUiState.activeView || "") === "page-editor" &&
+          (!requestedPageId || !apiPages.some((page) => String(page.id) === requestedPageId));
+        const blankDraft = shouldRestoreBlankEditorDraft ? createBlankLocalDraftPage() : null;
+        const nextPages = blankDraft ? [blankDraft, ...apiPages] : apiPages;
+        const firstNormalPage = nextPages.find(isNormalWebsitePage) || nextPages[0] || emptyPage();
+        const requestedPage =
+          requestedPageId
+            ? nextPages.find((page) => String(page.id) === requestedPageId) || null
+            : null;
+
+        setPages(nextPages);
         setNavigationSource(resolvedNavigationSource);
-        setActivePageId((currentId) =>
-          apiPages.some((page) => String(page.id) === String(currentId)) ? currentId : firstNormalPage.id || ""
-        );
-        setFormPage((currentPage) =>
-          apiPages.find((page) => String(page.id) === String(currentPage.id)) || firstNormalPage
-        );
+        setActivePageId(requestedPage?.id || blankDraft?.id || firstNormalPage.id || "");
+        setFormPage(requestedPage || blankDraft || firstNormalPage);
         if (window.sessionStorage.getItem(ADMIN_PAGES_LOADED_NOTICE_KEY) !== "1") {
           const sourceLabel =
             resolvedNavigationSource === "api"
@@ -5222,7 +5158,7 @@ function App() {
 
   useEffect(() => {
     window.localStorage.setItem(MEDIA_LIBRARY_KEY, JSON.stringify(mediaLibrary));
-  }, [mediaLibraryVersion]);
+  }, [mediaLibrary]);
 
   useEffect(() => {
     let cancelled = false;
@@ -5274,6 +5210,11 @@ function App() {
 
   useEffect(() => {
     if (isStandaloneEditor || activeView !== "page-editor" || !activePageId || !pages.length) {
+      return;
+    }
+
+    const activeListPage = pages.find((page) => String(page.id) === String(activePageId)) || null;
+    if (isLocalDraftPage(activeListPage) || isLocalDraftPage(formPage)) {
       return;
     }
 
@@ -5381,9 +5322,9 @@ function App() {
   }, [contentManagedPages]);
 
   const commitMediaLibrary = (nextLibrary) => {
-    mediaLibrary = nextLibrary.map(normalizeMediaItem);
-    setMediaLibraryVersion((current) => current + 1);
-    return mediaLibrary;
+    const normalizedLibrary = nextLibrary.map(normalizeMediaItem);
+    setMediaLibrary(normalizedLibrary);
+    return normalizedLibrary;
   };
 
   const requestDangerConfirmation = ({
@@ -5438,14 +5379,10 @@ function App() {
       const path = await readFileAsDataUrl(file);
       const { width, height } = await readImageDimensions(path);
       uploadedItems.push(normalizeMediaItem({
-        id: makeId(),
         title: file.name.replace(/\.[^.]+$/, "") || "Uploaded media",
         type: "Upload",
         path,
         bytes: file.size,
-        size: formatMediaByteSize(file.size),
-        uploadedAt: todayIso(),
-        dimensions: buildMediaDimensions(width, height),
         width,
         height,
         mimeType: file.type || "image/jpeg"
@@ -5470,62 +5407,71 @@ function App() {
         credentials = requestMediaApiCredentials() || {};
       }
       if (!credentials.username || !credentials.password) {
-        setNotice("Upload cancelled. Website media credentials are required to store images on the live website.");
-        return [];
+        setNotice("Website media credentials were not provided. Uploaded to the browser media library instead.");
+        return uploadMediaFilesLocally(fileList);
       }
 
-      const uploadedItems = [];
-      for (const file of fileList) {
-        const dataUrl = await readFileAsDataUrl(file);
-        const { width, height } = await readImageDimensions(dataUrl);
-        const response = await fetch(mediaApiUrl(), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...getMediaApiAuthHeaders(credentials)
-          },
-          body: JSON.stringify({
-            title: file.name.replace(/\.[^.]+$/, "") || "Uploaded media",
-            type: "Upload",
-            width,
-            height,
-            dimensions: buildMediaDimensions(width, height),
-            upload: {
-              name: file.name,
-              type: file.type,
-              dataUrl
-            }
-          })
-        });
-        if (response.status === 401) {
-          storeMediaApiCredentials({});
-          throw new Error("Media API authorization failed. Re-enter website media credentials.");
+      try {
+        const uploadedItems = [];
+        for (const file of fileList) {
+          const dataUrl = await readFileAsDataUrl(file);
+          const { width, height } = await readImageDimensions(dataUrl);
+          const response = await fetch(mediaApiUrl(), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...getMediaApiAuthHeaders(credentials)
+            },
+            body: JSON.stringify({
+              title: file.name.replace(/\.[^.]+$/, "") || "Uploaded media",
+              type: "Upload",
+              width,
+              height,
+              dimensions: buildMediaDimensions(width, height),
+              upload: {
+                name: file.name,
+                type: file.type,
+                dataUrl
+              }
+            })
+          });
+          if (response.status === 401) {
+            storeMediaApiCredentials({});
+            throw new Error("Media API authorization failed. Re-enter website media credentials.");
+          }
+          if (!response.ok) {
+            throw new Error(await readApiError(response, "Media upload failed."));
+          }
+          const payload = await readOptionalJson(response);
+          const rawItem = payload?.item || payload?.data?.item || payload?.media || payload?.data?.media || payload?.data || payload || {};
+          const item = normalizeMediaApiItem(rawItem);
+          if (item.path) {
+            uploadedItems.push(item);
+          }
+          const nextItems = Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.data?.items)
+              ? payload.data.items
+              : null;
+          if (nextItems) {
+            commitMediaLibrary(mergeMediaLibraries(nextItems, uploadedItems, initialMediaLibrary));
+          }
         }
-        if (!response.ok) {
-          throw new Error(await readApiError(response, "Media upload failed."));
+        if (uploadedItems.length) {
+          if (!mediaLibrary.some((entry) => uploadedItems.some((uploaded) => uploaded.path === entry.path))) {
+            commitMediaLibrary(mergeMediaLibraries(uploadedItems, mediaLibrary, initialMediaLibrary));
+          }
+          setNotice(`Uploaded ${uploadedItems.length} media item${uploadedItems.length === 1 ? "" : "s"} to the website media library.`);
+          return uploadedItems;
         }
-        const payload = await readOptionalJson(response);
-        const item = normalizeMediaApiItem(payload?.item || payload?.data?.item || {});
-        uploadedItems.push(item);
-        const nextItems = Array.isArray(payload?.items)
-          ? payload.items
-          : Array.isArray(payload?.data?.items)
-            ? payload.data.items
-            : null;
-        if (nextItems) {
-          commitMediaLibrary(mergeMediaLibraries(nextItems, initialMediaLibrary));
-        }
-      }
-      if (uploadedItems.length) {
-        if (!mediaLibrary.some((entry) => uploadedItems.some((uploaded) => uploaded.path === entry.path))) {
-          commitMediaLibrary(mergeMediaLibraries(uploadedItems, mediaLibrary, initialMediaLibrary));
-        }
-        setNotice(`Uploaded ${uploadedItems.length} media item${uploadedItems.length === 1 ? "" : "s"} to the website media library.`);
-        return uploadedItems;
-      }
 
-      return [];
+        setNotice("Media upload did not return a usable image URL. Uploaded to the browser media library instead.");
+        return uploadMediaFilesLocally(fileList);
+      } catch (error) {
+        setNotice(`${error.message || "Media upload failed."} Uploaded to the browser media library instead.`);
+        return uploadMediaFilesLocally(fileList);
+      }
     }
 
     return uploadMediaFilesLocally(fileList);
@@ -5918,7 +5864,7 @@ function App() {
   };
 
   const createNewPage = () => {
-    const draft = { ...emptyPage(), isLocalDraft: true };
+    const draft = createBlankLocalDraftPage();
     setPages((current) => [draft, ...current]);
     setActivePageId(draft.id);
     setFormPage(draft);
@@ -6645,6 +6591,13 @@ function App() {
                 onClick={() => {
                   if (item.id === "site-chrome") {
                     openSiteChromeView(siteChromeTab);
+                  } else if (item.id === "page-editor") {
+                    if (activeView === "page-editor" && isLocalDraftPage(formPage)) {
+                      setEditorTab("content");
+                      setActiveView("page-editor");
+                    } else {
+                      createNewPage();
+                    }
                   } else {
                     setActiveView(item.id);
                   }
@@ -6684,7 +6637,7 @@ function App() {
         {activeView !== "page-editor" && (
           <header className="topbar">
             <button
-              className={`icon-button mobile-toggle ${sidebarCollapsed ? "force-visible" : ""}`}
+              className="icon-button mobile-toggle"
               type="button"
               onClick={() => {
                 setSidebarCollapsed(false);
@@ -6813,8 +6766,12 @@ function App() {
             page={formPage}
             editableSrcDoc={pageEditorEditableSrcDoc}
             builderInitPayload={pageEditorBuilderInitPayload}
+            builderInitRevision={pageEditorBuilderInitRevision}
             onPersistBuilderState={persistInAppPageEditorBuilderState}
             onEditableHtmlUpdate={handleInAppEditableHtmlUpdate}
+            mediaItems={mediaLibrary}
+            onUploadMediaFiles={uploadMediaFiles}
+            setNotice={setNotice}
           />
         )}
 
@@ -6916,10 +6873,16 @@ function App() {
           <SiteChromeView
             kind={siteChromeTab}
             page={activeSiteChromePage}
+            config={getSiteChromeConfig(siteChromeTab)}
+            snippetHtml={getSiteChromeHtml(activeSiteChromePage)}
+            statusOptions={statusOptions}
             openSiteChromeView={openSiteChromeView}
             updateField={updateField}
             updateHtml={updateSiteChromeHtml}
             savePage={saveSiteChromePage}
+            parseHeaderVisualModel={parseHeaderVisualModel}
+            updateHeaderHtmlFromVisualModel={updateHeaderHtmlFromVisualModel}
+            buildSiteChromePreviewDocument={buildSiteChromePreviewDocument}
           />
         )}
       </main>
@@ -6968,6 +6931,7 @@ function StandalonePageEditor({
   const editedBodyRef = useRef("");
   const editedFullHtmlRef = useRef("");
   const htmlBuilderStateRequestRef = useRef(null);
+  const latestHtmlBuilderPayloadRef = useRef(null);
   const pendingImageReplaceIdRef = useRef("");
   const livePageUrl = getLivePageUrl(safePage);
   const htmlBuilderSrc = `/visual-page-builder.html?pageId=${encodeURIComponent(safePage.id || safePage.slug || "new-page")}`;
@@ -6984,6 +6948,10 @@ function StandalonePageEditor({
     safePage.rawHtml,
     safePage.raw_html
   ]);
+
+  useEffect(() => {
+    latestHtmlBuilderPayloadRef.current = htmlBuilderInitPayload;
+  }, [htmlBuilderInitPayload]);
   const activeSection =
     (safePage.sections || []).find((section) => String(section.id) === String(activeSectionId)) ||
     safePage.sections?.[0];
@@ -7224,9 +7192,9 @@ function StandalonePageEditor({
 
     editableFrameRef.current?.contentWindow?.postMessage({
       type: "MWU_HTML_BUILDER_INIT",
-      payload: htmlBuilderInitPayload
+      payload: latestHtmlBuilderPayloadRef.current || htmlBuilderInitPayload
     }, "*");
-  }, [canvasMode, htmlBuilderInitPayload, htmlBuilderReady, safePage.id]);
+  }, [canvasMode, htmlBuilderReady, safePage.id]);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -9314,464 +9282,6 @@ function MenusView({
             )}
           </div>
         </section>
-      </div>
-    </section>
-  );
-}
-
-function MediaView({ mediaItems = [], mediaStorageMode = "local", selectedImage, onSelect, onUploadMedia, onDeleteMedia, onCopyUrl }) {
-  const [selectedMediaId, setSelectedMediaId] = useState(
-    mediaItems.find((media) => media.path === selectedImage)?.id || mediaItems[0]?.id || ""
-  );
-  const uploadInputRef = useRef(null);
-  const selectedMedia = mediaItems.find((media) => String(media.id) === String(selectedMediaId)) || mediaItems[0] || null;
-
-  useEffect(() => {
-    if (selectedImage) {
-      const match = mediaItems.find((media) => media.path === selectedImage);
-      if (match) {
-        setSelectedMediaId(match.id);
-        return;
-      }
-    }
-    if (selectedMediaId && !mediaItems.some((media) => String(media.id) === String(selectedMediaId))) {
-      setSelectedMediaId(mediaItems[0]?.id || "");
-    }
-  }, [mediaItems, selectedImage, selectedMediaId]);
-
-  const handleUpload = async (event) => {
-    const files = event.target.files;
-    if (!files?.length) {
-      return;
-    }
-    try {
-      const uploaded = await onUploadMedia(files);
-      if (uploaded[0]) {
-        setSelectedMediaId(uploaded[0].id);
-      }
-    } finally {
-      event.target.value = "";
-    }
-  };
-
-  return (
-    <section className="panel media-view">
-      <input ref={uploadInputRef} type="file" accept="image/*" multiple hidden onChange={handleUpload} />
-      <div className="panel-head">
-        <div>
-          <span className="eyebrow">Media Library</span>
-          <h2>Website Visual Assets</h2>
-          <small className="media-library-mode">{mediaStorageMode === "api" ? "Connected to website media storage" : "Browser fallback storage only"}</small>
-        </div>
-        <button className="ghost-button" type="button" onClick={() => uploadInputRef.current?.click()}>
-          <Upload size={17} />
-          <span>Upload</span>
-        </button>
-      </div>
-
-      <div className="media-library-layout">
-        <div className="media-grid">
-          {mediaItems.map((media) => (
-            <button
-              type="button"
-              className={selectedMediaId === media.id ? "media-card active" : "media-card"}
-              key={media.id}
-              onClick={() => {
-                setSelectedMediaId(media.id);
-                onSelect(media.path);
-              }}
-            >
-              <img src={media.path} alt="" />
-              <span>{media.type}</span>
-              <strong>{media.title}</strong>
-              <small>{media.size || media.dimensions}</small>
-            </button>
-          ))}
-        </div>
-        <aside className="media-details-card">
-          {selectedMedia ? (
-            <>
-              <img src={selectedMedia.path} alt={selectedMedia.title} />
-              <div className="media-details-copy">
-                <span className="eyebrow">Image Information</span>
-                <h3>{selectedMedia.title}</h3>
-                <dl className="standalone-media-meta-list">
-                  <div>
-                    <dt>Upload date</dt>
-                    <dd>{selectedMedia.uploadedAt || "Unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt>Name</dt>
-                    <dd>{selectedMedia.title}</dd>
-                  </div>
-                  <div>
-                    <dt>Size</dt>
-                    <dd>{selectedMedia.size || "Unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt>Dimensions</dt>
-                    <dd>{selectedMedia.dimensions || "Unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt>URL</dt>
-                    <dd className="url">{selectedMedia.path}</dd>
-                  </div>
-                </dl>
-                <div className="standalone-media-sidebar-actions">
-                  <button className="ghost-button" type="button" onClick={() => onCopyUrl(selectedMedia.path)}>
-                    <Copy size={16} />
-                    <span>Copy URL</span>
-                  </button>
-                  <button className="danger-button" type="button" onClick={() => onDeleteMedia(selectedMedia.id)}>
-                    <Trash2 size={16} />
-                    <span>Delete</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="standalone-media-picker-empty sidebar">
-              <strong>No media selected</strong>
-              <span>Select any asset to review its stored details.</span>
-            </div>
-          )}
-        </aside>
-      </div>
-    </section>
-  );
-}
-
-function SiteChromeView({
-  kind,
-  page,
-  openSiteChromeView,
-  updateField,
-  updateHtml,
-  savePage
-}) {
-  const config = getSiteChromeConfig(kind);
-  const snippetHtml = getSiteChromeHtml(page);
-  const sourcePath = page.sourceUrl || page.source_url || config.sourceUrl;
-  const statusLabel = page.status || "Draft";
-  const isSavedStatus = String(statusLabel).toLowerCase() === "published";
-  const visualHeaderModel = useMemo(() => parseHeaderVisualModel(snippetHtml), [snippetHtml]);
-
-  const commitVisualHeaderModel = (updater) => {
-    if (kind !== "header") {
-      return;
-    }
-    const nextModel = typeof updater === "function" ? updater(visualHeaderModel) : updater;
-    updateHtml(kind, updateHeaderHtmlFromVisualModel(snippetHtml, nextModel));
-  };
-
-  const updateHeaderMenuItem = (itemId, field, value) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: current.menuItems.map((item) => item.id === itemId ? { ...item, [field]: value } : item)
-    }));
-  };
-
-  const moveHeaderMenuItem = (itemId, direction) => {
-    commitVisualHeaderModel((current) => {
-      const items = [...current.menuItems];
-      const index = items.findIndex((item) => item.id === itemId);
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (index < 0 || targetIndex < 0 || targetIndex >= items.length) {
-        return current;
-      }
-      const [moved] = items.splice(index, 1);
-      items.splice(targetIndex, 0, moved);
-      return { ...current, menuItems: items };
-    });
-  };
-
-  const removeHeaderMenuItem = (itemId) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: current.menuItems.filter((item) => item.id !== itemId)
-    }));
-  };
-
-  const addHeaderMenuItem = () => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: [
-        ...current.menuItems,
-        {
-          id: `header-menu-added-${Date.now()}`,
-          sourceIndex: current.menuItems.length,
-          title: "New Menu Item",
-          href: "#",
-          isMega: false,
-          children: []
-        }
-      ]
-    }));
-  };
-
-  const updateHeaderChildItem = (itemId, childId, field, value) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: current.menuItems.map((item) => item.id === itemId ? {
-        ...item,
-        children: item.children.map((child) => child.id === childId ? { ...child, [field]: value } : child)
-      } : item)
-    }));
-  };
-
-  const addHeaderChildItem = (itemId) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: current.menuItems.map((item) => item.id === itemId ? {
-        ...item,
-        children: [
-          ...(item.children || []),
-          {
-            id: `header-child-added-${Date.now()}-${itemId}`,
-            title: "New Dropdown Item",
-            href: "#"
-          }
-        ]
-      } : item)
-    }));
-  };
-
-  const removeHeaderChildItem = (itemId, childId) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: current.menuItems.map((item) => item.id === itemId ? {
-        ...item,
-        children: item.children.filter((child) => child.id !== childId)
-      } : item)
-    }));
-  };
-
-  const moveHeaderChildItem = (itemId, childId, direction) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      menuItems: current.menuItems.map((item) => {
-        if (item.id !== itemId) return item;
-        const children = [...(item.children || [])];
-        const index = children.findIndex((child) => child.id === childId);
-        const targetIndex = direction === "up" ? index - 1 : index + 1;
-        if (index < 0 || targetIndex < 0 || targetIndex >= children.length) {
-          return item;
-        }
-        const [moved] = children.splice(index, 1);
-        children.splice(targetIndex, 0, moved);
-        return { ...item, children };
-      })
-    }));
-  };
-
-  const updateHeaderCta = (field, value) => {
-    commitVisualHeaderModel((current) => ({
-      ...current,
-      [field]: value
-    }));
-  };
-
-  return (
-    <section className="site-chrome-shell">
-      <div className="site-chrome-banner">
-        <div className="site-chrome-banner-copy">
-          <CheckCircle2 size={18} />
-          <span>Editing website {kind} content.</span>
-        </div>
-        <div className="site-chrome-tabs">
-          <button type="button" className={kind === "header" ? "active" : ""} onClick={() => openSiteChromeView("header")}>Header</button>
-          <button type="button" className={kind === "footer" ? "active" : ""} onClick={() => openSiteChromeView("footer")}>Footer</button>
-        </div>
-      </div>
-
-      <div className="site-chrome-grid">
-        <form className="panel site-chrome-editor" onSubmit={(event) => savePage(event, kind)}>
-          <div className="panel-head site-chrome-panel-head">
-            <div>
-              <span className="eyebrow">Global Layout</span>
-              <h2>Header & Footer</h2>
-            </div>
-            <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{statusLabel}</span>
-          </div>
-
-          <div className="site-chrome-fields">
-            <p className="site-chrome-hint">
-              Edit the global {kind} HTML here. Saving creates or updates the active CRM page with slug <code>{config.slug}</code>.
-            </p>
-
-            <div className="field-grid">
-              <Field label="Title">
-                <input value={page.title} onChange={(event) => updateField("title", event.target.value)} />
-              </Field>
-              <Field label="Status">
-                <select value={page.status} onChange={(event) => updateField("status", event.target.value)}>
-                  {statusOptions.map((status) => (
-                    <option key={status}>{status}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Source Path">
-                <input value={sourcePath} onChange={(event) => updateField("sourceUrl", event.target.value)} />
-              </Field>
-              <Field label="Slug">
-                <input value={page.slug} readOnly />
-              </Field>
-            </div>
-
-            <Field label="Summary">
-              <textarea rows="3" value={page.summary} onChange={(event) => updateField("summary", event.target.value)} />
-            </Field>
-
-            {kind === "header" && (
-              <div className="site-chrome-visual-editor">
-                <div className="site-chrome-editor-label">
-                  <strong>Visual Header Builder</strong>
-                  <small>{visualHeaderModel.menuItems.length} main items</small>
-                </div>
-                <p className="site-chrome-hint">
-                  Edit the live header menu visually. Special mega-menu items are preserved, while standard menu items and dropdowns can be changed directly.
-                </p>
-
-                <div className="site-chrome-cta-grid">
-                  <Field label="Header CTA Label">
-                    <input value={visualHeaderModel.ctaLabel} onChange={(event) => updateHeaderCta("ctaLabel", event.target.value)} />
-                  </Field>
-                  <Field label="Header CTA URL">
-                    <input value={visualHeaderModel.ctaUrl} onChange={(event) => updateHeaderCta("ctaUrl", event.target.value)} />
-                  </Field>
-                </div>
-
-                <div className="site-chrome-menu-list">
-                  {visualHeaderModel.menuItems.map((item, index) => (
-                    <div className="site-chrome-menu-card" key={item.id}>
-                      <div className="site-chrome-menu-card-head">
-                        <div>
-                          <strong>{item.title || `Menu Item ${index + 1}`}</strong>
-                          <small>{item.isMega ? "Mega menu preserved" : item.children.length ? "Dropdown menu" : "Single link"}</small>
-                        </div>
-                        <div className="site-chrome-menu-actions">
-                          <button className="ghost-button" type="button" onClick={() => moveHeaderMenuItem(item.id, "up")} disabled={index === 0}>
-                            <ChevronUp size={16} />
-                            <span>Up</span>
-                          </button>
-                          <button className="ghost-button" type="button" onClick={() => moveHeaderMenuItem(item.id, "down")} disabled={index === visualHeaderModel.menuItems.length - 1}>
-                            <ChevronDown size={16} />
-                            <span>Down</span>
-                          </button>
-                          {!item.isMega && (
-                            <button className="danger-button" type="button" onClick={() => removeHeaderMenuItem(item.id)}>
-                              <Trash2 size={16} />
-                              <span>Remove</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="field-grid">
-                        <Field label="Label">
-                          <input value={item.title} onChange={(event) => updateHeaderMenuItem(item.id, "title", event.target.value)} />
-                        </Field>
-                        <Field label="URL">
-                          <input value={item.href} onChange={(event) => updateHeaderMenuItem(item.id, "href", event.target.value)} />
-                        </Field>
-                      </div>
-
-                      {item.isMega ? (
-                        <div className="site-chrome-locked-note">
-                          <CheckCircle2 size={15} />
-                          <span>This item keeps the existing Programs mega-menu structure. Only its label and URL are edited here.</span>
-                        </div>
-                      ) : (
-                        <div className="site-chrome-children">
-                          <div className="site-chrome-children-head">
-                            <strong>Dropdown Items</strong>
-                            <button className="ghost-button" type="button" onClick={() => addHeaderChildItem(item.id)}>
-                              <Plus size={16} />
-                              <span>Add Child</span>
-                            </button>
-                          </div>
-                          {(item.children || []).map((child, childIndex) => (
-                            <div className="site-chrome-child-row" key={child.id}>
-                              <input value={child.title} onChange={(event) => updateHeaderChildItem(item.id, child.id, "title", event.target.value)} placeholder="Child label" />
-                              <input value={child.href} onChange={(event) => updateHeaderChildItem(item.id, child.id, "href", event.target.value)} placeholder="Child URL" />
-                              <button className="icon-button" type="button" aria-label="Move child up" onClick={() => moveHeaderChildItem(item.id, child.id, "up")} disabled={childIndex === 0}>
-                                <ChevronUp size={16} />
-                              </button>
-                              <button className="icon-button" type="button" aria-label="Move child down" onClick={() => moveHeaderChildItem(item.id, child.id, "down")} disabled={childIndex === item.children.length - 1}>
-                                <ChevronDown size={16} />
-                              </button>
-                              <button className="icon-button danger" type="button" aria-label="Remove child" onClick={() => removeHeaderChildItem(item.id, child.id)}>
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          ))}
-                          {!item.children.length && (
-                            <div className="site-chrome-empty-note">This menu item currently has no dropdown children.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="site-chrome-builder-footer">
-                  <button className="ghost-button" type="button" onClick={addHeaderMenuItem}>
-                    <Plus size={16} />
-                    <span>Add Main Menu Item</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="site-chrome-editor-block">
-              <div className="site-chrome-editor-label">
-                <strong>{config.title} HTML</strong>
-                <small>{snippetHtml.length} characters</small>
-              </div>
-              <textarea
-                className="site-chrome-textarea"
-                rows="22"
-                value={snippetHtml}
-                onChange={(event) => updateHtml(kind, event.target.value)}
-                placeholder={`Paste ${config.title.toLowerCase()} markup here`}
-              />
-            </div>
-
-            <div className="site-chrome-footer">
-              <div className="site-chrome-save-note">
-                {isSavedStatus ? <CheckCircle2 size={15} /> : <Save size={15} />}
-                <span>{isSavedStatus ? "Published content loaded." : "Changes are in draft state until you save."}</span>
-              </div>
-              <button className="primary-button site-chrome-save" type="submit">
-                <Save size={17} />
-                <span>Save {kind === "header" ? "Header" : "Footer"}</span>
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <div className="site-chrome-preview-col">
-          <div className="panel site-chrome-preview-panel">
-            <div className="panel-head compact site-chrome-panel-head">
-              <div>
-                <span className="eyebrow">Live Preview</span>
-                <h2>{config.title}</h2>
-              </div>
-              <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{isSavedStatus ? "Published" : "Draft"}</span>
-            </div>
-
-            <div className="website-preview website-preview-html site-chrome-preview">
-              <div className="preview-html-head site-chrome-preview-head">
-                <div>
-                  <span className="eyebrow">Snippet Canvas</span>
-                  <h3>{config.title}</h3>
-                </div>
-                <small>{sourcePath}</small>
-              </div>
-              <iframe title={`${config.title} preview`} srcDoc={buildSiteChromePreviewDocument(kind, snippetHtml)} sandbox="" />
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );

@@ -124,7 +124,7 @@
 
   .settings-tabs{ display:flex; border-bottom:1px solid var(--line-soft); flex-shrink:0; }
   .settings-tab{ flex:1; padding:11px 4px; text-align:center; font-size:11.5px; font-weight:700; color: var(--ink-400); background:none; border:none; cursor:pointer; border-bottom:2.5px solid transparent; transition:.13s ease; }
-  .settings-tab:hover{ color: var(--ink-900); }
+  .settings-tab:hover{ color: var(--navy-900); background: var(--gold-050); }
   .settings-tab.active{ color: var(--navy-900); border-bottom-color: var(--gold-500); }
 
   .settings-body{ flex:1; overflow-y:auto; padding: 16px 16px 30px; }
@@ -163,7 +163,57 @@
   .spacing-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .dimension-stack{display:grid;gap:10px}
   .slider-unit-row{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center}
-  .field-select.unit-value-select{width:auto;min-width:64px;max-width:74px;padding:4px 20px 4px 8px;font-size:11px;font-weight:800;line-height:1.1;border-radius:999px;background:#fff7e6}
+  .field-group-label .metric-input-wrap{
+    margin-left:auto;
+    display:inline-grid;
+    grid-template-columns:minmax(62px,1fr) 54px;
+    width:min(154px,58%);
+    min-width:128px;
+    height:34px;
+    overflow:hidden;
+    align-items:stretch;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:#fff;
+    box-shadow:0 1px 2px rgba(8,17,34,0.04);
+  }
+  .field-group-label .metric-input-wrap:focus-within{
+    border-color:var(--gold-500);
+    box-shadow:0 0 0 3px rgba(201,154,59,0.14);
+  }
+  .field-input.metric-value-input{
+    width:100%;
+    height:32px;
+    min-height:32px;
+    border:0;
+    border-radius:0;
+    padding:4px 8px 4px 12px;
+    text-align:right;
+    font-size:12px;
+    font-weight:800;
+    background:transparent;
+    box-shadow:none;
+  }
+  .field-input.metric-value-input:focus{box-shadow:none}
+  .field-input.metric-value-input::-webkit-outer-spin-button,
+  .field-input.metric-value-input::-webkit-inner-spin-button{margin:0}
+  .field-select.unit-value-select{
+    width:54px;
+    min-width:54px;
+    max-width:54px;
+    height:32px;
+    border:0;
+    border-left:1px solid var(--line);
+    border-radius:0;
+    padding:4px 18px 4px 7px;
+    font-size:11px;
+    font-weight:800;
+    line-height:1;
+    color:var(--navy-900);
+    background-color:#f8fafc;
+    box-shadow:none;
+  }
+  .field-select.unit-value-select:focus{box-shadow:none}
   .linked-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .linked-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .clip-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink-600)}
@@ -197,12 +247,14 @@
   .canvas-page.tablet{ max-width:760px; }
   .canvas-page.mobile{ max-width:380px; }
   body.imported-page-mode .canvas-page{
-    max-width:100%;
+    max-width:min(100%,1180px);
     padding:0;
     border-radius:0;
     box-shadow:none;
     background:#ffffff;
   }
+  body.imported-page-mode .canvas-page.tablet{ max-width:760px; }
+  body.imported-page-mode .canvas-page.mobile{ max-width:380px; }
   body.imported-page-mode .canvas-page-grid{
     background-image:none;
   }
@@ -224,6 +276,20 @@
   body.imported-page-mode .custom-html-widget [data-import-hoverable="true"]:hover{
     outline:1px dashed rgba(201,154,59,0.45);
     outline-offset:2px;
+  }
+  body.imported-page-mode .canvas-page .custom-html-widget [data-import-overlay-skip="true"]{
+    pointer-events:none !important;
+  }
+  body.imported-page-mode .canvas-page .custom-html-widget [data-import-overlay-skip="true"]::before,
+  body.imported-page-mode .canvas-page .custom-html-widget [data-import-overlay-skip="true"]::after{
+    pointer-events:none !important;
+  }
+  body.imported-page-mode .canvas-page .custom-html-widget [data-import-overlay-skip="true"]:hover{
+    outline:none !important;
+  }
+  body.imported-page-mode .custom-html-widget [data-import-drop-target="true"]{
+    outline:2px dashed var(--gold-500) !important;
+    outline-offset:-3px !important;
   }
   body.imported-page-mode .custom-html-widget img{
     max-width:100%;
@@ -318,6 +384,12 @@
   .upload-box{border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;background:var(--line-soft);margin-bottom:12px}
   .upload-box input{display:none}.upload-box label{cursor:pointer;font-weight:700;font-size:11.5px;color:var(--navy-900)}
   .upload-box p{font-size:10px;color:var(--ink-400);margin-top:4px}
+  .builder-file-stack{display:grid;gap:10px}
+  .field-button{
+    min-height:40px;border:1px solid var(--line);border-radius:8px;padding:0 12px;background:#fff;color:var(--navy-900);
+    font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.13s ease
+  }
+  .field-button:hover{background:var(--gold-050);border-color:var(--gold-500)}
   .inline-editing{outline:2px dashed var(--gold-500)!important;outline-offset:4px;border-radius:3px}
   .empty-search{grid-column:1/-1;padding:28px 10px;text-align:center;color:var(--ink-400);font-size:12px}
   .kbd{font-family:'IBM Plex Mono',monospace;background:var(--line-soft);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:2px 5px;font-size:9px}
@@ -581,11 +653,13 @@ let history = [];
 let historyIndex = -1;
 let dragPayload = null; // { kind:'new', widgetType } or { kind:'move', id }
 let hostImportCssLinks = [];
+let hostImportInlineCss = '';
 let hostLiveAssetProxyPrefix = '/__live_asset';
 let hostLiveSiteOrigin = '';
 let importedSelectionNode = null;
 let importedSelectionId = '';
 let importedEditorIdCounter = 1;
+let hostImportStyleRequestId = 0;
 
 function uid(){ return 'el_' + Math.random().toString(36).slice(2,10); }
 function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -731,19 +805,34 @@ function getImportedHtmlRoot(){
 function normalizeImportedAssetUrl(value=''){
   const raw = String(value || '').trim();
   if(!raw || /^(data:|blob:|mailto:|tel:|#|javascript:)/i.test(raw)) return raw;
+  if(raw.startsWith(`${hostLiveAssetProxyPrefix}/assets/`)) return raw;
+  if(raw === hostLiveAssetProxyPrefix || raw.startsWith(`${hostLiveAssetProxyPrefix}/`)) return raw;
+  if(/^\/assets\//i.test(raw)) return `${hostLiveAssetProxyPrefix}${raw}`;
+  if(/^assets\//i.test(raw)) return `${hostLiveAssetProxyPrefix}/${raw}`;
   try{
     const absolute = /^https?:\/\//i.test(raw)
       ? new URL(raw)
       : new URL(raw.startsWith('/') ? raw : `/${raw.replace(/^\.?\//,'')}`, hostLiveSiteOrigin || window.location.origin);
+    if(absolute.pathname.startsWith('/assets/')) return `${hostLiveAssetProxyPrefix}${absolute.pathname}${absolute.search}${absolute.hash}`;
     if(hostLiveSiteOrigin && absolute.origin === new URL(hostLiveSiteOrigin).origin){
       return `${hostLiveAssetProxyPrefix}${absolute.pathname}${absolute.search}${absolute.hash}`;
     }
     return absolute.toString();
   }catch{
-    if(/^\/assets\//i.test(raw)) return `${hostLiveAssetProxyPrefix}${raw}`;
-    if(/^assets\//i.test(raw)) return `${hostLiveAssetProxyPrefix}/${raw}`;
     return raw;
   }
+}
+function normalizeImportedSrcset(value=''){
+  return String(value || '')
+    .split(',')
+    .map((candidate)=>{
+      const parts = candidate.trim().split(/\s+/);
+      if(!parts[0]) return '';
+      parts[0] = normalizeImportedAssetUrl(parts[0]);
+      return parts.join(' ');
+    })
+    .filter(Boolean)
+    .join(', ');
 }
 function ensureImportedEditorFonts(){
   if(document.getElementById('importedEditorFonts')) return;
@@ -766,15 +855,15 @@ function hydrateImportedAssets(root){
   if(!root) return;
   ensureImportedEditorFonts();
   root.querySelectorAll('img').forEach((img)=>{
-    const dataSrc = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '';
+    const dataSrc = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy') || '';
     const dataSrcset = img.getAttribute('data-srcset') || img.getAttribute('data-lazy-srcset') || '';
     const currentSrc = img.getAttribute('src') || '';
     if(dataSrc && (!currentSrc || currentSrc === '#' || /placeholder/i.test(currentSrc))) img.setAttribute('src', dataSrc);
     if(dataSrcset && !img.getAttribute('srcset')) img.setAttribute('srcset', dataSrcset);
     const normalizedSrc = normalizeImportedAssetUrl(img.getAttribute('src') || '');
     if(normalizedSrc) img.setAttribute('src', normalizedSrc);
-    const normalizedSrcset = normalizeImportedAssetUrl(img.getAttribute('srcset') || '');
-    if(normalizedSrcset && !/\s\d+w/.test(normalizedSrcset)) img.setAttribute('srcset', normalizedSrcset);
+    const normalizedSrcset = normalizeImportedSrcset(img.getAttribute('srcset') || '');
+    if(normalizedSrcset) img.setAttribute('srcset', normalizedSrcset);
     img.setAttribute('loading','eager');
     img.setAttribute('decoding','async');
     img.onerror = ()=> {
@@ -783,11 +872,18 @@ function hydrateImportedAssets(root){
     };
   });
   root.querySelectorAll('source').forEach((source)=>{
-    const dataSrcset = source.getAttribute('data-srcset') || '';
-    if(dataSrcset && !source.getAttribute('srcset')) source.setAttribute('srcset', normalizeImportedAssetUrl(dataSrcset));
+    const dataSrcset = source.getAttribute('data-srcset') || source.getAttribute('data-lazy-srcset') || '';
+    const currentSrcset = source.getAttribute('srcset') || dataSrcset;
+    if(currentSrcset) source.setAttribute('srcset', normalizeImportedSrcset(currentSrcset));
   });
   root.querySelectorAll('*').forEach((node)=>{
     node.setAttribute('data-import-hoverable','true');
+    if(isImportedOverlayLikeNode(node) || isImportedDecorativeImageNode(node)){
+      node.setAttribute('data-import-overlay-skip','true');
+      node.removeAttribute('data-import-hoverable');
+    }else{
+      node.removeAttribute('data-import-overlay-skip');
+    }
     const bg = importedBackgroundSource(node);
     if(bg){
       node.style.backgroundImage = `url("${normalizeImportedAssetUrl(bg)}")`;
@@ -818,12 +914,16 @@ function getImportedSelectableNode(target){
   if(!root || !target || !root.contains(target)) return null;
   if(target.nodeType===1){
     const directTag = String(target.tagName || '').toLowerCase();
-    if(directTag==='img') return target;
+    if(directTag==='img' && !isImportedDecorativeImageNode(target)) return target;
   }
   let node = target.nodeType===3 ? target.parentElement : target;
   while(node && node!==root){
     const tag = (node.tagName || '').toLowerCase();
-    if(tag==='img') return node;
+    if(tag==='img' && !isImportedDecorativeImageNode(node)) return node;
+    if(isImportedOverlayLikeNode(node) || node.getAttribute?.('data-import-overlay-skip') === 'true'){
+      node = node.parentElement;
+      continue;
+    }
     if(tag && !['script','style','link','meta','head','body'].includes(tag)) return node;
     node = node.parentElement;
   }
@@ -833,15 +933,325 @@ function getImportedContentNode(node){
   if(!node) return null;
   const root = getImportedHtmlRoot();
   let current = node;
-  if(String(current.tagName || '').toLowerCase()==='img') return current;
+  if(String(current.tagName || '').toLowerCase()==='img') return isImportedDecorativeImageNode(current) ? null : current;
   while(current && current!==root){
     const tag = String(current.tagName || '').toLowerCase();
+    if(isImportedOverlayLikeNode(current) || current.getAttribute?.('data-import-overlay-skip') === 'true'){
+      current = current.parentElement;
+      continue;
+    }
     if(['section','article','div','main','aside','header','footer','nav','figure','figcaption','ul','ol','li','a','button','img','h1','h2','h3','h4','h5','h6','p','span','strong','em','small','form','label','input','textarea','select'].includes(tag)){
       return current;
     }
     current = current.parentElement;
   }
   return node;
+}
+function getImportedInlineTextTarget(node){
+  if(!node) return null;
+  const root = getImportedHtmlRoot();
+  let current = node.nodeType===3 ? node.parentElement : node;
+  while(current && current!==root){
+    const tag = String(current.tagName || '').toLowerCase();
+    if(['h1','h2','h3','h4','h5','h6','p','span','li','a','button','label','strong','em','small'].includes(tag)){
+      if(String(current.textContent || '').trim()) return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+function importedClassText(node){
+  if(!node || node.nodeType!==1) return '';
+  return [
+    String(node.className || ''),
+    String(node.getAttribute('class') || ''),
+    String(node.getAttribute('id') || ''),
+    String(node.getAttribute('role') || ''),
+    String(node.getAttribute('aria-hidden') || '')
+  ].join(' ');
+}
+function isImportedOverlayLikeNode(node){
+  if(!node || node.nodeType!==1) return false;
+  const tag = String(node.tagName || '').toLowerCase();
+  if(['img','picture','source','video','canvas','svg','path','i'].includes(tag)) return false;
+  const marker = importedClassText(node);
+  if(node.getAttribute('data-overlay') != null || node.getAttribute('aria-hidden') === 'true') return true;
+  if(/(overlay|overly|shape|shap|mask|pattern|decor|decoration|ornament|particle|anim|motion|line-|bg-|before|after|breadcumb-shape|hero-shape|image-layer)/i.test(marker)) return true;
+  try{
+    const style = window.getComputedStyle(node);
+    const rect = node.getBoundingClientRect();
+    const hasVisibleBox = rect.width > 12 && rect.height > 12 && style.display !== 'none' && style.visibility !== 'hidden';
+    const isLayered = ['absolute','fixed','sticky'].includes(style.position) || Number(style.zIndex || 0) > 0;
+    const hasLittleText = String(node.textContent || '').trim().length < 8;
+    const hasMediaNear = !!(node.parentElement && node.parentElement.querySelector && node.parentElement.querySelector('img, picture, [data-bg-src], [data-background], [data-image]'));
+    return hasVisibleBox && isLayered && hasLittleText && hasMediaNear;
+  }catch{
+    return false;
+  }
+}
+function isImportedDecorativeImageNode(node){
+  if(!isImportedImageNode(node)) return false;
+  const marker = [
+    importedClassText(node),
+    node.getAttribute('src') || '',
+    node.getAttribute('alt') || '',
+    node.getAttribute('title') || ''
+  ].join(' ');
+  return /(shape|shap|overlay|pattern|decor|decoration|ornament|triangle|line|mask|breadcrumb-shep|breadcumb-shape|breadcumb|hero-shape)/i.test(marker);
+}
+function resolveImportedPointerTarget(event){
+  if(!event || typeof document.elementsFromPoint !== 'function') return getImportedSelectableNode(event?.target);
+  const root = getImportedHtmlRoot();
+  if(!root) return getImportedSelectableNode(event.target);
+  const stack = document.elementsFromPoint(event.clientX, event.clientY).filter((node)=> root.contains(node));
+  const directImage = stack.find((node)=> String(node?.tagName || '').toLowerCase()==='img' && !isImportedDecorativeImageNode(node));
+  if(directImage) return directImage;
+  const mediaCandidate = stack.find((node)=> !isImportedOverlayLikeNode(node) && getImportedEditableMediaTarget(node));
+  if(mediaCandidate){
+    const mediaTarget = getImportedEditableMediaTarget(mediaCandidate);
+    if(mediaTarget) return mediaTarget;
+  }
+  const nonOverlay = stack.find((node)=> !isImportedOverlayLikeNode(node) && getImportedSelectableNode(node));
+  if(nonOverlay) return getImportedSelectableNode(nonOverlay);
+  const overlay = stack.find(isImportedOverlayLikeNode);
+  if(overlay){
+    const oldPointerEvents = overlay.style.pointerEvents;
+    overlay.style.pointerEvents = 'none';
+    try{
+      const underneath = document.elementFromPoint(event.clientX, event.clientY);
+      const target = getImportedEditableMediaTarget(underneath) || getImportedSelectableNode(underneath);
+      if(target) return target;
+    }finally{
+      overlay.style.pointerEvents = oldPointerEvents;
+    }
+  }
+  return getImportedSelectableNode(event.target);
+}
+function normalizeImportedIconElement(node){
+  if(!node || node.nodeType!==1) return node;
+  const tag = String(node.tagName || '').toLowerCase();
+  if(['path','use','circle','rect','polygon','line','polyline','ellipse','g'].includes(tag)){
+    return node.closest?.('svg') || node.parentElement || node;
+  }
+  return node;
+}
+function isImportedIconNode(node){
+  if(!node || node.nodeType!==1) return false;
+  const tag = String(node.tagName || '').toLowerCase();
+  const marker = importedClassText(node);
+  if(['svg','path','use','circle','rect','polygon','line','polyline','ellipse','g','i'].includes(tag)) return true;
+  return /(^|\s)(fa|fas|far|fab|fal|fa-solid|fa-regular|fa-brands|icon|icon-|icon_|th-icon)(\s|$)/i.test(marker);
+}
+function getImportedIconTarget(node){
+  if(!node) return null;
+  const root = getImportedHtmlRoot();
+  let current = node.nodeType===3 ? node.parentElement : node;
+  while(current && current!==root){
+    if(isImportedIconNode(current)) return normalizeImportedIconElement(current);
+    current = current.parentElement;
+  }
+  return null;
+}
+function getImportedParentSelectableNode(node){
+  if(!node || node.nodeType!==1) return null;
+  const root = getImportedHtmlRoot();
+  let current = node.parentElement;
+  while(current && current!==root){
+    const selectable = getImportedContentNode(current);
+    if(selectable && selectable!==node) return selectable;
+    current = current.parentElement;
+  }
+  return null;
+}
+function isImportedImageNode(node){
+  return !!node && node.nodeType===1 && String(node.tagName || '').toLowerCase()==='img';
+}
+function getImportedImageFrame(node){
+  if(!isImportedImageNode(node)) return null;
+  const parent = node.parentElement;
+  if(!parent || parent===document.body || parent===document.documentElement) return null;
+  const classText = importedClassText(parent);
+  const singleUsefulChild = parent.children && parent.children.length===1;
+  if(/(banner|image|img|photo|thumb|media|figure|box-img|global-img|breadcumb-banner|hero)/i.test(classText) || singleUsefulChild){
+    return parent;
+  }
+  return null;
+}
+function getImportedStyleTarget(node, field=''){
+  if(!node || node.nodeType!==1) return node;
+  if(isImportedIconNode(node)) return normalizeImportedIconElement(node);
+  if(isImportedImageNode(node) && /^(width|height|maxWidth|margin|marginTop|marginRight|marginBottom|marginLeft|padding|paddingTop|paddingRight|paddingBottom|paddingLeft|borderWidth|borderTopWidth|borderRightWidth|borderBottomWidth|borderLeftWidth|borderStyle|borderColor|borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomRightRadius|borderBottomLeftRadius|backgroundColor|zIndex|display|position|top|right|bottom|left|opacity)$/i.test(String(field || ''))){
+    return getImportedImageFrame(node) || node;
+  }
+  return node;
+}
+function getImportedLinkElement(node){
+  if(!node || node.nodeType!==1) return null;
+  if(String(node.tagName || '').toLowerCase()==='a') return node;
+  return node.closest ? node.closest('a') : null;
+}
+function getImportedElementUrl(node){
+  const link = getImportedLinkElement(node);
+  if(link) return link.getAttribute('href') || '#';
+  if(String(node?.tagName || '').toLowerCase()==='button') return node.getAttribute('data-mwu-url') || node.getAttribute('formaction') || '#';
+  return node?.getAttribute?.('data-mwu-url') || node?.getAttribute?.('formaction') || '#';
+}
+function applyImportedElementUrl(node, value){
+  if(!node) return;
+  const nextUrl = String(value || '').trim() || '#';
+  const link = getImportedLinkElement(node);
+  if(link){
+    link.setAttribute('href', nextUrl);
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    return;
+  }
+  if(String(node.tagName || '').toLowerCase()==='button'){
+    node.setAttribute('type', 'button');
+  }
+  node.setAttribute('data-mwu-url', nextUrl);
+  node.setAttribute('role', 'link');
+  node.setAttribute('tabindex', '0');
+  node.setAttribute('onclick', "window.open(this.getAttribute('data-mwu-url') || '#', '_blank', 'noopener,noreferrer'); return false;");
+}
+function normalizeImportedFontFamilyValue(value=''){
+  return String(value || '').replace(/["']/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function splitCssSelectorList(selectorText=''){
+  const selectors = [];
+  let current = '';
+  let depthRound = 0;
+  let depthSquare = 0;
+  let depthCurly = 0;
+  for(let index = 0; index < selectorText.length; index += 1){
+    const char = selectorText[index];
+    if(char==='(') depthRound += 1;
+    else if(char===')') depthRound = Math.max(0, depthRound - 1);
+    else if(char==='[') depthSquare += 1;
+    else if(char===']') depthSquare = Math.max(0, depthSquare - 1);
+    else if(char==='{') depthCurly += 1;
+    else if(char==='}') depthCurly = Math.max(0, depthCurly - 1);
+    if(char===',' && depthRound===0 && depthSquare===0 && depthCurly===0){
+      selectors.push(current);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if(current) selectors.push(current);
+  return selectors;
+}
+function scopeImportedSelector(selector=''){
+  const scopePrefix = 'body.imported-page-mode';
+  const scopeRoot = '.custom-html-widget';
+  const raw = String(selector || '').trim();
+  if(!raw) return '';
+  const strippedRoot = raw
+    .replace(/\bhtml\b/gi, '')
+    .replace(/\bbody\b/gi, '')
+    .replace(/:root/gi, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([>+~])\s*/g, ' $1 ')
+    .trim();
+  if(!strippedRoot){
+    return `${scopePrefix} ${scopeRoot}`;
+  }
+  if(strippedRoot.includes(scopeRoot)){
+    return `${scopePrefix} ${strippedRoot}`;
+  }
+  return `${scopePrefix} ${scopeRoot} ${strippedRoot}`;
+}
+function serializeScopedCssRule(rule){
+  if(!rule) return '';
+  if(typeof CSSStyleRule !== 'undefined' && rule instanceof CSSStyleRule){
+    const selectorText = splitCssSelectorList(rule.selectorText || '')
+      .map((selector)=> scopeImportedSelector(selector))
+      .filter(Boolean)
+      .join(', ');
+    return selectorText ? `${selectorText}{${rule.style.cssText}}` : '';
+  }
+  if(typeof CSSMediaRule !== 'undefined' && rule instanceof CSSMediaRule){
+    const inner = Array.from(rule.cssRules || []).map((child)=> serializeScopedCssRule(child)).join('\n');
+    return `@media ${rule.conditionText}{${inner}}`;
+  }
+  if(typeof CSSSupportsRule !== 'undefined' && rule instanceof CSSSupportsRule){
+    const inner = Array.from(rule.cssRules || []).map((child)=> serializeScopedCssRule(child)).join('\n');
+    return `@supports ${rule.conditionText}{${inner}}`;
+  }
+  if(typeof CSSLayerBlockRule !== 'undefined' && rule instanceof CSSLayerBlockRule){
+    const inner = Array.from(rule.cssRules || []).map((child)=> serializeScopedCssRule(child)).join('\n');
+    return `@layer ${rule.name || ''}{${inner}}`;
+  }
+  if(typeof CSSKeyframesRule !== 'undefined' && rule instanceof CSSKeyframesRule){
+    const inner = Array.from(rule.cssRules || []).map((child)=> `${child.keyText}{${child.style.cssText}}`).join('\n');
+    return `@keyframes ${rule.name}{${inner}}`;
+  }
+  if(typeof CSSFontFaceRule !== 'undefined' && rule instanceof CSSFontFaceRule){
+    return `@font-face{${rule.style.cssText}}`;
+  }
+  if(typeof CSSImportRule !== 'undefined' && rule instanceof CSSImportRule){
+    return rule.cssText || '';
+  }
+  return rule.cssText || '';
+}
+function scopeImportedCssText(cssText=''){
+  const raw = String(cssText || '').trim();
+  if(!raw) return '';
+  try{
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(raw);
+    return Array.from(sheet.cssRules || []).map((rule)=> serializeScopedCssRule(rule)).join('\n');
+  }catch{
+    return raw;
+  }
+}
+function rewriteImportedCssAssetUrls(cssText='', stylesheetUrl=''){
+  const baseUrl = String(stylesheetUrl || '').trim() || window.location.href;
+  const rewriteOne = (value='')=>{
+    const raw = String(value || '').trim().replace(/^['"]|['"]$/g,'');
+    if(!raw || /^(data:|blob:|#|var\(|about:|javascript:)/i.test(raw)) return raw;
+    try{
+      return normalizeImportedAssetUrl(new URL(raw, baseUrl).toString());
+    }catch{
+      return normalizeImportedAssetUrl(raw);
+    }
+  };
+  return String(cssText || '')
+    .replace(/url\(\s*(['"]?)(.*?)\1\s*\)/gi, (match, quote, value)=>{
+      const nextValue = rewriteOne(value);
+      return `url("${nextValue}")`;
+    })
+    .replace(/@import\s+(?:url\()?\s*(['"])(.*?)\1\s*\)?/gi, (match, quote, value)=>{
+      const nextValue = rewriteOne(value);
+      return `@import url("${nextValue}")`;
+    });
+}
+async function syncHostStylesheets(urls=[], inlineCss=''){
+  const requestId = ++hostImportStyleRequestId;
+  document.querySelectorAll('style[data-host-import="true"]').forEach((node)=>node.remove());
+  const importedCssChunks = [];
+  for(const href of (urls || []).filter(Boolean)){
+    try{
+      const response = await fetch(href, { credentials:'same-origin' });
+      if(!response.ok) continue;
+      const rawCss = await response.text();
+      const rewrittenCss = rewriteImportedCssAssetUrls(rawCss, href);
+      importedCssChunks.push(scopeImportedCssText(rewrittenCss));
+    }catch{
+      // Ignore stylesheet fetch failures and continue with the rest.
+    }
+  }
+  if(String(inlineCss || '').trim()){
+    importedCssChunks.push(scopeImportedCssText(rewriteImportedCssAssetUrls(String(inlineCss || ''), window.location.href)));
+  }
+  if(requestId !== hostImportStyleRequestId) return;
+  if(importedCssChunks.length){
+    const style=document.createElement('style');
+    style.setAttribute('data-host-import','true');
+    style.textContent=importedCssChunks.filter(Boolean).join('\n\n');
+    document.head.appendChild(style);
+  }
+  ensureBuilderChromeStyles();
 }
 function importedNodeBackgroundSource(node){
   if(!node || node.nodeType!==1) return '';
@@ -854,24 +1264,57 @@ function importedNodeBackgroundSource(node){
 function isImportedBackgroundMediaNode(node){
   return !!importedNodeBackgroundSource(node);
 }
+function getImportedBestDescendantImage(node){
+  if(!node || !node.querySelector) return null;
+  const root = getImportedHtmlRoot();
+  const images = Array.from(node.querySelectorAll('img'))
+    .filter((img)=> root && root.contains(img) && !isImportedDecorativeImageNode(img))
+    .map((img)=>{
+      try{
+        const rect = img.getBoundingClientRect();
+        const style = window.getComputedStyle(img);
+        const hidden = style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0;
+        return { img, area: hidden ? 0 : Math.max(0, rect.width) * Math.max(0, rect.height) };
+      }catch{
+        return { img, area: 0 };
+      }
+    })
+    .filter((entry)=> entry.area > 24);
+  images.sort((a,b)=> b.area - a.area);
+  return images[0]?.img || null;
+}
 function getImportedEditableMediaTarget(node){
   if(!node) return null;
   const root = getImportedHtmlRoot();
   let current = node.nodeType===3 ? node.parentElement : node;
+  if(current && String(current.tagName || '').toLowerCase() !== 'img'){
+    const descendantImage = getImportedBestDescendantImage(current);
+    if(descendantImage) return descendantImage;
+  }
   while(current && current!==root){
     const tag = String(current.tagName || '').toLowerCase();
-    if(tag==='img') return current;
+    if(tag==='img' && !isImportedDecorativeImageNode(current)) return current;
+    const descendantImage = getImportedBestDescendantImage(current);
+    if(descendantImage) return descendantImage;
     if(isImportedBackgroundMediaNode(current)) return current;
     current = current.parentElement;
   }
-  if(node && node.querySelector){
-    const descendantImage = node.querySelector('img');
-    if(descendantImage && root && root.contains(descendantImage)) return descendantImage;
-  }
   return null;
+}
+function findImportedNodeById(root, elementId=''){
+  if(!root || !elementId) return null;
+  const id = String(elementId);
+  const escapedId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id.replace(/"/g, '\\"');
+  return root.querySelector(`[data-import-id="${escapedId}"]`);
+}
+function resolveImportedMediaTargetById(root, elementId=''){
+  const target = findImportedNodeById(root, elementId);
+  if(!target) return null;
+  return getImportedEditableMediaTarget(target) || target;
 }
 function importedElementType(node){
   const tag = String(node?.tagName || '').toLowerCase();
+  if(isImportedIconNode(node)) return 'icon';
   if(tag==='img') return 'image';
   if(tag==='a' || tag==='button') return 'button';
   if(/^h[1-6]$/.test(tag)) return 'heading';
@@ -912,19 +1355,26 @@ function normalizeImportedMetricValue(value, fallback=''){
 function describeImportedNode(node){
   if(!node) return null;
   ensureImportedNodeId(node);
+  const elementType = importedElementType(node);
+  const styleTarget = getImportedStyleTarget(node);
+  const targetRect = (()=>{ try{ return styleTarget?.getBoundingClientRect?.() || node.getBoundingClientRect?.() || { width:0, height:0 }; }catch{ return { width:0, height:0 }; } })();
   const tag = String(node.tagName || '').toLowerCase();
-  const mediaTarget = getImportedEditableMediaTarget(node);
+  const mediaTarget = elementType==='image'
+    ? node
+    : (isImportedBackgroundMediaNode(node) ? node : null);
   const mediaTag = String(mediaTarget?.tagName || '').toLowerCase();
   const mediaIsImage = mediaTag==='img';
+  const mediaStyleTarget = mediaTarget ? (getImportedStyleTarget(mediaTarget, 'width') || mediaTarget) : null;
+  const mediaRect = (()=>{ try{ return mediaStyleTarget?.getBoundingClientRect?.() || mediaTarget?.getBoundingClientRect?.() || { width:0, height:0 }; }catch{ return { width:0, height:0 }; } })();
   return {
     id: node.getAttribute('data-import-id') || '',
     tagName: tag,
-    type: importedElementType(node),
+    type: elementType,
     label: tag ? tag.toUpperCase() : 'Element',
     text: String(node.textContent || '').trim(),
     src: tag==='img' ? (node.getAttribute('src') || '') : '',
     alt: tag==='img' ? (node.getAttribute('alt') || '') : '',
-    url: tag==='a' ? (node.getAttribute('href') || '#') : '',
+    url: getImportedElementUrl(node),
     media: mediaTarget ? {
       id: ensureImportedNodeId(mediaTarget),
       type: mediaIsImage ? 'image' : 'background',
@@ -938,73 +1388,174 @@ function describeImportedNode(node){
           ? (getImportedStyleValue(mediaTarget,'objectPosition') || '')
           : (getImportedStyleValue(mediaTarget,'backgroundPosition') || '')
       ).trim(),
-      width: normalizeImportedMetricValue(getImportedStyleValue(mediaTarget,'width')),
-      height: normalizeImportedMetricValue(getImportedStyleValue(mediaTarget,'height'))
+      width: normalizeImportedMetricValue(getImportedStyleValue(mediaStyleTarget,'width'), mediaRect.width ? `${Math.round(mediaRect.width)}px` : ''),
+      height: normalizeImportedMetricValue(getImportedStyleValue(mediaStyleTarget,'height'), mediaRect.height ? `${Math.round(mediaRect.height)}px` : ''),
+      borderRadius: normalizeImportedMetricValue(getImportedStyleValue(mediaStyleTarget,'borderTopLeftRadius') || getImportedStyleValue(mediaStyleTarget,'borderRadius'), '0px'),
+      borderWidth: normalizeImportedMetricValue(getImportedStyleValue(mediaStyleTarget,'borderTopWidth') || getImportedStyleValue(mediaStyleTarget,'borderWidth'), '0px'),
+      borderStyle: normalizeImportedSelectValue(getImportedStyleValue(mediaStyleTarget,'borderStyle'), ['none','solid','dashed','dotted','double'], 'solid'),
+      borderColor: normalizeImportedColorValue(getImportedStyleValue(mediaStyleTarget,'borderColor'), '#d7e3f2'),
+      opacity: String(getImportedStyleValue(mediaStyleTarget,'opacity') || '').trim(),
+      filter: String(getImportedStyleValue(mediaTarget,'filter') || '').trim()
     } : null,
     styles: {
+      fontFamily: String(getImportedStyleValue(node,'fontFamily') || '').trim(),
       color: normalizeImportedColorValue(getImportedStyleValue(node,'color'), '#081933'),
       backgroundColor: normalizeImportedColorValue(getImportedStyleValue(node,'backgroundColor'), '#ffffff'),
       fontSize: normalizeImportedMetricValue(getImportedStyleValue(node,'fontSize')),
+      letterSpacing: normalizeImportedMetricValue(getImportedStyleValue(node,'letterSpacing')),
       fontWeight: String(getImportedStyleValue(node,'fontWeight') || '').trim(),
       lineHeight: normalizeImportedMetricValue(getImportedStyleValue(node,'lineHeight')),
       textAlign: normalizeImportedSelectValue(getImportedStyleValue(node,'textAlign'), ['left','center','right','justify'], ''),
-      width: normalizeImportedMetricValue(getImportedStyleValue(node,'width')),
-      height: normalizeImportedMetricValue(getImportedStyleValue(node,'height')),
-      minHeight: normalizeImportedMetricValue(getImportedStyleValue(node,'minHeight')),
-      maxWidth: normalizeImportedMetricValue(getImportedStyleValue(node,'maxWidth')),
-      display: normalizeImportedSelectValue(getImportedStyleValue(node,'display'), ['block','inline','inline-block','flex','grid','none'], ''),
-      opacity: String(getImportedStyleValue(node,'opacity') || '').trim(),
+      textTransform: normalizeImportedSelectValue(getImportedStyleValue(node,'textTransform'), ['none','uppercase','capitalize','lowercase'], 'none'),
+      width: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'width'), targetRect.width ? `${Math.round(targetRect.width)}px` : ''),
+      height: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'height'), targetRect.height ? `${Math.round(targetRect.height)}px` : ''),
+      minHeight: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'minHeight')),
+      maxWidth: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'maxWidth')),
+      display: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'display'), ['block','inline','inline-block','flex','grid','none'], ''),
+      position: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'position'), ['static','relative','absolute','fixed','sticky'], ''),
+      justifyContent: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'justifyContent'), ['flex-start','center','flex-end','space-between'], ''),
+      alignItems: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'alignItems'), ['stretch','flex-start','center','flex-end','baseline'], ''),
+      flexDirection: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'flexDirection'), ['row','row-reverse','column','column-reverse'], ''),
+      gap: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'gap')),
+      overflow: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'overflow'), ['visible','hidden','auto','scroll','clip'], ''),
+      opacity: String(getImportedStyleValue(styleTarget,'opacity') || '').trim(),
+      zIndex: String(getImportedStyleValue(styleTarget,'zIndex') || '').trim(),
       objectFit: normalizeImportedSelectValue(getImportedStyleValue(node,'objectFit'), ['cover','contain','fill','none','scale-down'], ''),
       objectPosition: String(getImportedStyleValue(node,'objectPosition') || '').trim(),
-      marginTop: getImportedStyleValue(node,'marginTop'),
-      marginRight: getImportedStyleValue(node,'marginRight'),
-      marginBottom: getImportedStyleValue(node,'marginBottom'),
-      marginLeft: getImportedStyleValue(node,'marginLeft'),
-      paddingTop: getImportedStyleValue(node,'paddingTop'),
-      paddingRight: getImportedStyleValue(node,'paddingRight'),
-      paddingBottom: getImportedStyleValue(node,'paddingBottom'),
-      paddingLeft: getImportedStyleValue(node,'paddingLeft'),
-      borderStyle: normalizeImportedSelectValue(getImportedStyleValue(node,'borderStyle'), ['none','solid','dashed','dotted','double'], ''),
-      borderColor: normalizeImportedColorValue(getImportedStyleValue(node,'borderColor'), '#d7e3f2'),
-      borderTopWidth: getImportedStyleValue(node,'borderTopWidth'),
-      borderRightWidth: getImportedStyleValue(node,'borderRightWidth'),
-      borderBottomWidth: getImportedStyleValue(node,'borderBottomWidth'),
-      borderLeftWidth: getImportedStyleValue(node,'borderLeftWidth'),
-      borderTopLeftRadius: getImportedStyleValue(node,'borderTopLeftRadius'),
-      borderTopRightRadius: getImportedStyleValue(node,'borderTopRightRadius'),
-      borderBottomRightRadius: getImportedStyleValue(node,'borderBottomRightRadius'),
-      borderBottomLeftRadius: getImportedStyleValue(node,'borderBottomLeftRadius')
+      top: getImportedStyleValue(styleTarget,'top'),
+      right: getImportedStyleValue(styleTarget,'right'),
+      bottom: getImportedStyleValue(styleTarget,'bottom'),
+      left: getImportedStyleValue(styleTarget,'left'),
+      marginTop: getImportedStyleValue(styleTarget,'marginTop'),
+      marginRight: getImportedStyleValue(styleTarget,'marginRight'),
+      marginBottom: getImportedStyleValue(styleTarget,'marginBottom'),
+      marginLeft: getImportedStyleValue(styleTarget,'marginLeft'),
+      paddingTop: getImportedStyleValue(styleTarget,'paddingTop'),
+      paddingRight: getImportedStyleValue(styleTarget,'paddingRight'),
+      paddingBottom: getImportedStyleValue(styleTarget,'paddingBottom'),
+      paddingLeft: getImportedStyleValue(styleTarget,'paddingLeft'),
+      borderStyle: normalizeImportedSelectValue(getImportedStyleValue(styleTarget,'borderStyle'), ['none','solid','dashed','dotted','double'], ''),
+      borderColor: normalizeImportedColorValue(getImportedStyleValue(styleTarget,'borderColor'), '#d7e3f2'),
+      borderTopWidth: getImportedStyleValue(styleTarget,'borderTopWidth'),
+      borderRightWidth: getImportedStyleValue(styleTarget,'borderRightWidth'),
+      borderBottomWidth: getImportedStyleValue(styleTarget,'borderBottomWidth'),
+      borderLeftWidth: getImportedStyleValue(styleTarget,'borderLeftWidth'),
+      borderTopLeftRadius: getImportedStyleValue(styleTarget,'borderTopLeftRadius'),
+      borderTopRightRadius: getImportedStyleValue(styleTarget,'borderTopRightRadius'),
+      borderBottomRightRadius: getImportedStyleValue(styleTarget,'borderBottomRightRadius'),
+      borderBottomLeftRadius: getImportedStyleValue(styleTarget,'borderBottomLeftRadius')
     }
   };
 }
 function syncImportedHtmlToModel(reason='imported-edit', push=false){
-  const root = getImportedHtmlRoot();
-  const model = getImportedHtmlElementModel();
-  if(!root || !model) return;
-  model.content.code = root.innerHTML;
-  markDirty();
-  if(push) pushHistory();
-  notifyHost('MWU_LIVE_HTML_UPDATED', {
-    reason,
-    bodyHtml: model.content.code,
-    fullHtml: buildPublishedHtml()
-  });
+  try{
+    const root = getImportedHtmlRoot();
+    const model = getImportedHtmlElementModel();
+    if(!root || !model){
+      reportImportedEditorError('sync-missing-root-or-model', { reason, hasRoot: !!root, hasModel: !!model });
+      return;
+    }
+    model.content.code = root.innerHTML;
+    markDirty();
+    if(push) pushHistory();
+    notifyHost('MWU_LIVE_HTML_UPDATED', {
+      reason,
+      bodyHtml: model.content.code,
+      fullHtml: buildPublishedHtml()
+    });
+  }catch(error){
+    reportImportedEditorError('sync-imported-html-failed', { reason, error });
+  }
+}
+function cssPropertyName(field){
+  return String(field || '').replace(/[A-Z]/g, (match)=>`-${match.toLowerCase()}`);
+}
+function setImportedInlineStyle(target, field, value){
+  try{
+    if(!target || !target.style){
+      reportImportedEditorError('style-target-missing', { field, value, target: describeImportedDebugTarget(target) });
+      return;
+    }
+    const styleTarget = getImportedStyleTarget(target, field) || target;
+    const propertyName = cssPropertyName(field);
+    const nextValue = normalizeImportedStyleValue(field, value);
+    console.info('[MWU imported editor] applying style', { field, value, nextValue, propertyName, target: describeImportedDebugTarget(target), styleTarget: describeImportedDebugTarget(styleTarget) });
+    if(nextValue === ''){
+      styleTarget.style.removeProperty(propertyName);
+      return;
+    }
+    styleTarget.style.setProperty(propertyName, nextValue, 'important');
+    if(isImportedIconNode(target) || isImportedIconNode(styleTarget)){
+      if(field === 'color'){
+        styleTarget.style.setProperty('color', nextValue, 'important');
+        styleTarget.style.setProperty('fill', nextValue, 'important');
+        styleTarget.style.setProperty('stroke', nextValue, 'important');
+      }
+      if(field === 'fontSize'){
+        styleTarget.style.setProperty('font-size', nextValue, 'important');
+        if(String(styleTarget.tagName || '').toLowerCase()==='svg'){
+          styleTarget.style.setProperty('width', nextValue, 'important');
+          styleTarget.style.setProperty('height', nextValue, 'important');
+        }
+      }
+    }
+  }catch(error){
+    reportImportedEditorError('style-apply-failed', { field, value, target: describeImportedDebugTarget(target), error });
+  }
 }
 function setImportedMediaSource(target, src){
-  if(!target || !src) return;
-  const normalizedSrc = normalizeImportedAssetUrl(src);
-  const tag = String(target.tagName || '').toLowerCase();
-  if(tag==='img'){
-    target.setAttribute('src', normalizedSrc);
-    target.removeAttribute('srcset');
-    target.removeAttribute('data-src');
-    target.removeAttribute('data-srcset');
-    return;
+  try{
+    if(!target || !src){
+      reportImportedEditorError('media-source-missing-target-or-src', { src, target: describeImportedDebugTarget(target) });
+      return false;
+    }
+    const before = describeImportedDebugTarget(target);
+    const normalizedSrc = normalizeImportedAssetUrl(src);
+    const tag = String(target.tagName || '').toLowerCase();
+    console.info('[MWU imported editor] replacing media source', { src, normalizedSrc, target: before });
+    if(tag==='img'){
+      const picture = target.closest ? target.closest('picture') : null;
+      if(picture){
+        picture.querySelectorAll('source').forEach((source)=>{
+          source.removeAttribute('srcset');
+          source.removeAttribute('data-srcset');
+          source.removeAttribute('data-lazy-srcset');
+          source.removeAttribute('media');
+        });
+      }
+      const frame = getImportedImageFrame(target);
+      if(frame && importedNodeBackgroundSource(frame)){
+        frame.style.setProperty('background-image', `url("${normalizedSrc}")`, 'important');
+        frame.setAttribute('data-bg-src', normalizedSrc);
+        frame.removeAttribute('data-background');
+        frame.removeAttribute('data-image');
+      }
+      target.setAttribute('src', normalizedSrc);
+      target.removeAttribute('srcset');
+      target.removeAttribute('data-src');
+      target.removeAttribute('data-srcset');
+      target.removeAttribute('data-lazy-src');
+      target.removeAttribute('data-lazy-srcset');
+      target.removeAttribute('data-original');
+      target.removeAttribute('data-bg-src');
+      target.style.setProperty('visibility', 'visible', 'important');
+      target.style.setProperty('opacity', target.style.opacity || '1', 'important');
+      console.info('[MWU imported editor] image source after replace', describeImportedDebugTarget(target));
+      return true;
+    }
+    target.style.setProperty('background-image', `url("${normalizedSrc}")`, 'important');
+    if(!target.style.backgroundSize) target.style.setProperty('background-size', 'cover', 'important');
+    if(!target.style.backgroundPosition) target.style.setProperty('background-position', 'center center', 'important');
+    if(!target.style.backgroundRepeat) target.style.setProperty('background-repeat', 'no-repeat', 'important');
+    target.setAttribute('data-bg-src', normalizedSrc);
+    target.removeAttribute('data-background');
+    target.removeAttribute('data-image');
+    console.info('[MWU imported editor] background source after replace', describeImportedDebugTarget(target));
+    return true;
+  }catch(error){
+    reportImportedEditorError('media-source-replace-failed', { src, target: describeImportedDebugTarget(target), error });
+    return false;
   }
-  target.style.backgroundImage = `url("${normalizedSrc}")`;
-  if(!target.style.backgroundSize) target.style.backgroundSize = 'cover';
-  if(!target.style.backgroundPosition) target.style.backgroundPosition = 'center center';
-  if(!target.style.backgroundRepeat) target.style.backgroundRepeat = 'no-repeat';
 }
 function clearImportedSelection(){
   if(importedSelectionNode) importedSelectionNode.removeAttribute('data-import-selected');
@@ -1014,8 +1565,8 @@ function clearImportedSelection(){
 function normalizeImportedStyleValue(field, value){
   const raw = String(value == null ? '' : value).trim();
   if(raw==='') return '';
-  if(['fontWeight','lineHeight','textAlign','display','opacity','objectFit','objectPosition','borderStyle'].includes(field)) return raw;
-  if(/^-?\d+(\.\d+)?$/.test(raw) && /(fontSize|width|height|minHeight|maxWidth|margin|padding|border.*Width|border.*Radius|top|right|bottom|left)$/i.test(field)){
+  if(['fontWeight','lineHeight','textAlign','display','opacity','objectFit','objectPosition','borderStyle','flexDirection','justifyContent','alignItems','overflow'].includes(field)) return raw;
+  if(/^-?\d+(\.\d+)?$/.test(raw) && /(fontSize|width|height|minHeight|maxWidth|margin|padding|gap|border.*Width|border.*Radius|top|right|bottom|left)$/i.test(field)){
     return `${raw}px`;
   }
   return raw;
@@ -1023,23 +1574,26 @@ function normalizeImportedStyleValue(field, value){
 function resolveImportedStyleTargets(field){
   if(!importedSelectionNode) return [];
   const primary = importedSelectionNode;
-  const isTypographyField = ['fontSize','fontWeight','lineHeight','color','textAlign'].includes(field);
+  const isTypographyField = ['fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','textTransform','color','textAlign'].includes(field);
   const primaryType = importedElementType(primary);
-  if(!isTypographyField || ['heading','text','button'].includes(primaryType)) return [primary];
+  if(primaryType==='icon') return [primary];
+  if(!isTypographyField){
+    return [getImportedStyleTarget(primary, field) || primary];
+  }
+  if(['heading','text','button'].includes(primaryType)) return [primary];
   const textTargets = Array.from(primary.querySelectorAll('h1,h2,h3,h4,h5,h6,p,span,li,a,button,label,strong,em,small'))
     .filter((node)=> (String(node.textContent || '').trim() || String(node.tagName || '').toLowerCase()==='button'));
   return textTargets.length ? textTargets : [primary];
 }
 function applyImportedStyle(field, value){
   if(!importedSelectionNode) return;
-  const nextValue = normalizeImportedStyleValue(field, value);
   const targets = resolveImportedStyleTargets(field);
-  targets.forEach((node)=>{ node.style[field] = nextValue; });
+  targets.forEach((node)=> setImportedInlineStyle(node, field, value));
   syncImportedHtmlToModel('imported-style');
 }
 function applyImportedStyleToNode(target, field, value){
   if(!target) return;
-  target.style[field] = normalizeImportedStyleValue(field, value);
+  setImportedInlineStyle(target, field, value);
   syncImportedHtmlToModel('imported-style');
 }
 function duplicateImportedSelection(){
@@ -1076,85 +1630,569 @@ function bindImportedTextField(id, field){
   node.addEventListener('input', ()=> applyImportedStyle(field, node.value));
   node.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
 }
+function parseImportedMetricParts(value='', fallbackValue=0, fallbackUnit='px'){
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(-?\d+(?:\.\d+)?)(px|%|vh|vw|em|rem)?$/i);
+  if(match){
+    return {
+      value: Number(match[1]) || 0,
+      unit: String(match[2] || fallbackUnit || 'px').toLowerCase()
+    };
+  }
+  return { value: Number(fallbackValue) || 0, unit: String(fallbackUnit || 'px').toLowerCase() };
+}
+function importedVerticalAlignValue(details){
+  const justify = String(details?.styles?.justifyContent || '').trim().toLowerCase();
+  if(justify === 'center') return 'middle';
+  if(justify === 'flex-end') return 'bottom';
+  return 'top';
+}
+function importedDisplayModeValue(details){
+  const display = String(details?.styles?.display || '').trim().toLowerCase();
+  const width = String(details?.styles?.width || '').trim();
+  if(display === 'inline' || display === 'inline-block') return 'inline';
+  if(width === '100%' || display === 'flex' || display === 'grid') return 'fullwidth';
+  return 'block';
+}
+function readImportedShadowState(node){
+  const styleTarget = getImportedStyleTarget(node) || node;
+  if(!styleTarget) return { shadow:false, top:0, right:0, bottom:0, left:0, blur:18, spread:0, color:'rgba(15,23,42,0.16)' };
+  const dataset = styleTarget.dataset || {};
+  if(dataset.importShadowManaged === 'true'){
+    return {
+      shadow: dataset.importShadowEnabled === 'true',
+      top: Number(dataset.importShadowTop || 0),
+      right: Number(dataset.importShadowRight || 0),
+      bottom: Number(dataset.importShadowBottom || 0),
+      left: Number(dataset.importShadowLeft || 0),
+      blur: Number(dataset.importShadowBlur || 18),
+      spread: Number(dataset.importShadowSpread || 0),
+      color: dataset.importShadowColor || 'rgba(15,23,42,0.16)'
+    };
+  }
+  const boxShadowValue = String(getImportedStyleValue(styleTarget, 'boxShadow') || '').trim();
+  if(!boxShadowValue || boxShadowValue === 'none'){
+    return { shadow:false, top:0, right:0, bottom:0, left:0, blur:18, spread:0, color:'rgba(15,23,42,0.16)' };
+  }
+  const match = boxShadowValue.match(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px(?:\s+(-?\d+(?:\.\d+)?)px)?\s+(.+)$/i);
+  if(!match){
+    return { shadow:true, top:0, right:0, bottom:10, left:0, blur:18, spread:0, color:'rgba(15,23,42,0.16)' };
+  }
+  const x = Number(match[1] || 0);
+  const y = Number(match[2] || 0);
+  return {
+    shadow:true,
+    top: y < 0 ? Math.abs(y) : 0,
+    right: x > 0 ? x : 0,
+    bottom: y > 0 ? y : 0,
+    left: x < 0 ? Math.abs(x) : 0,
+    blur: Number(match[3] || 18),
+    spread: Number(match[4] || 0),
+    color: String(match[5] || 'rgba(15,23,42,0.16)').trim()
+  };
+}
+function buildImportedBoxState(details, node){
+  const widthParts = parseImportedMetricParts(details?.styles?.width, 0, 'px');
+  const heightParts = parseImportedMetricParts(details?.styles?.height, 0, 'px');
+  const minHeightParts = parseImportedMetricParts(details?.styles?.minHeight, 0, 'px');
+  const shadowState = readImportedShadowState(node);
+  return {
+    bg: details?.styles?.backgroundColor || '#ffffff',
+    bgImage: importedNodeBackgroundSource(getImportedStyleTarget(node) || node),
+    bgSize: normalizeImportedSelectValue(getImportedStyleValue(getImportedStyleTarget(node) || node, 'backgroundSize'), ['cover','contain','auto'], 'cover') || 'cover',
+    bgPosition: String(getImportedStyleValue(getImportedStyleTarget(node) || node, 'backgroundPosition') || 'center center').trim() || 'center center',
+    borderWidth: parseInt(details?.styles?.borderTopWidth, 10) || 0,
+    borderTopWidth: parseInt(details?.styles?.borderTopWidth, 10) || 0,
+    borderRightWidth: parseInt(details?.styles?.borderRightWidth, 10) || 0,
+    borderBottomWidth: parseInt(details?.styles?.borderBottomWidth, 10) || 0,
+    borderLeftWidth: parseInt(details?.styles?.borderLeftWidth, 10) || 0,
+    borderWidthLinked: false,
+    borderColor: details?.styles?.borderColor || '#d7e3f2',
+    borderStyle: details?.styles?.borderStyle || 'solid',
+    borderRadius: parseInt(details?.styles?.borderTopLeftRadius, 10) || 0,
+    borderTopLeftRadius: parseInt(details?.styles?.borderTopLeftRadius, 10) || 0,
+    borderTopRightRadius: parseInt(details?.styles?.borderTopRightRadius, 10) || 0,
+    borderBottomRightRadius: parseInt(details?.styles?.borderBottomRightRadius, 10) || 0,
+    borderBottomLeftRadius: parseInt(details?.styles?.borderBottomLeftRadius, 10) || 0,
+    borderRadiusLinked: false,
+    shadow: shadowState.shadow,
+    shadowTop: shadowState.top,
+    shadowRight: shadowState.right,
+    shadowBottom: shadowState.bottom,
+    shadowLeft: shadowState.left,
+    shadowLinked: false,
+    shadowBlur: shadowState.blur,
+    shadowSpread: shadowState.spread,
+    shadowColor: shadowState.color,
+    width: widthParts.value,
+    widthUnit: widthParts.unit,
+    height: heightParts.value,
+    heightUnit: heightParts.unit,
+    minHeight: minHeightParts.value,
+    minHeightUnit: minHeightParts.unit,
+    displayMode: importedDisplayModeValue(details),
+    flexGrow: 0
+  };
+}
+function parseImportedFilterPercent(filterText='', name='', fallback=0){
+  const pattern = new RegExp(`${name}\\(([^)]+)\\)`, 'i');
+  const match = String(filterText || '').match(pattern);
+  if(!match) return fallback;
+  const raw = String(match[1] || '').trim();
+  if(raw.endsWith('%')) return Math.round((Number(raw.replace('%','')) || 100) - 100);
+  const numeric = Number(raw);
+  if(Number.isFinite(numeric)) return Math.round((numeric - 1) * 100);
+  return fallback;
+}
+function setImportedMediaFilter(target, key, value){
+  if(!target || !target.style) return;
+  const brightness = key === 'brightness'
+    ? Number(value || 0)
+    : Number(target.dataset.importBrightness || parseImportedFilterPercent(getImportedStyleValue(target, 'filter'), 'brightness', 0));
+  const contrast = key === 'contrast'
+    ? Number(value || 0)
+    : Number(target.dataset.importContrast || parseImportedFilterPercent(getImportedStyleValue(target, 'filter'), 'contrast', 0));
+  target.dataset.importBrightness = String(brightness);
+  target.dataset.importContrast = String(contrast);
+  const parts = [];
+  if(brightness) parts.push(`brightness(${Math.max(0, 100 + brightness)}%)`);
+  if(contrast) parts.push(`contrast(${Math.max(0, 100 + contrast)}%)`);
+  if(parts.length) target.style.setProperty('filter', parts.join(' '), 'important');
+  else target.style.removeProperty('filter');
+}
+function applyImportedBackgroundImage(target, src=''){
+  const styleTarget = getImportedStyleTarget(target) || target;
+  if(!styleTarget || !styleTarget.style) return;
+  const nextSrc = String(src || '').trim();
+  if(!nextSrc){
+    styleTarget.style.removeProperty('background-image');
+    styleTarget.style.removeProperty('background-size');
+    styleTarget.style.removeProperty('background-position');
+    styleTarget.style.removeProperty('background-repeat');
+    return;
+  }
+  const normalizedSrc = normalizeImportedAssetUrl(nextSrc);
+  styleTarget.style.setProperty('background-image', `url("${normalizedSrc}")`, 'important');
+  if(!styleTarget.style.backgroundSize) styleTarget.style.setProperty('background-size', 'cover', 'important');
+  if(!styleTarget.style.backgroundPosition) styleTarget.style.setProperty('background-position', 'center center', 'important');
+  if(!styleTarget.style.backgroundRepeat) styleTarget.style.setProperty('background-repeat', 'no-repeat', 'important');
+}
+function applyImportedShadowState(target, state={}){
+  const styleTarget = getImportedStyleTarget(target) || target;
+  if(!styleTarget || !styleTarget.style) return;
+  styleTarget.dataset.importShadowManaged = 'true';
+  styleTarget.dataset.importShadowEnabled = state.shadow ? 'true' : 'false';
+  styleTarget.dataset.importShadowTop = String(Number(state.top || 0));
+  styleTarget.dataset.importShadowRight = String(Number(state.right || 0));
+  styleTarget.dataset.importShadowBottom = String(Number(state.bottom || 0));
+  styleTarget.dataset.importShadowLeft = String(Number(state.left || 0));
+  styleTarget.dataset.importShadowBlur = String(Number(state.blur || 18));
+  styleTarget.dataset.importShadowSpread = String(Number(state.spread || 0));
+  styleTarget.dataset.importShadowColor = String(state.color || 'rgba(15,23,42,0.16)');
+  if(!state.shadow){
+    styleTarget.style.removeProperty('box-shadow');
+    return;
+  }
+  const parts = [];
+  if(Number(state.top || 0) > 0) parts.push(`0 ${-Number(state.top || 0)}px ${Number(state.blur || 18)}px ${Number(state.spread || 0)}px ${state.color || 'rgba(15,23,42,0.16)'}`);
+  if(Number(state.right || 0) > 0) parts.push(`${Number(state.right || 0)}px 0 ${Number(state.blur || 18)}px ${Number(state.spread || 0)}px ${state.color || 'rgba(15,23,42,0.16)'}`);
+  if(Number(state.bottom || 0) > 0) parts.push(`0 ${Number(state.bottom || 0)}px ${Number(state.blur || 18)}px ${Number(state.spread || 0)}px ${state.color || 'rgba(15,23,42,0.16)'}`);
+  if(Number(state.left || 0) > 0) parts.push(`${-Number(state.left || 0)}px 0 ${Number(state.blur || 18)}px ${Number(state.spread || 0)}px ${state.color || 'rgba(15,23,42,0.16)'}`);
+  if(!parts.length) parts.push(`0 10px ${Number(state.blur || 18)}px ${Number(state.spread || 0)}px ${state.color || 'rgba(15,23,42,0.16)'}`);
+  styleTarget.style.setProperty('box-shadow', parts.join(','), 'important');
+}
+function bindImportedAlignField(details){
+  const horizontalRow = document.getElementById('f_importedAlign_h');
+  if(horizontalRow){
+    horizontalRow.querySelectorAll('button').forEach((button)=>{
+      button.addEventListener('click', ()=>{
+        horizontalRow.querySelectorAll('button').forEach((node)=> node.classList.remove('active'));
+        button.classList.add('active');
+        applyImportedStyle('textAlign', button.dataset.v);
+        syncImportedHtmlToModel('imported-style', true);
+      });
+    });
+  }
+  const verticalRow = document.getElementById('f_importedAlign_v');
+  if(verticalRow){
+    verticalRow.querySelectorAll('button').forEach((button)=>{
+      button.addEventListener('click', ()=>{
+        verticalRow.querySelectorAll('button').forEach((node)=> node.classList.remove('active'));
+        button.classList.add('active');
+        const styleTarget = getImportedStyleTarget(importedSelectionNode) || importedSelectionNode;
+        if(styleTarget){
+          if(!String(getImportedStyleValue(styleTarget,'display') || '').trim() || ['block','inline','inline-block'].includes(String(getImportedStyleValue(styleTarget,'display') || '').trim())){
+            setImportedInlineStyle(styleTarget, 'display', 'flex');
+          }
+          setImportedInlineStyle(styleTarget, 'flexDirection', 'column');
+          setImportedInlineStyle(styleTarget, 'justifyContent', button.dataset.v === 'middle' ? 'center' : button.dataset.v === 'bottom' ? 'flex-end' : 'flex-start');
+          syncImportedHtmlToModel('imported-style', true);
+        }
+      });
+    });
+  }
+}
+function bindImportedBoxStyleEvents(node, boxState){
+  const styleTarget = getImportedStyleTarget(node) || node;
+  const widthNode = document.getElementById('f_boxWidth');
+  const widthNumberNode = document.getElementById('n_boxWidth');
+  const widthUnitNode = document.getElementById('f_boxWidthUnit');
+  if(widthUnitNode) syncUnitValueSelect(widthUnitNode, boxState.width || 0);
+  const applyBoxWidth = (value)=>{
+    boxState.width = Number(value)||0;
+    syncMetricControlPair('boxWidth', boxState.width);
+    if(widthUnitNode) syncUnitValueSelect(widthUnitNode, boxState.width);
+    setImportedInlineStyle(styleTarget, 'width', `${boxState.width}${(widthUnitNode?.value || boxState.widthUnit || 'px')}`);
+  };
+  if(widthNode){
+    widthNode.addEventListener('input', ()=> applyBoxWidth(widthNode.value));
+    widthNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(widthNumberNode){
+    widthNumberNode.addEventListener('input', ()=> applyBoxWidth(widthNumberNode.value));
+    widthNumberNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(widthUnitNode){
+    widthUnitNode.addEventListener('change', ()=>{
+      boxState.widthUnit = widthUnitNode.value;
+      syncUnitValueSelect(widthUnitNode, boxState.width || 0);
+      setImportedInlineStyle(styleTarget, 'width', `${boxState.width || 0}${boxState.widthUnit || 'px'}`);
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const heightNode = document.getElementById('f_boxHeight');
+  const heightNumberNode = document.getElementById('n_boxHeight');
+  const heightUnitNode = document.getElementById('f_boxHeightUnit');
+  if(heightUnitNode) syncUnitValueSelect(heightUnitNode, boxState.height || 0);
+  const applyBoxHeight = (value)=>{
+    boxState.height = Number(value)||0;
+    syncMetricControlPair('boxHeight', boxState.height);
+    if(heightUnitNode) syncUnitValueSelect(heightUnitNode, boxState.height);
+    setImportedInlineStyle(styleTarget, 'height', `${boxState.height}${(heightUnitNode?.value || boxState.heightUnit || 'px')}`);
+  };
+  if(heightNode){
+    heightNode.addEventListener('input', ()=> applyBoxHeight(heightNode.value));
+    heightNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(heightNumberNode){
+    heightNumberNode.addEventListener('input', ()=> applyBoxHeight(heightNumberNode.value));
+    heightNumberNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(heightUnitNode){
+    heightUnitNode.addEventListener('change', ()=>{
+      boxState.heightUnit = heightUnitNode.value;
+      syncUnitValueSelect(heightUnitNode, boxState.height || 0);
+      setImportedInlineStyle(styleTarget, 'height', `${boxState.height || 0}${boxState.heightUnit || 'px'}`);
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const minHeightNode = document.getElementById('f_boxMinHeight');
+  const minHeightNumberNode = document.getElementById('n_boxMinHeight');
+  const minHeightUnitNode = document.getElementById('f_boxMinHeightUnit');
+  if(minHeightUnitNode) syncUnitValueSelect(minHeightUnitNode, boxState.minHeight || 0);
+  const applyBoxMinHeight = (value)=>{
+    boxState.minHeight = Number(value)||0;
+    syncMetricControlPair('boxMinHeight', boxState.minHeight);
+    if(minHeightUnitNode) syncUnitValueSelect(minHeightUnitNode, boxState.minHeight);
+    setImportedInlineStyle(styleTarget, 'minHeight', `${boxState.minHeight}${(minHeightUnitNode?.value || boxState.minHeightUnit || 'px')}`);
+  };
+  if(minHeightNode){
+    minHeightNode.addEventListener('input', ()=> applyBoxMinHeight(minHeightNode.value));
+    minHeightNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(minHeightNumberNode){
+    minHeightNumberNode.addEventListener('input', ()=> applyBoxMinHeight(minHeightNumberNode.value));
+    minHeightNumberNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(minHeightUnitNode){
+    minHeightUnitNode.addEventListener('change', ()=>{
+      boxState.minHeightUnit = minHeightUnitNode.value;
+      syncUnitValueSelect(minHeightUnitNode, boxState.minHeight || 0);
+      setImportedInlineStyle(styleTarget, 'minHeight', `${boxState.minHeight || 0}${boxState.minHeightUnit || 'px'}`);
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const displayModeNode = document.getElementById('f_boxDisplayMode');
+  if(displayModeNode){
+    displayModeNode.addEventListener('change', ()=>{
+      const mode = displayModeNode.value;
+      if(mode === 'inline'){
+        setImportedInlineStyle(styleTarget, 'display', 'inline-block');
+      }else{
+        setImportedInlineStyle(styleTarget, 'display', 'block');
+        if(mode === 'fullwidth') setImportedInlineStyle(styleTarget, 'width', '100%');
+      }
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const bgColorNode = document.getElementById('f_boxBg');
+  const bgColorTextNode = document.getElementById('t_boxBg');
+  if(bgColorNode){
+    bgColorNode.addEventListener('input', ()=>{
+      if(bgColorTextNode) bgColorTextNode.value = bgColorNode.value;
+      applyImportedStyleToNode(styleTarget, 'backgroundColor', bgColorNode.value);
+    });
+    bgColorNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(bgColorTextNode){
+    bgColorTextNode.addEventListener('input', ()=>{
+      if(/^#[0-9A-Fa-f]{6}$/.test(bgColorTextNode.value) && bgColorNode) bgColorNode.value = bgColorTextNode.value;
+      applyImportedStyleToNode(styleTarget, 'backgroundColor', bgColorTextNode.value);
+    });
+    bgColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  bindImageUpload('boxBgImageUpload', (src)=>{
+    applyImportedBackgroundImage(styleTarget, src);
+    syncImportedHtmlToModel('imported-style', true);
+    renderImportedSettings(importedSelectionNode || node);
+  });
+  const clearBgImageButton = document.getElementById('clearBoxBgImageBtn');
+  if(clearBgImageButton){
+    clearBgImageButton.addEventListener('click', ()=>{
+      applyImportedBackgroundImage(styleTarget, '');
+      syncImportedHtmlToModel('imported-style', true);
+      renderImportedSettings(importedSelectionNode || node);
+    });
+  }
+  const borderColorNode = document.getElementById('f_boxBorderColor');
+  const borderColorTextNode = document.getElementById('t_boxBorderColor');
+  if(borderColorNode){
+    borderColorNode.addEventListener('input', ()=>{
+      if(borderColorTextNode) borderColorTextNode.value = borderColorNode.value;
+      applyImportedStyleToNode(styleTarget, 'borderColor', borderColorNode.value);
+    });
+    borderColorNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(borderColorTextNode){
+    borderColorTextNode.addEventListener('input', ()=>{
+      if(/^#[0-9A-Fa-f]{6}$/.test(borderColorTextNode.value) && borderColorNode) borderColorNode.value = borderColorTextNode.value;
+      applyImportedStyleToNode(styleTarget, 'borderColor', borderColorTextNode.value);
+    });
+    borderColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  const borderStyleNode = document.getElementById('f_boxBorderStyle');
+  if(borderStyleNode){
+    borderStyleNode.addEventListener('change', ()=>{
+      applyImportedStyleToNode(styleTarget, 'borderStyle', borderStyleNode.value);
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const syncLinkedImportedQuad = (prefix, fields, styleFields, linkedKey='')=>{
+    const toggle = document.getElementById(`${prefix}Linked`);
+    const inputs = fields.map((field)=> document.getElementById(`${prefix}${field}`)).filter(Boolean);
+    if(toggle && linkedKey){
+      toggle.addEventListener('click', ()=>{
+        boxState[linkedKey] = !boxState[linkedKey];
+        toggle.classList.toggle('active', boxState[linkedKey]);
+        toggle.textContent = boxState[linkedKey] ? 'Clip' : 'Free';
+        syncImportedHtmlToModel('imported-style', true);
+      });
+    }
+    inputs.forEach((input, index)=>{
+      input.addEventListener('input', ()=>{
+        const value = Number(input.value)||0;
+        if(linkedKey && boxState[linkedKey] !== false){
+          inputs.forEach((node)=>{ node.value = String(value); });
+          styleFields.forEach((field)=> setImportedInlineStyle(styleTarget, field, `${value}px`));
+        }else{
+          setImportedInlineStyle(styleTarget, styleFields[index], `${value}px`);
+        }
+        syncImportedHtmlToModel('imported-style');
+      });
+      input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+    });
+  };
+  syncLinkedImportedQuad('boxBorderWidth', ['Top','Right','Bottom','Left'], ['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'], 'borderWidthLinked');
+  syncLinkedImportedQuad('boxBorderRadius', ['Top','Right','Bottom','Left'], ['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius'], 'borderRadiusLinked');
+  const shadowToggleNode = document.getElementById('f_boxShadow');
+  const shadowColorNode = document.getElementById('f_boxShadowColor');
+  const shadowColorTextNode = document.getElementById('t_boxShadowColor');
+  const shadowBlurNode = document.getElementById('f_boxShadowBlur');
+  const shadowSpreadNode = document.getElementById('f_boxShadowSpread');
+  const updateImportedShadow = ()=>{
+    const shadowState = {
+      shadow: !!shadowToggleNode?.checked,
+      top: Number(document.getElementById('boxShadowTop')?.value || 0),
+      right: Number(document.getElementById('boxShadowRight')?.value || 0),
+      bottom: Number(document.getElementById('boxShadowBottom')?.value || 0),
+      left: Number(document.getElementById('boxShadowLeft')?.value || 0),
+      blur: Number(shadowBlurNode?.value || 18),
+      spread: Number(shadowSpreadNode?.value || 0),
+      color: shadowColorTextNode?.value || shadowColorNode?.value || 'rgba(15,23,42,0.16)'
+    };
+    applyImportedShadowState(styleTarget, shadowState);
+  };
+  if(shadowToggleNode){
+    shadowToggleNode.addEventListener('change', ()=>{ updateImportedShadow(); syncImportedHtmlToModel('imported-style', true); });
+  }
+  syncLinkedImportedQuad('boxShadow', ['Top','Right','Bottom','Left'], ['shadowTop','shadowRight','shadowBottom','shadowLeft'], 'shadowLinked');
+  ['boxShadowTop','boxShadowRight','boxShadowBottom','boxShadowLeft'].forEach((id)=>{
+    const nodeRef = document.getElementById(id);
+    if(!nodeRef) return;
+    nodeRef.addEventListener('input', updateImportedShadow);
+    nodeRef.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  });
+  if(shadowBlurNode){
+    shadowBlurNode.addEventListener('input', ()=>{
+      const value = Number(shadowBlurNode.value)||0;
+      const label = document.getElementById('v_boxShadowBlur');
+      if(label) label.textContent = `${value}px`;
+      updateImportedShadow();
+    });
+    shadowBlurNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(shadowSpreadNode){
+    shadowSpreadNode.addEventListener('input', ()=>{
+      const value = Number(shadowSpreadNode.value)||0;
+      const label = document.getElementById('v_boxShadowSpread');
+      if(label) label.textContent = `${value}px`;
+      updateImportedShadow();
+    });
+    shadowSpreadNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(shadowColorNode){
+    shadowColorNode.addEventListener('input', ()=>{
+      if(shadowColorTextNode) shadowColorTextNode.value = shadowColorNode.value;
+      updateImportedShadow();
+    });
+    shadowColorNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  if(shadowColorTextNode){
+    shadowColorTextNode.addEventListener('input', ()=>{
+      if(/^#[0-9A-Fa-f]{6}$/.test(shadowColorTextNode.value) && shadowColorNode) shadowColorNode.value = shadowColorTextNode.value;
+      updateImportedShadow();
+    });
+    shadowColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+}
 function renderImportedSettings(node){
   const details = describeImportedNode(node);
   if(!details) return;
-  const mediaTarget = getImportedEditableMediaTarget(node);
+  const importedFontChoicesBase = [
+    ['','Default'],
+    ["'Inter', sans-serif",'Inter'],
+    ["'Plus Jakarta Sans', sans-serif",'Plus Jakarta Sans'],
+    ["'Roboto', sans-serif",'Roboto'],
+    ["'Open Sans', sans-serif",'Open Sans'],
+    ["'Lato', sans-serif",'Lato'],
+    ["'Montserrat', sans-serif",'Montserrat'],
+    ["'Poppins', sans-serif",'Poppins'],
+    ["'Merriweather', serif",'Merriweather'],
+    ["'Playfair Display', serif",'Playfair Display'],
+    ["Georgia, serif",'Georgia'],
+    ["Arial, sans-serif",'Arial']
+  ];
+  const matchedFontChoice = importedFontChoicesBase.find(([value])=> normalizeImportedFontFamilyValue(value) === normalizeImportedFontFamilyValue(details.styles.fontFamily || ''));
+  const importedFontChoices = [...importedFontChoicesBase, ['__custom__','Custom']];
+  const selectedFontValue = matchedFontChoice?.[0] || '__custom__';
+  const showCustomFontField = selectedFontValue === '__custom__';
+  const isHeadingElement = details.type === 'heading';
+  const isTextElement = details.type === 'text';
+  const isButtonElement = details.type === 'button';
+  const isImageElement = details.type === 'image';
+  const isIconElement = details.type === 'icon';
+  const isContainerElement = details.type === 'container';
+  const supportsTypography = isHeadingElement || isTextElement || isButtonElement;
+  const mediaTarget = isImageElement
+    ? node
+    : (isImportedBackgroundMediaNode(node) ? node : null);
   const mediaDetails = details.media || null;
   const hasMediaTarget = !!mediaTarget;
   const mediaIsImage = mediaDetails?.type === 'image';
+  const parentTarget = getImportedParentSelectableNode(node);
+  const hasLinkField = !!(getImportedLinkElement(node) || details.type==='button' || String(details.url || '').trim());
+  const importedBoxState = buildImportedBoxState(details, node);
+  const importedHorizontalAlign = details.styles.textAlign || 'left';
+  const importedVerticalAlign = importedVerticalAlignValue(details);
+  const importedFontSize = parseImportedMetricParts(details.styles.fontSize, details.type==='heading' ? 32 : 16, 'px').value;
+  const importedLetterSpacing = parseImportedMetricParts(details.styles.letterSpacing, 0, 'px').value;
+  const importedLineHeight = Number(parseImportedMetricParts(details.styles.lineHeight, 1.6, '').value || 1.6);
+  const mediaRadius = parseImportedMetricParts(mediaDetails?.borderRadius, 0, 'px').value;
+  const mediaBorderWidth = parseImportedMetricParts(mediaDetails?.borderWidth, 0, 'px').value;
+  const mediaOpacity = Math.round((Number(mediaDetails?.opacity || 1) || 1) * 100);
+  const mediaBrightness = parseImportedFilterPercent(mediaDetails?.filter || '', 'brightness', 0);
+  const mediaContrast = parseImportedFilterPercent(mediaDetails?.filter || '', 'contrast', 0);
   importedSelectionNode = node;
   importedSelectionId = details.id;
-  document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : 'columns',15);
+  document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : details.type==='icon' ? 'iconbox' : 'columns',15);
   document.getElementById('settingsTitle').textContent = details.label;
   document.getElementById('settingsSub').textContent = 'Imported page element';
   const contentBox = document.getElementById('contentFields');
   const styleBox = document.getElementById('styleFields');
   const advancedBox = document.getElementById('advancedFields');
-  const textEditable = ['heading','text','button'].includes(details.type) && details.text;
+  const textEditable = supportsTypography && details.text;
   contentBox.innerHTML = `
-    <div class="field-hint">Imported page editing is active. Double-click visible text to edit inline.</div>
+    <div class="field-hint">Imported page editing is active. Double-click text to edit inline. Click icons directly to style them. Shift-click selects the parent container.</div>
+    ${parentTarget ? `<div class="field-group"><div class="builder-file-stack"><button class="field-button" type="button" id="importedSelectParentBtn">Select parent container</button></div></div>` : ''}
     ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
-    ${details.type==='button' ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
+    ${hasLinkField ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
     ${hasMediaTarget ? fieldInput('Image URL', 'importedImageUrl', mediaDetails?.src || details.src || '') : ''}
     ${mediaIsImage ? fieldInput('Alt text', 'importedImageAlt', mediaDetails?.alt || details.alt || '') : ''}
     ${hasMediaTarget ? `<div class="field-group"><div class="field-group-label">Replace image</div><div class="builder-file-stack"><button class="field-button" type="button" id="importedImageLibraryBtn">Media Library</button>${imageUploadHtml('importedImageUpload')}</div></div>` : ''}
   `;
   styleBox.innerHTML = `
-    ${fieldInput('Font size', 'importedFontSize', details.styles.fontSize || '')}
-    ${selectField('Font weight', 'importedFontWeight', [['','Default'],['400','400'],['500','500'],['600','600'],['700','700'],['800','800'],['900','900']], details.styles.fontWeight || '')}
-    ${fieldInput('Line height', 'importedLineHeight', details.styles.lineHeight || '')}
-    ${colorField('Text color', 'importedColor', details.styles.color && details.styles.color.startsWith('#') ? details.styles.color : '#081933')}
-    ${colorField('Background', 'importedBackgroundColor', details.styles.backgroundColor && details.styles.backgroundColor.startsWith('#') ? details.styles.backgroundColor : '#ffffff')}
-    ${selectField('Text align', 'importedTextAlign', [['','Default'],['left','Left'],['center','Center'],['right','Right'],['justify','Justify']], details.styles.textAlign || '')}
-    ${fieldInput('Width', 'importedWidth', details.styles.width || '')}
-    ${fieldInput('Height', 'importedHeight', details.styles.height || '')}
-    ${fieldInput('Minimum height', 'importedMinHeight', details.styles.minHeight || '')}
-    ${fieldInput('Max width', 'importedMaxWidth', details.styles.maxWidth || '')}
+    ${supportsTypography ? `<div class="panel-section-label" style="padding:0 0 10px;">Typography</div>` : ''}
+    ${supportsTypography ? selectField('Font family', 'importedFontFamily', importedFontChoices, selectedFontValue) : ''}
+    ${supportsTypography ? `<div id="importedFontFamilyCustomWrap" style="${showCustomFontField ? '' : 'display:none;'}">${fieldInput('Custom font family', 'importedFontFamilyCustom', details.styles.fontFamily || '')}</div>` : ''}
+    ${isHeadingElement ? rangeField('Font size', 'importedFontSize', 16, 96, importedFontSize, 'px') : ''}
+    ${isHeadingElement ? selectField('Font weight', 'importedFontWeight', [['400','Regular'],['600','Semibold'],['700','Bold'],['800','Extra Bold'],['900','Black']], details.styles.fontWeight || '700') : ''}
+    ${isHeadingElement ? rangeField('Line height', 'importedLineHeight', 0.8, 2.4, importedLineHeight, '', 0.1) : ''}
+    ${isHeadingElement ? rangeField('Letter spacing', 'importedLetterSpacing', -2, 8, importedLetterSpacing, 'px', 0.5) : ''}
+    ${supportsTypography ? selectField('Text transform', 'importedTextTransform', [['none','None'],['uppercase','UPPERCASE'],['capitalize','Capitalize'],['lowercase','lowercase']], details.styles.textTransform || 'none') : ''}
+    ${(isTextElement || isButtonElement) ? rangeField('Font size', 'importedFontSize', 10, 48, importedFontSize, 'px') : ''}
+    ${(isTextElement || isButtonElement) ? selectField('Font weight', 'importedFontWeight', [['','Default'],['400','400'],['500','500'],['600','600'],['700','700'],['800','800'],['900','900']], details.styles.fontWeight || '') : ''}
+    ${(isTextElement || isButtonElement) ? rangeField('Line height', 'importedLineHeight', 1, 3, importedLineHeight, '', 0.1) : ''}
+    ${(isTextElement || isButtonElement) ? rangeField('Letter spacing', 'importedLetterSpacing', -1, 4, importedLetterSpacing, 'px', 0.5) : ''}
+    ${supportsTypography ? colorField('Text color', 'importedColor', details.styles.color && details.styles.color.startsWith('#') ? details.styles.color : '#161D2B') : ''}
+    ${supportsTypography ? alignField('importedAlign', importedHorizontalAlign, importedVerticalAlign) : ''}
+    ${isIconElement ? `<div class="panel-section-label" style="padding:0 0 10px;">Icon</div>` : ''}
+    ${isIconElement ? rangeField('Icon size', 'importedFontSize', 8, 160, importedFontSize, 'px') : ''}
+    ${isIconElement ? colorField('Icon color', 'importedColor', details.styles.color && details.styles.color.startsWith('#') ? details.styles.color : '#161D2B') : ''}
+    ${isContainerElement ? `<div class="panel-section-label" style="padding:0 0 10px;">Layout</div>` : ''}
+    ${isContainerElement ? selectField('Direction', 'importedFlexDirection', [['','Default'],['row','Row'],['row-reverse','Row reverse'],['column','Column'],['column-reverse','Column reverse']], details.styles.flexDirection || '') : ''}
+    ${isContainerElement ? selectField('Justify content', 'importedJustifyContent', [['','Default'],['flex-start','Start'],['center','Center'],['flex-end','End'],['space-between','Space between']], details.styles.justifyContent || '') : ''}
+    ${isContainerElement ? selectField('Align items', 'importedAlignItems', [['','Default'],['stretch','Stretch'],['flex-start','Start'],['center','Center'],['flex-end','End'],['baseline','Baseline']], details.styles.alignItems || '') : ''}
+    ${isContainerElement ? fieldInput('Gap', 'importedGap', details.styles.gap || '') : ''}
+    ${(!isImageElement && !isIconElement) ? renderBoxStyleFields({ box: importedBoxState }) : ''}
     ${hasMediaTarget ? `<div class="panel-section-label" style="padding:8px 0 10px;">Image</div>` : ''}
-    ${hasMediaTarget ? fieldInput('Image width', 'importedImageWidth', mediaDetails?.width || '') : ''}
-    ${hasMediaTarget ? fieldInput('Image height', 'importedImageHeight', mediaDetails?.height || '') : ''}
-    ${hasMediaTarget ? selectField('Object fit', 'importedObjectFit', [['','Default'],['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None'],['scale-down','Scale down']], mediaDetails?.objectFit || '') : ''}
-    ${hasMediaTarget ? fieldInput('Object position', 'importedObjectPosition', mediaDetails?.objectPosition || '') : ''}
+    ${hasMediaTarget ? sliderWithUnitField('Width', 'importedImageWidth', parseImportedMetricParts(mediaDetails?.width, 0, 'px').value, [['px','PX'],['%','PC'],['vw','VW']], parseImportedMetricParts(mediaDetails?.width, 0, 'px').unit, 0, 100, 1) : ''}
+    ${hasMediaTarget ? sliderWithUnitField('Height', 'importedImageHeight', parseImportedMetricParts(mediaDetails?.height, 0, 'px').value, [['px','PX'],['%','PC'],['vh','VH']], parseImportedMetricParts(mediaDetails?.height, 0, 'px').unit, 0, 100, 1) : ''}
+    ${hasMediaTarget ? selectField('Object fit / crop', 'importedObjectFit', [['','Default'],['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None'],['scale-down','Scale down']], mediaDetails?.objectFit || '') : ''}
+    ${hasMediaTarget ? fieldInput('Image position', 'importedObjectPosition', mediaDetails?.objectPosition || '') : ''}
+    ${hasMediaTarget ? rangeField('Corner radius', 'importedImageRadius', 0, 120, mediaRadius, 'px') : ''}
+    ${hasMediaTarget ? rangeField('Opacity', 'importedImageOpacity', 0, 100, mediaOpacity, '%') : ''}
+    ${hasMediaTarget ? rangeField('Brightness', 'importedImageBrightness', -100, 100, mediaBrightness, '%') : ''}
+    ${hasMediaTarget ? rangeField('Contrast', 'importedImageContrast', -100, 100, mediaContrast, '%') : ''}
+    ${hasMediaTarget ? `<div class="field-grid">${selectField('Border style', 'importedImageBorderStyle', [['none','None'],['solid','Solid'],['dashed','Dashed'],['dotted','Dotted'],['double','Double']], mediaDetails?.borderStyle || 'solid')}${colorField('Border color', 'importedImageBorderColor', mediaDetails?.borderColor || '#d7e3f2')}</div>` : ''}
+    ${hasMediaTarget ? rangeField('Border width', 'importedImageBorderWidth', 0, 20, mediaBorderWidth, 'px') : ''}
   `;
   advancedBox.innerHTML = `
     ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
+    ${selectField('Position', 'importedPosition', [['','Default'],['static','Static'],['relative','Relative'],['absolute','Absolute'],['fixed','Fixed'],['sticky','Sticky']], details.styles.position || '')}
+    ${fieldInput('Z index', 'importedZIndex', details.styles.zIndex || '')}
     ${fieldInput('Opacity', 'importedOpacity', details.styles.opacity || '')}
-    ${linkedQuadField('Margin', 'importedMargin', {
-      top: parseInt(details.styles.marginTop,10) || 0,
-      right: parseInt(details.styles.marginRight,10) || 0,
-      bottom: parseInt(details.styles.marginBottom,10) || 0,
-      left: parseInt(details.styles.marginLeft,10) || 0
-    }, false, -200, 200)}
-    ${linkedQuadField('Padding', 'importedPadding', {
-      top: parseInt(details.styles.paddingTop,10) || 0,
-      right: parseInt(details.styles.paddingRight,10) || 0,
-      bottom: parseInt(details.styles.paddingBottom,10) || 0,
-      left: parseInt(details.styles.paddingLeft,10) || 0
-    }, false, 0, 200)}
-    ${selectField('Border style', 'importedBorderStyle', [['','Default'],['none','None'],['solid','Solid'],['dashed','Dashed'],['dotted','Dotted']], details.styles.borderStyle || '')}
-    ${colorField('Border color', 'importedBorderColor', details.styles.borderColor && details.styles.borderColor.startsWith('#') ? details.styles.borderColor : '#d7e3f2')}
-    ${linkedQuadField('Border width', 'importedBorderWidth', {
-      top: parseInt(details.styles.borderTopWidth,10) || 0,
-      right: parseInt(details.styles.borderRightWidth,10) || 0,
-      bottom: parseInt(details.styles.borderBottomWidth,10) || 0,
-      left: parseInt(details.styles.borderLeftWidth,10) || 0
-    }, false, 0, 100)}
-    ${linkedQuadField('Border radius', 'importedBorderRadius', {
-      top: parseInt(details.styles.borderTopLeftRadius,10) || 0,
-      right: parseInt(details.styles.borderTopRightRadius,10) || 0,
-      bottom: parseInt(details.styles.borderBottomRightRadius,10) || 0,
-      left: parseInt(details.styles.borderBottomLeftRadius,10) || 0
-    }, false, 0, 200)}
+    <div class="field-grid">
+      ${fieldInput('Top', 'importedTop', details.styles.top || '')}
+      ${fieldInput('Right', 'importedRight', details.styles.right || '')}
+    </div>
+    <div class="field-grid">
+      ${fieldInput('Bottom', 'importedBottom', details.styles.bottom || '')}
+      ${fieldInput('Left', 'importedLeft', details.styles.left || '')}
+    </div>
+    <div class="field-hint">Positioning, stacking, and visibility controls stay in Advanced. Typography and box styling now match the native widget Style tab.</div>
   `;
   const textNode = document.getElementById('f_importedTextContent');
   if(textNode){
     textNode.addEventListener('input', ()=>{ importedSelectionNode.textContent = textNode.value; syncImportedHtmlToModel('imported-text'); });
     textNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-text', true));
   }
+  const parentSelectButton = document.getElementById('importedSelectParentBtn');
+  if(parentSelectButton && parentTarget){
+    parentSelectButton.addEventListener('click', ()=> selectImportedNode(parentTarget));
+  }
   const linkNode = document.getElementById('f_importedLinkUrl');
   if(linkNode){
-    linkNode.addEventListener('input', ()=> importedSelectionNode.setAttribute('href', linkNode.value || '#'));
+    linkNode.addEventListener('input', ()=> applyImportedElementUrl(importedSelectionNode, linkNode.value));
     linkNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-link', true));
   }
   const imageNode = document.getElementById('f_importedImageUrl');
@@ -1167,28 +2205,102 @@ function renderImportedSettings(node){
     altNode.addEventListener('input', ()=>{ if(mediaTarget && mediaIsImage) mediaTarget.setAttribute('alt', altNode.value); });
     altNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-image-alt', true));
   }
-  bindImportedTextField('importedFontSize', 'fontSize');
-  bindImportedTextField('importedLineHeight', 'lineHeight');
+  const fontFamilyNode = document.getElementById('f_importedFontFamily');
+  if(fontFamilyNode){
+    fontFamilyNode.addEventListener('change', ()=>{
+      const customWrap = document.getElementById('importedFontFamilyCustomWrap');
+      const customFontNode = document.getElementById('f_importedFontFamilyCustom');
+      if(customWrap) customWrap.style.display = fontFamilyNode.value === '__custom__' ? '' : 'none';
+      const nextValue = fontFamilyNode.value === '__custom__' ? (customFontNode?.value || '') : fontFamilyNode.value;
+      applyImportedStyle('fontFamily', nextValue);
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const fontFamilyCustomNode = document.getElementById('f_importedFontFamilyCustom');
+  if(fontFamilyCustomNode){
+    fontFamilyCustomNode.addEventListener('input', ()=> applyImportedStyle('fontFamily', fontFamilyCustomNode.value));
+    fontFamilyCustomNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  const fontSizeNode = document.getElementById('f_importedFontSize');
+  if(fontSizeNode){
+    fontSizeNode.addEventListener('input', ()=>{
+      const value = Number(fontSizeNode.value)||0;
+      const label = document.getElementById('v_importedFontSize');
+      if(label) label.textContent = `${value}px`;
+      applyImportedStyle('fontSize', `${value}px`);
+    });
+    fontSizeNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  const lineHeightNode = document.getElementById('f_importedLineHeight');
+  if(lineHeightNode){
+    lineHeightNode.addEventListener('input', ()=>{
+      const value = Number(lineHeightNode.value)||0;
+      const label = document.getElementById('v_importedLineHeight');
+      if(label) label.textContent = `${value}`;
+      applyImportedStyle('lineHeight', String(value));
+    });
+    lineHeightNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
+  const letterSpacingNode = document.getElementById('f_importedLetterSpacing');
+  if(letterSpacingNode){
+    letterSpacingNode.addEventListener('input', ()=>{
+      const value = Number(letterSpacingNode.value)||0;
+      const label = document.getElementById('v_importedLetterSpacing');
+      if(label) label.textContent = `${value}px`;
+      applyImportedStyle('letterSpacing', `${value}px`);
+    });
+    letterSpacingNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
   const fontWeightNode = document.getElementById('f_importedFontWeight');
   if(fontWeightNode){
     fontWeightNode.addEventListener('change', ()=>{ applyImportedStyle('fontWeight', fontWeightNode.value); syncImportedHtmlToModel('imported-style', true); });
   }
-  bindImportedColorPair('importedColor', 'color');
-  bindImportedColorPair('importedBackgroundColor', 'backgroundColor');
-  const alignNode = document.getElementById('f_importedTextAlign');
-  if(alignNode){
-    alignNode.addEventListener('change', ()=>{ applyImportedStyle('textAlign', alignNode.value); syncImportedHtmlToModel('imported-style', true); });
+  const textTransformNode = document.getElementById('f_importedTextTransform');
+  if(textTransformNode){
+    textTransformNode.addEventListener('change', ()=>{ applyImportedStyle('textTransform', textTransformNode.value); syncImportedHtmlToModel('imported-style', true); });
   }
-  ['Width','Height','MinHeight','MaxWidth','Opacity'].forEach((name)=>{
-    const fieldMap = { Width:'width', Height:'height', MinHeight:'minHeight', MaxWidth:'maxWidth', Opacity:'opacity' };
+  bindImportedColorPair('importedColor', 'color');
+  bindImportedAlignField(details);
+  if(!isImageElement && !isIconElement) bindImportedBoxStyleEvents(node, importedBoxState);
+  [
+    ['importedFlexDirection','flexDirection'],
+    ['importedJustifyContent','justifyContent'],
+    ['importedAlignItems','alignItems']
+  ].forEach(([id, field])=>{
+    const control = document.getElementById(`f_${id}`);
+    if(control) control.addEventListener('change', ()=>{ applyImportedStyle(field, control.value); syncImportedHtmlToModel('imported-style', true); });
+  });
+  bindImportedTextField('importedGap', 'gap');
+  ['Opacity'].forEach((name)=>{
+    const fieldMap = { Opacity:'opacity' };
     bindImportedTextField(`imported${name}`, fieldMap[name]);
   });
   ['Width','Height'].forEach((name)=>{
     const input = document.getElementById(`f_importedImage${name}`);
+    const numericInput = document.getElementById(`n_importedImage${name}`);
+    const unitNode = document.getElementById(`f_importedImage${name}Unit`);
     const fieldMap = { Width:'width', Height:'height' };
     if(!input || !mediaTarget) return;
-    input.addEventListener('input', ()=> applyImportedStyleToNode(mediaTarget, fieldMap[name], input.value));
+    if(unitNode) syncUnitValueSelect(unitNode, Number(input.value)||0);
+    const applyValue = (value)=>{
+      syncMetricControlPair(`importedImage${name}`, value);
+      if(unitNode) syncUnitValueSelect(unitNode, value);
+      applyImportedStyleToNode(mediaTarget, fieldMap[name], `${value}${unitNode?.value || 'px'}`);
+    };
+    input.addEventListener('input', ()=> applyValue(Number(input.value)||0));
+    if(numericInput){
+      numericInput.addEventListener('input', ()=> applyValue(Number(numericInput.value)||0));
+      numericInput.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+    }
     input.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+    if(unitNode){
+      unitNode.addEventListener('change', ()=>{
+        const value = Number((numericInput || input).value)||0;
+        syncUnitValueSelect(unitNode, value);
+        applyImportedStyleToNode(mediaTarget, fieldMap[name], `${value}${unitNode.value || 'px'}`);
+        syncImportedHtmlToModel('imported-style', true);
+      });
+    }
   });
   const objectFitNode = document.getElementById('f_importedObjectFit');
   if(objectFitNode){
@@ -1208,38 +2320,69 @@ function renderImportedSettings(node){
     });
     objectPositionNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
   }
+  const bindImportedMediaRange = (id, labelId, handler)=>{
+    const control = document.getElementById(`f_${id}`);
+    const label = document.getElementById(`v_${id}`);
+    if(!control || !mediaTarget) return;
+    control.addEventListener('input', ()=>{
+      const value = Number(control.value) || 0;
+      if(label) label.textContent = `${value}${labelId || ''}`;
+      handler(value);
+      syncImportedHtmlToModel('imported-style');
+    });
+    control.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  };
+  bindImportedMediaRange('importedImageRadius', 'px', (value)=>{
+    const target = getImportedStyleTarget(mediaTarget, 'borderRadius') || mediaTarget;
+    setImportedInlineStyle(target, 'borderRadius', `${value}px`);
+    if(value > 0) setImportedInlineStyle(target, 'overflow', 'hidden');
+  });
+  bindImportedMediaRange('importedImageOpacity', '%', (value)=>{
+    applyImportedStyleToNode(mediaTarget, 'opacity', String(Math.max(0, Math.min(100, value)) / 100));
+  });
+  bindImportedMediaRange('importedImageBrightness', '%', (value)=>{
+    setImportedMediaFilter(mediaTarget, 'brightness', value);
+  });
+  bindImportedMediaRange('importedImageContrast', '%', (value)=>{
+    setImportedMediaFilter(mediaTarget, 'contrast', value);
+  });
+  bindImportedMediaRange('importedImageBorderWidth', 'px', (value)=>{
+    const target = getImportedStyleTarget(mediaTarget, 'borderWidth') || mediaTarget;
+    ['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'].forEach((field)=> setImportedInlineStyle(target, field, `${value}px`));
+    if(value > 0 && !String(getImportedStyleValue(target, 'borderStyle') || '').trim()) setImportedInlineStyle(target, 'borderStyle', 'solid');
+  });
+  const mediaBorderStyleNode = document.getElementById('f_importedImageBorderStyle');
+  if(mediaBorderStyleNode && mediaTarget){
+    mediaBorderStyleNode.addEventListener('change', ()=>{
+      const target = getImportedStyleTarget(mediaTarget, 'borderStyle') || mediaTarget;
+      setImportedInlineStyle(target, 'borderStyle', mediaBorderStyleNode.value);
+      syncImportedHtmlToModel('imported-style', true);
+    });
+  }
+  const mediaBorderColorNode = document.getElementById('f_importedImageBorderColor');
+  const mediaBorderColorTextNode = document.getElementById('t_importedImageBorderColor');
+  if(mediaBorderColorNode && mediaBorderColorTextNode && mediaTarget){
+    const applyMediaBorderColor = (value)=>{
+      const target = getImportedStyleTarget(mediaTarget, 'borderColor') || mediaTarget;
+      setImportedInlineStyle(target, 'borderColor', value);
+      syncImportedHtmlToModel('imported-style');
+    };
+    mediaBorderColorNode.addEventListener('input', ()=>{ mediaBorderColorTextNode.value = mediaBorderColorNode.value; applyMediaBorderColor(mediaBorderColorNode.value); });
+    mediaBorderColorNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+    mediaBorderColorTextNode.addEventListener('input', ()=>{ if(/^#[0-9A-Fa-f]{6}$/.test(mediaBorderColorTextNode.value)) mediaBorderColorNode.value = mediaBorderColorTextNode.value; applyMediaBorderColor(mediaBorderColorTextNode.value); });
+    mediaBorderColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
+  }
   const displayNode = document.getElementById('f_importedDisplay');
   if(displayNode){
     displayNode.addEventListener('change', ()=>{ applyImportedStyle('display', displayNode.value); syncImportedHtmlToModel('imported-style', true); });
   }
-  const borderStyleNode = document.getElementById('f_importedBorderStyle');
-  if(borderStyleNode){
-    borderStyleNode.addEventListener('change', ()=>{ applyImportedStyle('borderStyle', borderStyleNode.value); syncImportedHtmlToModel('imported-style', true); });
+  const positionNode = document.getElementById('f_importedPosition');
+  if(positionNode){
+    positionNode.addEventListener('change', ()=>{ applyImportedStyle('position', positionNode.value); syncImportedHtmlToModel('imported-style', true); });
   }
-  bindImportedColorPair('importedBorderColor', 'borderColor');
-  const bindImportedSides = (prefix, styleFields) => {
-    ['Top','Right','Bottom','Left'].forEach((side, index)=>{
-      const input = document.getElementById(`${prefix}${side}`);
-      if(!input) return;
-      input.addEventListener('input', ()=>{
-        importedSelectionNode.style[styleFields[index]] = `${Number(input.value)||0}px`;
-        syncImportedHtmlToModel('imported-style');
-      });
-      input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
-    });
-  };
-  bindImportedSides('importedMargin', ['marginTop','marginRight','marginBottom','marginLeft']);
-  bindImportedSides('importedPadding', ['paddingTop','paddingRight','paddingBottom','paddingLeft']);
-  bindImportedSides('importedBorderWidth', ['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth']);
-  const radiusInputs = ['Top','Right','Bottom','Left'].map((side)=>document.getElementById(`importedBorderRadius${side}`));
-  const radiusProps = ['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius'];
-  radiusInputs.forEach((input, index)=>{
-    if(!input) return;
-    input.addEventListener('input', ()=>{
-      importedSelectionNode.style[radiusProps[index]] = `${Number(input.value)||0}px`;
-      syncImportedHtmlToModel('imported-style');
-    });
-    input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-style', true));
+  ['ZIndex','Top','Right','Bottom','Left'].forEach((name)=>{
+    const fieldMap = { ZIndex:'zIndex', Top:'top', Right:'right', Bottom:'bottom', Left:'left' };
+    bindImportedTextField(`imported${name}`, fieldMap[name]);
   });
   bindImageUpload('importedImageUpload', (src)=>{
     if(mediaTarget){
@@ -1278,17 +2421,22 @@ function initializeImportedPage(){
   root.setAttribute('data-import-initialized','true');
   hydrateImportedAssets(root);
   root.addEventListener('click', (event)=>{
-    const rawTarget = getImportedSelectableNode(event.target);
-    const target = getImportedEditableMediaTarget(rawTarget) || getImportedContentNode(rawTarget);
+    const rawTarget = resolveImportedPointerTarget(event);
+    const iconTarget = getImportedIconTarget(event.target);
+    const textTarget = iconTarget ? null : getImportedInlineTextTarget(event.target);
+    const mediaTarget = textTarget || iconTarget ? null : getImportedEditableMediaTarget(rawTarget);
+    const target = iconTarget || textTarget || mediaTarget || getImportedContentNode(rawTarget);
     if(!target) return;
     event.preventDefault();
     event.stopPropagation();
     selectImportedNode(event.shiftKey && target.parentElement && target.parentElement!==root ? target.parentElement : target);
   }, true);
   root.addEventListener('dblclick', (event)=>{
-    const directTarget = getImportedSelectableNode(event.target);
+    const directTarget = resolveImportedPointerTarget(event);
     if(!directTarget) return;
-    const mediaTarget = getImportedEditableMediaTarget(directTarget);
+    const iconTarget = getImportedIconTarget(event.target);
+    const textTarget = iconTarget ? null : getImportedInlineTextTarget(event.target);
+    const mediaTarget = textTarget || iconTarget ? null : getImportedEditableMediaTarget(directTarget);
     if(mediaTarget){
       event.preventDefault();
       event.stopPropagation();
@@ -1299,10 +2447,14 @@ function initializeImportedPage(){
       }, 0);
       return;
     }
-    const target = getImportedContentNode(directTarget);
-    if(!target) return;
-    const hasOnlyTextChildren = !Array.from(target.children || []).length;
-    if(!hasOnlyTextChildren) return;
+    if(iconTarget){
+      event.preventDefault();
+      event.stopPropagation();
+      selectImportedNode(iconTarget);
+      return;
+    }
+    const target = textTarget || getImportedContentNode(directTarget);
+    if(!target || !String(target.textContent || '').trim()) return;
     event.preventDefault();
     event.stopPropagation();
     selectImportedNode(target);
@@ -1315,6 +2467,28 @@ function initializeImportedPage(){
       target.removeEventListener('blur', finish);
     };
     target.addEventListener('blur', finish);
+  }, true);
+  root.addEventListener('dragover', (event)=>{
+    if(!dragPayload || dragPayload.kind!=='new') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if(event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    const target = getImportedDropTargetFromEvent(event);
+    showImportedDropTarget(resolveImportedInsertLocation(target, event));
+  }, true);
+  root.addEventListener('dragleave', (event)=>{
+    if(root.contains(event.relatedTarget)) return;
+    clearImportedDropTarget();
+  }, true);
+  root.addEventListener('drop', (event)=>{
+    if(!dragPayload || dragPayload.kind!=='new') return;
+    event.preventDefault();
+    event.stopPropagation();
+    clearImportedDropTarget();
+    const target = getImportedDropTargetFromEvent(event);
+    insertImportedWidget(dragPayload.widgetType, target, event);
+    dragPayload = null;
+    setDraggingBuilderState(false);
   }, true);
 }
 
@@ -1331,11 +2505,21 @@ function renderPalette(filter=''){
     card.innerHTML = `<div class="widget-icon">${svgIcon(w.icon,17)}</div><span>${w.label}</span>`;
     card.addEventListener('dragstart', (e)=>{
       dragPayload = { kind:'new', widgetType: w.type };
+      setDraggingBuilderState(true);
       e.dataTransfer.effectAllowed = 'copy';
       e.dataTransfer.setData('text/plain', w.type);
       card.classList.add('dragging');
     });
-    card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
+    card.addEventListener('dragend', ()=>{
+      card.classList.remove('dragging');
+      clearImportedDropTarget();
+      dragPayload = null;
+      setDraggingBuilderState(false);
+    });
+    card.addEventListener('click', ()=>{
+      if(!isImportedExactPageMode()) return;
+      insertImportedWidget(w.type, importedSelectionNode || getImportedHtmlRoot());
+    });
     widgetGrid.appendChild(card);
   });
 }
@@ -1453,6 +2637,106 @@ function composeWrapStyle(el){
     style += `display:flex; flex-direction:column; justify-content:${map[el.style.verticalAlign]||'flex-start'};`;
   }
   return style;
+}
+function importedNodeCanAcceptChildren(node){
+  if(!node || node.nodeType!==1) return false;
+  const tag = String(node.tagName || '').toLowerCase();
+  return ['section','article','div','main','aside','header','footer','nav','figure','figcaption','ul','ol','li','form'].includes(tag);
+}
+function clearImportedDropTarget(){
+  const root = getImportedHtmlRoot();
+  if(!root) return;
+  root.querySelectorAll('[data-import-drop-target="true"]').forEach((node)=>node.removeAttribute('data-import-drop-target'));
+}
+function showImportedDropTarget(location){
+  clearImportedDropTarget();
+  const target = location?.parent;
+  if(target && target.nodeType===1) target.setAttribute('data-import-drop-target','true');
+}
+function resolveImportedChildInsertion(parent, event){
+  if(!parent || !event || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return null;
+  const children = Array.from(parent.children || []).filter((node)=>
+    !['script','style','link','meta'].includes(String(node.tagName || '').toLowerCase()) &&
+    node.getAttribute?.('data-import-overlay-skip') !== 'true'
+  );
+  if(!children.length) return null;
+  let direction = 'column';
+  try{
+    const computed = window.getComputedStyle(parent);
+    if(computed.display.includes('flex')) direction = computed.flexDirection.startsWith('row') ? 'row' : 'column';
+    else if(computed.display.includes('grid') && children.length > 1) direction = 'grid';
+  }catch{}
+  if(direction==='row'){
+    const before = children.find((child)=>{
+      const rect = child.getBoundingClientRect();
+      return event.clientX < rect.left + (rect.width / 2);
+    });
+    return { parent, before: before || null, mode: before ? 'inside-before-child' : 'inside-after-children' };
+  }
+  const before = children.find((child)=>{
+    const rect = child.getBoundingClientRect();
+    return event.clientY < rect.top + (rect.height / 2);
+  });
+  return { parent, before: before || null, mode: before ? 'inside-before-child' : 'inside-after-children' };
+}
+function getImportedDropTargetFromEvent(event){
+  if(!event) return importedSelectionNode || getImportedHtmlRoot();
+  const pointerTarget = resolveImportedPointerTarget(event);
+  if(pointerTarget) return pointerTarget;
+  const root = getImportedHtmlRoot();
+  if(typeof document.elementsFromPoint === 'function'){
+    const stack = document.elementsFromPoint(event.clientX, event.clientY);
+    const target = stack.find((node)=> root && root.contains(node) && getImportedSelectableNode(node));
+    if(target) return getImportedSelectableNode(target);
+  }
+  return importedSelectionNode || root;
+}
+function resolveImportedInsertLocation(target, event){
+  const root = getImportedHtmlRoot();
+  if(!root) return null;
+  const selectedTarget = getImportedSelectableNode(target || importedSelectionNode || root) || root;
+  if(selectedTarget === root) return resolveImportedChildInsertion(root, event) || { parent: root, before: null, mode: 'root' };
+
+  let rect = null;
+  try{ rect = selectedTarget.getBoundingClientRect(); }catch{}
+  const hasPointer = event && rect && Number.isFinite(event.clientY) && rect.height > 0;
+  const verticalRatio = hasPointer ? (event.clientY - rect.top) / rect.height : 0.5;
+  const edgeDrop = hasPointer && (verticalRatio < 0.22 || verticalRatio > 0.78);
+
+  if(importedNodeCanAcceptChildren(selectedTarget) && !edgeDrop){
+    return resolveImportedChildInsertion(selectedTarget, event) || { parent: selectedTarget, before: null, mode: 'inside' };
+  }
+  if(selectedTarget.parentElement && root.contains(selectedTarget.parentElement)){
+    const before = hasPointer && verticalRatio < 0.5 ? selectedTarget : selectedTarget.nextSibling;
+    return { parent: selectedTarget.parentElement, before, mode: before === selectedTarget ? 'before' : 'after' };
+  }
+  return { parent: root, before: null, mode: 'root-fallback' };
+}
+function buildImportedWidgetTemplate(widgetType){
+  const baseElement = widgetType === 'columns'
+    ? createColumnsElement()
+    : Object.assign({ id: uid(), type: widgetType, advanced:{} }, defaultsFor(widgetType));
+  const element = ensureTreeDefaults([baseElement])[0];
+  return `<div class="mwu-imported-widget-node" data-import-hoverable="true" style="${composeWrapStyle(element)}">${elementInnerHTML(element)}</div>`;
+}
+function createImportedWidgetNode(widgetType){
+  const template = document.createElement('template');
+  template.innerHTML = buildImportedWidgetTemplate(widgetType).trim();
+  return template.content.firstElementChild;
+}
+function insertImportedWidget(widgetType, target, event){
+  if(!isImportedExactPageMode()) return false;
+  const insertLocation = resolveImportedInsertLocation(target, event);
+  if(!insertLocation?.parent) return false;
+  const nextNode = createImportedWidgetNode(widgetType);
+  if(!nextNode) return false;
+  insertLocation.parent.insertBefore(nextNode, insertLocation.before || null);
+  hydrateImportedAssets(nextNode);
+  syncImportedHtmlToModel('imported-widget-insert', true);
+  selectImportedNode(nextNode);
+  console.info('[MWU imported editor] widget inserted', { widgetType, mode: insertLocation.mode, parent: describeImportedDebugTarget(insertLocation.parent), before: describeImportedDebugTarget(insertLocation.before) });
+  showToast('Widget added to imported page');
+  return true;
 }
 function isHiddenForDevice(el, device){
   const a = el.advanced || {};
@@ -2002,19 +3286,52 @@ function bindBoxStyleEvents(el){
   bs.addEventListener('change', ()=>{ b.borderStyle = bs.value; reRenderElement(el); pushHistory(); });
 
   const boxWidth = document.getElementById('f_boxWidth');
+  const boxWidthNumber = document.getElementById('n_boxWidth');
+  const applyBoxWidth = (value)=>{
+    b.width = Number(value)||0;
+    syncMetricControlPair('boxWidth', b.width);
+    syncUnitValueSelect(widthUnit, b.width);
+    reRenderElement(el);
+  };
   if(boxWidth){
-    boxWidth.addEventListener('input', ()=>{ b.width = Number(boxWidth.value)||0; syncUnitValueSelect(widthUnit, b.width); reRenderElement(el); });
+    boxWidth.addEventListener('input', ()=> applyBoxWidth(boxWidth.value));
     boxWidth.addEventListener('change', ()=> pushHistory());
   }
+  if(boxWidthNumber){
+    boxWidthNumber.addEventListener('input', ()=> applyBoxWidth(boxWidthNumber.value));
+    boxWidthNumber.addEventListener('change', ()=> pushHistory());
+  }
   const boxHeight = document.getElementById('f_boxHeight');
+  const boxHeightNumber = document.getElementById('n_boxHeight');
+  const applyBoxHeight = (value)=>{
+    b.height = Number(value)||0;
+    syncMetricControlPair('boxHeight', b.height);
+    syncUnitValueSelect(heightUnit, b.height);
+    reRenderElement(el);
+  };
   if(boxHeight){
-    boxHeight.addEventListener('input', ()=>{ b.height = Number(boxHeight.value)||0; syncUnitValueSelect(heightUnit, b.height); reRenderElement(el); });
+    boxHeight.addEventListener('input', ()=> applyBoxHeight(boxHeight.value));
     boxHeight.addEventListener('change', ()=> pushHistory());
   }
+  if(boxHeightNumber){
+    boxHeightNumber.addEventListener('input', ()=> applyBoxHeight(boxHeightNumber.value));
+    boxHeightNumber.addEventListener('change', ()=> pushHistory());
+  }
   const boxMinHeight = document.getElementById('f_boxMinHeight');
+  const boxMinHeightNumber = document.getElementById('n_boxMinHeight');
+  const applyBoxMinHeight = (value)=>{
+    b.minHeight = Number(value)||0;
+    syncMetricControlPair('boxMinHeight', b.minHeight);
+    syncUnitValueSelect(minHeightUnit, b.minHeight);
+    reRenderElement(el);
+  };
   if(boxMinHeight){
-    boxMinHeight.addEventListener('input', ()=>{ b.minHeight = Number(boxMinHeight.value)||0; syncUnitValueSelect(minHeightUnit, b.minHeight); reRenderElement(el); });
+    boxMinHeight.addEventListener('input', ()=> applyBoxMinHeight(boxMinHeight.value));
     boxMinHeight.addEventListener('change', ()=> pushHistory());
+  }
+  if(boxMinHeightNumber){
+    boxMinHeightNumber.addEventListener('input', ()=> applyBoxMinHeight(boxMinHeightNumber.value));
+    boxMinHeightNumber.addEventListener('change', ()=> pushHistory());
   }
 
   const shadow = document.getElementById('f_boxShadow');
@@ -2071,7 +3388,7 @@ function rangeField(label, id, min, max, value, unit='', step=1){
     <div class="range-row"><input type="range" id="f_${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div></div>`;
 }
 function sliderWithUnitField(label, id, value, options, selectedUnit, min=0, max=100, step=1){
-  return `<div class="field-group"><div class="field-group-label">${label}<select class="field-select unit-value-select" id="f_${id}Unit">${options.map(([v])=>`<option value="${v}" ${v===selectedUnit?'selected':''}>${value}${v}</option>`).join('')}</select></div>
+  return `<div class="field-group"><div class="field-group-label">${label}<span class="metric-input-wrap"><input class="field-input metric-value-input" id="n_${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><select class="field-select unit-value-select" id="f_${id}Unit">${options.map(([v,l])=>`<option value="${v}" ${v===selectedUnit?'selected':''}>${l || v}</option>`).join('')}</select></span></div>
     <div class="slider-unit-row">
       <div class="range-row"><input type="range" id="f_${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div>
     </div></div>`;
@@ -2137,9 +3454,15 @@ function wireStepperControl(inputId, onChange){
 }
 function syncUnitValueSelect(select, value){
   if(!select) return;
-  Array.from(select.options).forEach(option=>{
-    option.textContent = `${value}${option.value}`;
-  });
+  const id = String(select.id || '').replace(/^f_/, '').replace(/Unit$/, '');
+  const numeric = document.getElementById(`n_${id}`);
+  if(numeric && String(numeric.value) !== String(value)) numeric.value = value;
+}
+function syncMetricControlPair(id, value){
+  const slider = document.getElementById(`f_${id}`);
+  const numeric = document.getElementById(`n_${id}`);
+  if(slider && String(slider.value) !== String(value)) slider.value = value;
+  if(numeric && String(numeric.value) !== String(value)) numeric.value = value;
 }
 
 function bindStyleEvents(el){
@@ -2178,15 +3501,22 @@ function bindStyleEvents(el){
   });
 
   const widthSlider = document.getElementById('f_width');
+  const widthNumber = document.getElementById('n_width');
   const widthUnit = document.getElementById('f_widthUnit');
   if(widthUnit) syncUnitValueSelect(widthUnit, s.width||0);
+  const applyImageWidth = (value)=>{
+    s.width = Number(value)||0;
+    syncMetricControlPair('width', s.width);
+    syncUnitValueSelect(widthUnit, s.width);
+    reRenderElement(el);
+  };
   if(widthSlider){
-    widthSlider.addEventListener('input', ()=>{
-      s.width = Number(widthSlider.value)||0;
-      syncUnitValueSelect(widthUnit, s.width);
-      reRenderElement(el);
-    });
+    widthSlider.addEventListener('input', ()=> applyImageWidth(widthSlider.value));
     widthSlider.addEventListener('change', ()=> pushHistory());
+  }
+  if(widthNumber){
+    widthNumber.addEventListener('input', ()=> applyImageWidth(widthNumber.value));
+    widthNumber.addEventListener('change', ()=> pushHistory());
   }
   if(widthUnit){
     widthUnit.addEventListener('change', ()=>{
@@ -2197,15 +3527,22 @@ function bindStyleEvents(el){
     });
   }
   const imageHeight = document.getElementById('f_imageHeight');
+  const imageHeightNumber = document.getElementById('n_imageHeight');
   const imageHeightUnit = document.getElementById('f_imageHeightUnit');
   if(imageHeightUnit) syncUnitValueSelect(imageHeightUnit, s.height||0);
+  const applyImageHeight = (value)=>{
+    s.height = Number(value)||0;
+    syncMetricControlPair('imageHeight', s.height);
+    syncUnitValueSelect(imageHeightUnit, s.height);
+    reRenderElement(el);
+  };
   if(imageHeight){
-    imageHeight.addEventListener('input', ()=>{
-      s.height = Number(imageHeight.value)||0;
-      syncUnitValueSelect(imageHeightUnit, s.height);
-      reRenderElement(el);
-    });
+    imageHeight.addEventListener('input', ()=> applyImageHeight(imageHeight.value));
     imageHeight.addEventListener('change', ()=> pushHistory());
+  }
+  if(imageHeightNumber){
+    imageHeightNumber.addEventListener('input', ()=> applyImageHeight(imageHeightNumber.value));
+    imageHeightNumber.addEventListener('change', ()=> pushHistory());
   }
   if(imageHeightUnit){
     imageHeightUnit.addEventListener('change', ()=>{
@@ -2920,6 +4257,12 @@ wireDropZones = function(){
         zone.classList.remove('active-zone');
         setDraggingBuilderState(false);
         if(!dragPayload) return;
+      if(isImportedExactPageMode() && dragPayload.kind === 'new'){
+        const importedDropTarget = getImportedDropTargetFromEvent(e);
+        insertImportedWidget(dragPayload.widgetType, importedDropTarget, e);
+        dragPayload = null;
+        return;
+      }
       const parentId = zone.dataset.parentId || '';
       const targetIndex = parseInt(zone.dataset.index || '0', 10);
       const targetList = getContainerChildren(parentId);
@@ -3088,6 +4431,8 @@ buildPublishedHtml = function(){
     const model = getImportedHtmlElementModel();
     const bodyHtml = root ? root.innerHTML : ((model && model.content && model.content.code) || '');
     const cssLinks = (hostImportCssLinks || []).filter(Boolean).map((href)=>`<link rel="stylesheet" href="${href}">`).join('');
+    const inlineCss = String(hostImportInlineCss || '').trim();
+    const inlineStyle = inlineCss ? `<style>${inlineCss}</style>` : '';
     const fontStyle = `<style>
       @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-solid-900.woff2') format('woff2'); font-weight: 900; font-style: normal; font-display: block; }
       @font-face { font-family: 'Font Awesome 6 Brands'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-brands-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
@@ -3095,7 +4440,7 @@ buildPublishedHtml = function(){
       .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
       [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
     </style>`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${fontStyle}</head><body>${bodyHtml}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${inlineStyle}${fontStyle}</head><body>${bodyHtml}</body></html>`;
   }
   elements = ensureTreeDefaults(elements);
   const customRules = [];
@@ -3179,21 +4524,51 @@ function showHelp(){openModal('Keyboard shortcuts',`<div class="shortcut-grid"><
 
 function getBridgeState(saveMode=''){ return { snapshot: snapshot(), publishedHtml: buildPublishedHtml(), selectedId, saveMode }; }
 function notifyHost(type, extra={}){ if(window.parent!==window) window.parent.postMessage({ type, ...extra }, '*'); }
+function describeImportedDebugTarget(node){
+  if(!node || node.nodeType!==1) return { exists: false, value: String(node || '') };
+  let rect = {};
+  try{
+    const box = node.getBoundingClientRect();
+    rect = { width: Math.round(box.width), height: Math.round(box.height), top: Math.round(box.top), left: Math.round(box.left) };
+  }catch{}
+  const tag = String(node.tagName || '').toLowerCase();
+  return {
+    exists: true,
+    tag,
+    id: node.getAttribute('id') || '',
+    importId: node.getAttribute('data-import-id') || '',
+    className: String(node.getAttribute('class') || '').slice(0, 180),
+    src: tag === 'img' ? (node.getAttribute('src') || '') : '',
+    srcset: tag === 'img' ? (node.getAttribute('srcset') || '') : '',
+    dataSrc: node.getAttribute('data-src') || node.getAttribute('data-lazy-src') || '',
+    background: importedNodeBackgroundSource(node),
+    inlineStyle: String(node.getAttribute('style') || '').slice(0, 260),
+    rect
+  };
+}
+function serializeImportedEditorError(error){
+  if(!error) return {};
+  return {
+    name: error.name || 'Error',
+    message: error.message || String(error),
+    stack: error.stack || ''
+  };
+}
+function reportImportedEditorError(stage, details={}){
+  const payload = {
+    stage,
+    details: {
+      ...details,
+      error: serializeImportedEditorError(details.error)
+    }
+  };
+  console.error('[MWU imported editor diagnostic]', payload);
+  notifyHost('MWU_IMPORTED_EDITOR_ERROR', payload);
+}
 function syncPageSettingsToUi(){
   document.querySelector('.tb-page-name').textContent=pageSettings.title||'Untitled Page';
   document.title=(pageSettings.title||'Page Builder')+' | MWU Visual Builder';
   document.body.style.fontFamily=(pageSettings.fontFamily||'Inter')+',sans-serif';
-}
-function syncHostStylesheets(urls=[]){
-  document.querySelectorAll('link[data-host-import="true"]').forEach(node=>node.remove());
-  (urls||[]).filter(Boolean).forEach((href)=>{
-    const link=document.createElement('link');
-    link.rel='stylesheet';
-    link.href=href;
-    link.setAttribute('data-host-import','true');
-    document.head.appendChild(link);
-  });
-  ensureBuilderChromeStyles();
 }
 function ensureBuilderChromeStyles(){
   let style = document.getElementById('builderChromeProtect');
@@ -3204,11 +4579,63 @@ function ensureBuilderChromeStyles(){
   }
   style.textContent = `
     html body{ background: var(--bg) !important; }
+    body{ margin:0 !important; color: var(--ink-900) !important; }
     body > .app{ display:flex !important; flex-direction:column !important; height:100vh !important; background: var(--bg) !important; color: var(--ink-900) !important; }
     body > .app > .topbar{ height:52px !important; min-height:52px !important; background: var(--navy-900) !important; color:#fff !important; display:flex !important; align-items:center !important; justify-content:space-between !important; padding:0 14px !important; box-shadow: var(--shadow-md) !important; position:relative !important; z-index:20 !important; border:0 !important; }
     body > .app > .workspace{ flex:1 !important; display:flex !important; min-height:0 !important; }
     body > .app > .workspace > .side-panel{ width:300px !important; min-width:300px !important; flex-shrink:0 !important; background:#fff !important; border-right:1px solid var(--line) !important; display:flex !important; flex-direction:column !important; min-height:0 !important; position:relative !important; z-index:10 !important; box-shadow: 2px 0 12px rgba(15,23,42,0.04) !important; }
-    body > .app > .workspace > .side-panel .panel-search input{ color: var(--ink-900) !important; }
+    body > .app > .workspace > .side-panel,
+    body > .app > .workspace > .side-panel *{ font-family:'Inter', -apple-system, sans-serif !important; box-sizing:border-box !important; }
+    body > .app > .workspace > .side-panel .panel-view,
+    body > .app > .workspace > .side-panel .panel-topbar,
+    body > .app > .workspace > .side-panel .settings-header,
+    body > .app > .workspace > .side-panel .settings-tabs,
+    body > .app > .workspace > .side-panel .settings-body{ background:#fff !important; color: var(--ink-900) !important; }
+    body > .app > .workspace > .side-panel .panel-search,
+    body > .app > .workspace > .side-panel .field-input,
+    body > .app > .workspace > .side-panel .field-select,
+    body > .app > .workspace > .side-panel .field-textarea,
+    body > .app > .workspace > .side-panel .stepper-field,
+    body > .app > .workspace > .side-panel input[type="color"]{ background:#fff !important; color: var(--ink-900) !important; border:1px solid var(--line) !important; }
+    body > .app > .workspace > .side-panel .panel-search input,
+    body > .app > .workspace > .side-panel .field-input,
+    body > .app > .workspace > .side-panel .field-select,
+    body > .app > .workspace > .side-panel .field-textarea{ color: var(--ink-900) !important; }
+    body > .app > .workspace > .side-panel .settings-tab,
+    body > .app > .workspace > .side-panel .field-group-label,
+    body > .app > .workspace > .side-panel .settings-title .t,
+    body > .app > .workspace > .side-panel .settings-title .s,
+    body > .app > .workspace > .side-panel .panel-section-label,
+    body > .app > .workspace > .side-panel .field-hint{ color: var(--ink-900) !important; }
+    body > .app > .workspace > .side-panel .settings-tab{ background:transparent !important; border:0 !important; border-bottom:2.5px solid transparent !important; padding:11px 4px !important; font-size:11.5px !important; font-weight:700 !important; }
+    body > .app > .workspace > .side-panel .settings-tab:hover{ color: var(--navy-900) !important; background: var(--gold-050) !important; }
+    body > .app > .workspace > .side-panel .settings-tab.active{ color: var(--navy-900) !important; border-bottom-color: var(--gold-500) !important; }
+    body > .app > .workspace > .side-panel .settings-panel-tab{ display:none !important; }
+    body > .app > .workspace > .side-panel .settings-panel-tab.active{ display:block !important; }
+    body > .app > .workspace > .side-panel .widget-card,
+    body > .app > .workspace > .side-panel .layer-row,
+    body > .app > .workspace > .side-panel .btn-group button,
+    body > .app > .workspace > .side-panel .panel-mode-btn,
+    body > .app > .workspace > .side-panel .settings-back,
+    body > .app > .workspace > .side-panel .sa-btn{ border-color: var(--line) !important; background:#fff !important; color: var(--ink-900) !important; }
+    body > .app > .workspace > .side-panel .field-button,
+    body > .app > .workspace > .side-panel .upload-box label,
+    body > .app > .workspace > .side-panel .modal .btn,
+    body > .app > .workspace > .side-panel .btn-light,
+    body > .app > .workspace > .side-panel .btn-danger{ font: inherit !important; }
+    body > .app > .workspace > .side-panel .field-button{ min-height:40px !important; display:inline-flex !important; align-items:center !important; justify-content:center !important; padding:0 12px !important; border:1px solid var(--line) !important; border-radius:8px !important; background:#fff !important; color: var(--navy-900) !important; font-weight:800 !important; }
+    body > .app > .workspace > .side-panel .upload-box{ border:1.5px dashed var(--line) !important; border-radius:10px !important; background: var(--line-soft) !important; }
+    body > .app > .workspace > .side-panel .upload-box label{ display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:6px !important; color: var(--navy-900) !important; background:transparent !important; }
+    body > .modal-backdrop{ position:fixed !important; inset:0 !important; background:rgba(8,17,34,.68) !important; z-index:300 !important; display:none !important; align-items:center !important; justify-content:center !important; padding:24px !important; }
+    body > .modal-backdrop.open{ display:flex !important; }
+    body > .modal-backdrop > .modal{ width:min(760px,96vw) !important; max-height:88vh !important; background:#fff !important; border-radius:16px !important; overflow:hidden !important; display:flex !important; flex-direction:column !important; }
+    body > .modal-backdrop > .modal .modal-header,
+    body > .modal-backdrop > .modal .modal-body,
+    body > .modal-backdrop > .modal .modal-footer{ background:#fff !important; color: var(--ink-900) !important; }
+    body > .modal-backdrop > .modal .btn{ display:inline-flex !important; align-items:center !important; justify-content:center !important; min-height:38px !important; padding:8px 14px !important; border-radius:8px !important; border:1px solid transparent !important; font-weight:700 !important; }
+    body > .modal-backdrop > .modal .btn-light{ background:#fff !important; border-color: var(--line) !important; color: var(--ink-600) !important; }
+    body > .modal-backdrop > .modal .btn-danger{ background: var(--red-100) !important; border-color:#f3c9c9 !important; color: var(--red-600) !important; }
+    body > .modal-backdrop > .modal .btn-gold{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
     body > .app > .topbar .tb-icon-btn,
     body > .app > .topbar .btn{ all: unset; box-sizing:border-box; }
     body > .app > .topbar .tb-icon-btn{ width:32px !important; height:32px !important; border-radius:7px !important; color: rgba(255,255,255,.65) !important; display:flex !important; align-items:center !important; justify-content:center !important; cursor:pointer !important; }
@@ -3216,16 +4643,17 @@ function ensureBuilderChromeStyles(){
     body > .app > .topbar .btn{ font-weight:700 !important; font-size:12.5px !important; border-radius:8px !important; padding:8px 14px !important; display:inline-flex !important; align-items:center !important; gap:6px !important; white-space:nowrap !important; cursor:pointer !important; }
     body > .app > .topbar .btn-gold{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
     body > .app > .topbar .btn-ghost-dark{ background: rgba(255,255,255,0.07) !important; color:#fff !important; border:1px solid rgba(255,255,255,0.16) !important; }
-    body > .app > .workspace > .canvas-area{ flex:1 !important; overflow-y:auto !important; overflow-x:hidden !important; background:#ffffff !important; padding:34px 30px 100px !important; display:flex !important; justify-content:center !important; }
+    body > .app > .workspace > .canvas-area{ flex:1 !important; overflow-y:auto !important; overflow-x:hidden !important; background:#ffffff !important; padding:34px 30px 100px !important; display:flex !important; justify-content:center !important; position:relative !important; }
   `;
 }
 function loadHostSnapshot(data={}){
   const nextPageSettings=data.pageSettings&&typeof data.pageSettings==='object'?data.pageSettings:{};
   pageSettings={...pageSettings,...nextPageSettings};
   hostImportCssLinks = Array.isArray(data.importCssLinks)?data.importCssLinks:[];
+  hostImportInlineCss = String(data.importInlineCss || '');
   hostLiveAssetProxyPrefix = data.liveAssetProxyPrefix || hostLiveAssetProxyPrefix;
   hostLiveSiteOrigin = data.liveSiteOrigin || hostLiveSiteOrigin;
-  syncHostStylesheets(hostImportCssLinks);
+  syncHostStylesheets(hostImportCssLinks, hostImportInlineCss);
   if(Array.isArray(data.elements)) elements=migrateLegacyColumns(data.elements);
   if(data.device) currentDevice=data.device;
   document.body.classList.toggle('imported-page-mode', !!pageSettings.exactImport);
@@ -3253,15 +4681,45 @@ window.addEventListener('message',event=>{
     return;
   }
   if(data.type==='MWU_REPLACE_IMAGE_SOURCE'){
-    const root = getImportedHtmlRoot();
-    if(!root || !data.elementId || !data.src) return;
-    const escapedId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(data.elementId)) : String(data.elementId).replace(/"/g, '\\"');
-    const target = root.querySelector(`[data-import-id="${escapedId}"]`);
-    if(!target) return;
-    setImportedMediaSource(target, data.src);
-    syncImportedHtmlToModel('imported-image-library', true);
-    if(importedSelectionNode===target || importedSelectionId===String(data.elementId)){
+    try{
+      const root = getImportedHtmlRoot();
+      console.info('[MWU imported editor] replace request received', { elementId: data.elementId, src: data.src, hasRoot: !!root });
+      if(!root){
+        reportImportedEditorError('replace-missing-import-root', { elementId: data.elementId, src: data.src });
+        return;
+      }
+      if(!data.elementId || !data.src){
+        reportImportedEditorError('replace-missing-element-or-src', { elementId: data.elementId, src: data.src });
+        return;
+      }
+      const originalTarget = findImportedNodeById(root, data.elementId);
+      const target = resolveImportedMediaTargetById(root, data.elementId);
+      if(!target){
+        reportImportedEditorError('replace-target-not-found', {
+          elementId: data.elementId,
+          src: data.src,
+          rootImageCount: root.querySelectorAll('img').length,
+          rootBackgroundCount: Array.from(root.querySelectorAll('*')).filter(isImportedBackgroundMediaNode).length,
+          originalTarget: describeImportedDebugTarget(originalTarget)
+        });
+        return;
+      }
+      const replaced = setImportedMediaSource(target, data.src);
+      if(!replaced){
+        reportImportedEditorError('replace-mutation-returned-false', {
+          elementId: data.elementId,
+          src: data.src,
+          originalTarget: describeImportedDebugTarget(originalTarget),
+          resolvedTarget: describeImportedDebugTarget(target)
+        });
+        return;
+      }
+      syncImportedHtmlToModel('imported-image-library', true);
+      selectImportedNode(target);
       renderImportedSettings(target);
+      showToast('Image replaced');
+    }catch(error){
+      reportImportedEditorError('replace-handler-failed', { elementId: data.elementId, src: data.src, error });
     }
   }
 });

@@ -1,47 +1,108 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 export default function PageEditor({
   page,
   builderInitPayload,
+  builderInitRevision = 0,
   onPersistBuilderState,
-  onEditableHtmlUpdate
+  onEditableHtmlUpdate,
+  mediaItems = [],
+  onUploadMediaFiles,
+  setNotice
 }) {
   const safePage = page || {};
   const pageId = safePage.id || safePage.slug || "new-page";
   const builderUrl = `/visual-page-builder.html?pageId=${encodeURIComponent(pageId)}`;
   const builderFrameRef = useRef(null);
+  const latestPayloadRef = useRef(builderInitPayload || {});
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerQuery, setMediaPickerQuery] = useState("");
+  const [selectedMediaId, setSelectedMediaId] = useState("");
+  const [pendingImageElementId, setPendingImageElementId] = useState("");
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+
+  const filteredMediaItems = useMemo(() => {
+    const query = String(mediaPickerQuery || "").trim().toLowerCase();
+    if (!query) {
+      return mediaItems;
+    }
+    return mediaItems.filter((item) =>
+      [
+        item?.title,
+        item?.name,
+        item?.filename,
+        item?.path,
+        item?.type,
+        item?.size,
+        item?.dimensions,
+        item?.mimeType,
+        item?.mime_type,
+        item?.uploadedAt,
+        item?.uploaded_at
+      ].join(" ").toLowerCase().includes(query)
+    );
+  }, [mediaItems, mediaPickerQuery]);
+
+  const selectedMediaItem =
+    filteredMediaItems.find((item) => String(item.id) === String(selectedMediaId)) ||
+    mediaItems.find((item) => String(item.id) === String(selectedMediaId)) ||
+    filteredMediaItems[0] ||
+    mediaItems[0] ||
+    null;
+
+  const selectedMediaDetails = selectedMediaItem ? [
+    ["Upload date", selectedMediaItem.uploadedAt || selectedMediaItem.uploaded_at || "Unknown"],
+    ["Name", selectedMediaItem.title || selectedMediaItem.name || selectedMediaItem.filename || "Untitled media"],
+    ["Type", selectedMediaItem.type || selectedMediaItem.media_type || selectedMediaItem.kind || "Image"],
+    ["Size", selectedMediaItem.size || selectedMediaItem.size_label || "Unknown"],
+    ["Dimensions", selectedMediaItem.dimensions || [selectedMediaItem.width, selectedMediaItem.height].filter(Boolean).join(" x ") || "Unknown"],
+    ["MIME type", selectedMediaItem.mimeType || selectedMediaItem.mime_type || selectedMediaItem.content_type || "Unknown"],
+    ["URL", selectedMediaItem.path || selectedMediaItem.url || ""]
+  ] : [];
+
+  const postInitMessage = () => {
+    builderFrameRef.current?.contentWindow?.postMessage(
+      { type: "MWU_HTML_BUILDER_INIT", payload: latestPayloadRef.current || {} },
+      "*"
+    );
+  };
+
+  useEffect(() => {
+    latestPayloadRef.current = builderInitPayload || {};
+  }, [builderInitPayload]);
 
   useEffect(() => {
     const frame = builderFrameRef.current;
     if (!frame) return;
 
-    const postInit = () => {
-      frame.contentWindow?.postMessage(
-        { type: "MWU_HTML_BUILDER_INIT", payload: builderInitPayload || {} },
-        "*"
-      );
-    };
-
+    const postInit = () => postInitMessage();
     frame.addEventListener("load", postInit);
     return () => frame.removeEventListener("load", postInit);
-  }, [builderInitPayload, pageId]);
+  }, [pageId]);
 
   useEffect(() => {
-    builderFrameRef.current?.contentWindow?.postMessage(
-      { type: "MWU_HTML_BUILDER_INIT", payload: builderInitPayload || {} },
-      "*"
-    );
-  }, [builderInitPayload, pageId]);
+    if (!builderInitRevision) {
+      return;
+    }
+    postInitMessage();
+  }, [builderInitRevision, pageId]);
+
+  useEffect(() => {
+    if (!selectedMediaId && filteredMediaItems.length) {
+      setSelectedMediaId(filteredMediaItems[0].id);
+      return;
+    }
+    if (selectedMediaId && !mediaItems.some((item) => String(item.id) === String(selectedMediaId))) {
+      setSelectedMediaId(filteredMediaItems[0]?.id || mediaItems[0]?.id || "");
+    }
+  }, [filteredMediaItems, mediaItems, selectedMediaId]);
 
   useEffect(() => {
     const handleMessage = (event) => {
       const data = event.data || {};
       if (data.type === "MWU_HTML_BUILDER_READY") {
-        builderFrameRef.current?.contentWindow?.postMessage(
-          { type: "MWU_HTML_BUILDER_INIT", payload: builderInitPayload || {} },
-          "*"
-        );
+        postInitMessage();
         return;
       }
       if (data.type === "MWU_HTML_BUILDER_STATE" && (data.saveMode === "draft" || data.saveMode === "publish")) {
@@ -50,12 +111,101 @@ export default function PageEditor({
       }
       if (data.type === "MWU_LIVE_HTML_UPDATED") {
         onEditableHtmlUpdate?.(data);
+        return;
+      }
+      if (data.type === "MWU_IMPORTED_EDITOR_ERROR") {
+        console.error("[MWU page editor] imported editor error", data);
+        setNotice?.(`Image editor diagnostic: ${data.stage || "unknown error"}. Check console for details.`);
+        return;
+      }
+      if (data.type === "MWU_REQUEST_IMAGE_PICKER") {
+        const nextElementId = String(data.elementId || "");
+        if (!nextElementId) {
+          return;
+        }
+        setPendingImageElementId(nextElementId);
+        setMediaPickerQuery("");
+        setSelectedMediaId(mediaItems[0]?.id || "");
+        setMediaPickerOpen(true);
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [builderInitPayload, onEditableHtmlUpdate, onPersistBuilderState]);
+  }, [mediaItems, onEditableHtmlUpdate, onPersistBuilderState, setNotice]);
+
+  const applySelectedMedia = () => {
+    try {
+      if (!pendingImageElementId || !selectedMediaItem?.path) {
+        console.error("[MWU page editor] image replacement blocked before postMessage", {
+          pendingImageElementId,
+          selectedMediaItem
+        });
+        return;
+      }
+      console.info("[MWU page editor] posting image replacement", {
+        elementId: pendingImageElementId,
+        src: selectedMediaItem.path,
+        title: selectedMediaItem.title
+      });
+      builderFrameRef.current?.contentWindow?.postMessage(
+        {
+          type: "MWU_REPLACE_IMAGE_SOURCE",
+          elementId: pendingImageElementId,
+          src: selectedMediaItem.path
+        },
+        "*"
+      );
+      setMediaPickerOpen(false);
+    } catch (error) {
+      console.error("[MWU page editor] failed to post image replacement", {
+        error,
+        pendingImageElementId,
+        selectedMediaItem
+      });
+    }
+  };
+
+  const copySelectedMediaUrl = async () => {
+    const url = selectedMediaItem?.path || "";
+    if (!url) return;
+    try {
+      await navigator.clipboard?.writeText(url);
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      textArea.remove();
+    }
+  };
+
+  const handleUpload = async (event) => {
+    const files = event.target.files;
+    if (!files?.length || !onUploadMediaFiles) {
+      event.target.value = "";
+      return;
+    }
+    try {
+      setUploadingMedia(true);
+      const uploadedItems = await onUploadMediaFiles(files);
+      const uploadedItem = uploadedItems?.find((item) => item?.id || item?.path);
+      if (uploadedItem?.id) {
+        setSelectedMediaId(uploadedItem.id);
+      } else if (uploadedItem?.path) {
+        const matchingItem = mediaItems.find((item) => item.path === uploadedItem.path);
+        if (matchingItem?.id) {
+          setSelectedMediaId(matchingItem.id);
+        }
+      }
+    } finally {
+      setUploadingMedia(false);
+      event.target.value = "";
+    }
+  };
 
   return (
     <section className="admin-view page-editor-html-shell">
@@ -83,6 +233,105 @@ export default function PageEditor({
           sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox"
         />
       </div>
+
+      {mediaPickerOpen && (
+        <div
+          className="page-editor-media-modal"
+          onClick={() => setMediaPickerOpen(false)}
+        >
+          <div
+            className="page-editor-media-panel"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="page-editor-media-library">
+              <div className="page-editor-media-head">
+                <div>
+                  <span className="eyebrow">Media Library</span>
+                  <h2>Replace imported image</h2>
+                </div>
+                <button type="button" className="ghost-button compact" onClick={() => setMediaPickerOpen(false)}>
+                  Close
+                </button>
+              </div>
+              <div className="page-editor-media-toolbar">
+                <input
+                  type="search"
+                  value={mediaPickerQuery}
+                  onChange={(event) => setMediaPickerQuery(event.target.value)}
+                  placeholder="Search media..."
+                />
+                <label className={`ghost-button compact page-editor-media-upload ${uploadingMedia ? "disabled" : ""}`}>
+                  {uploadingMedia ? "Uploading..." : "Upload"}
+                  <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleUpload} />
+                </label>
+              </div>
+              <div className="page-editor-media-grid">
+                {filteredMediaItems.length ? filteredMediaItems.map((item) => {
+                  const isActive = String(item.id) === String(selectedMediaItem?.id || "");
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedMediaId(item.id)}
+                      className={isActive ? "page-editor-media-card active" : "page-editor-media-card"}
+                    >
+                      <div className="page-editor-media-thumb">
+                        <img src={item.path} alt={item.title || "Media"} />
+                      </div>
+                      <span>{item.type || "Image"}</span>
+                      <strong>
+                        {item.title || "Untitled media"}
+                      </strong>
+                      <small>{item.size || item.dimensions || item.path}</small>
+                    </button>
+                  );
+                }) : (
+                  <div className="page-editor-media-empty">
+                    No media items match this search.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <aside className="page-editor-media-details">
+              {selectedMediaItem ? (
+                <>
+                  <div className="page-editor-media-preview">
+                    <img src={selectedMediaItem.path} alt={selectedMediaItem.title || "Media"} />
+                  </div>
+                  <div className="page-editor-media-copy">
+                    <span className="eyebrow">Image Information</span>
+                    <h3>{selectedMediaItem.title || "Untitled media"}</h3>
+                    <dl className="page-editor-media-meta">
+                      {selectedMediaDetails.map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd className={label === "URL" ? "url" : ""}>{value || "Unknown"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </>
+              ) : (
+                <div className="page-editor-media-empty details">
+                  Choose an image to view its upload date, size, dimensions, and URL.
+                </div>
+              )}
+              <div className="page-editor-media-actions">
+                <button type="button" className="ghost-button" onClick={copySelectedMediaUrl} disabled={!selectedMediaItem?.path}>
+                  Copy URL
+                </button>
+                <button type="button" className="ghost-button" onClick={() => setMediaPickerOpen(false)}>
+                  Cancel
+                </button>
+                <button type="button" className="primary-button" onClick={applySelectedMedia} disabled={!selectedMediaItem || uploadingMedia}>
+                  Use selected image
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
