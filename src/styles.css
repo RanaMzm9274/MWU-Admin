@@ -1865,7 +1865,9 @@ button:disabled {
 }
 
 .page-editor-media-meta dd.url {
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
 }
@@ -3249,7 +3251,9 @@ button:disabled {
 }
 
 .standalone-media-meta-list dd.url {
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
 }
 

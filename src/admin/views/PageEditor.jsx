@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
+
+const shortenMediaUrl = (value = "", maxLength = 54) => {
+  const raw = String(value || "").trim();
+  if (!raw || raw.length <= maxLength) return raw;
+  const keep = Math.max(10, Math.floor((maxLength - 3) / 2));
+  return `${raw.slice(0, keep)}...${raw.slice(-keep)}`;
+};
 
 export default function PageEditor({
   page,
@@ -9,6 +16,7 @@ export default function PageEditor({
   onEditableHtmlUpdate,
   mediaItems = [],
   onUploadMediaFiles,
+  onDeleteMedia,
   setNotice
 }) {
   const safePage = page || {};
@@ -51,6 +59,7 @@ export default function PageEditor({
     mediaItems[0] ||
     null;
 
+  const selectedMediaUrl = selectedMediaItem?.path || selectedMediaItem?.url || "";
   const selectedMediaDetails = selectedMediaItem ? [
     ["Upload date", selectedMediaItem.uploadedAt || selectedMediaItem.uploaded_at || "Unknown"],
     ["Name", selectedMediaItem.title || selectedMediaItem.name || selectedMediaItem.filename || "Untitled media"],
@@ -58,7 +67,7 @@ export default function PageEditor({
     ["Size", selectedMediaItem.size || selectedMediaItem.size_label || "Unknown"],
     ["Dimensions", selectedMediaItem.dimensions || [selectedMediaItem.width, selectedMediaItem.height].filter(Boolean).join(" x ") || "Unknown"],
     ["MIME type", selectedMediaItem.mimeType || selectedMediaItem.mime_type || selectedMediaItem.content_type || "Unknown"],
-    ["URL", selectedMediaItem.path || selectedMediaItem.url || ""]
+    ["URL", selectedMediaUrl]
   ] : [];
 
   const postInitMessage = () => {
@@ -167,7 +176,7 @@ export default function PageEditor({
   };
 
   const copySelectedMediaUrl = async () => {
-    const url = selectedMediaItem?.path || "";
+    const url = selectedMediaUrl;
     if (!url) return;
     try {
       await navigator.clipboard?.writeText(url);
@@ -180,6 +189,21 @@ export default function PageEditor({
       textArea.select();
       document.execCommand("copy");
       textArea.remove();
+    }
+  };
+
+  const deleteSelectedMedia = async () => {
+    if (!selectedMediaItem?.id || !onDeleteMedia) {
+      return;
+    }
+    const deleted = await onDeleteMedia(selectedMediaItem.id);
+    if (!deleted) {
+      return;
+    }
+    const remainingItems = mediaItems.filter((item) => String(item.id) !== String(selectedMediaItem.id));
+    setSelectedMediaId(remainingItems[0]?.id || "");
+    if (!remainingItems.length) {
+      setMediaPickerOpen(false);
     }
   };
 
@@ -306,7 +330,12 @@ export default function PageEditor({
                       {selectedMediaDetails.map(([label, value]) => (
                         <div key={label}>
                           <dt>{label}</dt>
-                          <dd className={label === "URL" ? "url" : ""}>{value || "Unknown"}</dd>
+                          <dd
+                            className={label === "URL" ? "url" : ""}
+                            title={label === "URL" ? value || "" : undefined}
+                          >
+                            {label === "URL" ? shortenMediaUrl(value || "") || "Unknown" : value || "Unknown"}
+                          </dd>
                         </div>
                       ))}
                     </dl>
@@ -320,6 +349,10 @@ export default function PageEditor({
               <div className="page-editor-media-actions">
                 <button type="button" className="ghost-button" onClick={copySelectedMediaUrl} disabled={!selectedMediaItem?.path}>
                   Copy URL
+                </button>
+                <button type="button" className="danger-button" onClick={deleteSelectedMedia} disabled={!selectedMediaItem?.id || uploadingMedia}>
+                  <Trash2 size={16} />
+                  <span>Delete</span>
                 </button>
                 <button type="button" className="ghost-button" onClick={() => setMediaPickerOpen(false)}>
                   Cancel

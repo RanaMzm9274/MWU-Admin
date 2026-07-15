@@ -665,6 +665,47 @@ function uid(){ return 'el_' + Math.random().toString(36).slice(2,10); }
 function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function nl2li(s){ return (s||'').split('\n').map(x=>x.trim()).filter(Boolean); }
 function genericIconOptions(){ return [['check','Check'],['starIcon','Star'],['shieldIcon','Shield'],['bookIcon','Book'],['usersIcon','Users'],['heartIcon','Heart'],['globeIcon','Globe']]; }
+function importedFontAwesomeOptions(family='fa-solid'){
+  const solid = [
+    ['fa-location-dot','Location dot'],
+    ['fa-list-check','List check'],
+    ['fa-file-lines','File lines'],
+    ['fa-heart','Heart'],
+    ['fa-graduation-cap','Graduation cap'],
+    ['fa-book-open','Book open'],
+    ['fa-users','Users'],
+    ['fa-globe','Globe'],
+    ['fa-phone','Phone'],
+    ['fa-envelope','Envelope'],
+    ['fa-circle-check','Circle check'],
+    ['fa-star','Star'],
+    ['fa-shield-halved','Shield'],
+    ['fa-calendar-days','Calendar'],
+    ['fa-arrow-right','Arrow right']
+  ];
+  const brands = [
+    ['fa-facebook-f','Facebook'],
+    ['fa-instagram','Instagram'],
+    ['fa-linkedin-in','LinkedIn'],
+    ['fa-youtube','YouTube'],
+    ['fa-x-twitter','X Twitter'],
+    ['fa-whatsapp','WhatsApp'],
+    ['fa-telegram','Telegram'],
+    ['fa-tiktok','TikTok']
+  ];
+  return family === 'fa-brands' ? brands : solid;
+}
+function normalizeImportedFontAwesomeClass(value=''){
+  const raw = String(value || '').trim().toLowerCase();
+  if(!raw) return '';
+  const clean = raw
+    .replace(/[^a-z0-9-\s]/g, ' ')
+    .split(/\s+/)
+    .find((part)=> /^fa-[a-z0-9-]+$/.test(part) && !/^fa-(solid|regular|brands|light|thin|duotone)$/i.test(part));
+  if(clean) return clean;
+  const slug = raw.replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug ? `fa-${slug.replace(/^fa-/, '')}` : '';
+}
 function normalizeListItemsData(content = {}, style = {}){
   const existing = Array.isArray(content.listItemsData) ? content.listItemsData : [];
   const fallback = nl2li(content.items).map((text) => ({
@@ -1051,6 +1092,54 @@ function getImportedIconTarget(node){
     current = current.parentElement;
   }
   return null;
+}
+function getImportedFontAwesomeFamily(node){
+  const classText = importedClassText(node);
+  if(/\b(fab|fa-brands)\b/i.test(classText)) return 'fa-brands';
+  return 'fa-solid';
+}
+function getImportedFontAwesomeClass(node){
+  const classText = importedClassText(node);
+  const parts = classText.split(/\s+/).filter(Boolean);
+  return parts.find((part)=> /^fa-[a-z0-9-]+$/i.test(part) && !/^fa-(solid|regular|brands|light|thin|duotone)$/i.test(part)) || '';
+}
+function ensureImportedIconShell(target){
+  const styleTarget = getImportedStyleTarget(target) || target;
+  if(!styleTarget || !isImportedIconNode(styleTarget) || !styleTarget.style) return;
+  const display = String(getImportedStyleValue(styleTarget, 'display') || styleTarget.style.display || '').trim();
+  if(!display || display === 'inline') styleTarget.style.setProperty('display', 'inline-flex', 'important');
+  if(!String(getImportedStyleValue(styleTarget, 'alignItems') || styleTarget.style.alignItems || '').trim()) styleTarget.style.setProperty('align-items', 'center', 'important');
+  if(!String(getImportedStyleValue(styleTarget, 'justifyContent') || styleTarget.style.justifyContent || '').trim()) styleTarget.style.setProperty('justify-content', 'center', 'important');
+  if(!String(getImportedStyleValue(styleTarget, 'lineHeight') || styleTarget.style.lineHeight || '').trim()) styleTarget.style.setProperty('line-height', '1', 'important');
+}
+function applyImportedIconReplacement(node, family='fa-solid', iconClass=''){
+  const current = normalizeImportedIconElement(node);
+  if(!current || current.nodeType!==1) return null;
+  const nextFamily = family === 'fa-brands' ? 'fa-brands' : 'fa-solid';
+  const nextIconClass = normalizeImportedFontAwesomeClass(iconClass) || (nextFamily === 'fa-brands' ? 'fa-facebook-f' : 'fa-star');
+  const tag = String(current.tagName || '').toLowerCase();
+  const existingClassText = importedClassText(current);
+  const isFontAwesomeNode = tag === 'i' || /\b(fa|fas|far|fab|fal|fa-solid|fa-regular|fa-brands)\b/i.test(existingClassText);
+  let nextNode = current;
+  if(tag === 'svg' || !isFontAwesomeNode){
+    const replacement = document.createElement('i');
+    replacement.className = `${nextFamily} ${nextIconClass}`;
+    replacement.setAttribute('aria-hidden', 'true');
+    if(current.hasAttribute('style')) replacement.setAttribute('style', current.getAttribute('style') || '');
+    if(current.hasAttribute('data-import-id')) replacement.setAttribute('data-import-id', current.getAttribute('data-import-id') || '');
+    current.replaceWith(replacement);
+    nextNode = replacement;
+  }else{
+    const preservedClasses = String(current.className || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter((part)=> !/^fa[sbrld]?$/i.test(part) && !/^fa-(solid|regular|brands|light|thin|duotone)$/i.test(part) && !/^fa-[a-z0-9-]+$/i.test(part));
+    current.className = [...preservedClasses, nextFamily, nextIconClass].join(' ').trim();
+    nextNode = current;
+  }
+  ensureImportedNodeId(nextNode);
+  ensureImportedIconShell(nextNode);
+  return nextNode;
 }
 function getImportedParentSelectableNode(node){
   if(!node || node.nodeType!==1) return null;
@@ -1486,6 +1575,9 @@ function setImportedInlineStyle(target, field, value){
     }
     styleTarget.style.setProperty(propertyName, nextValue, 'important');
     if(isImportedIconNode(target) || isImportedIconNode(styleTarget)){
+      if(/^(backgroundColor|borderColor|borderStyle|borderTopWidth|borderRightWidth|borderBottomWidth|borderLeftWidth|borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomRightRadius|borderBottomLeftRadius|width|height|minHeight|paddingTop|paddingRight|paddingBottom|paddingLeft)$/i.test(field)){
+        ensureImportedIconShell(styleTarget);
+      }
       if(field === 'color'){
         styleTarget.style.setProperty('color', nextValue, 'important');
         styleTarget.style.setProperty('fill', nextValue, 'important');
@@ -2112,6 +2204,10 @@ function renderImportedSettings(node){
   const mediaOpacity = Math.round((Number(mediaDetails?.opacity || 1) || 1) * 100);
   const mediaBrightness = parseImportedFilterPercent(mediaDetails?.filter || '', 'brightness', 0);
   const mediaContrast = parseImportedFilterPercent(mediaDetails?.filter || '', 'contrast', 0);
+  const importedIconFamily = isIconElement ? getImportedFontAwesomeFamily(node) : 'fa-solid';
+  const importedIconClass = isIconElement ? getImportedFontAwesomeClass(node) : '';
+  const importedIconPresetChoices = isIconElement ? importedFontAwesomeOptions(importedIconFamily) : [];
+  const importedIconPresetValue = importedIconPresetChoices.some(([value])=> value === importedIconClass) ? importedIconClass : '';
   importedSelectionNode = node;
   importedSelectionId = details.id;
   document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : details.type==='icon' ? 'iconbox' : 'columns',15);
@@ -2126,6 +2222,10 @@ function renderImportedSettings(node){
     ${parentTarget ? `<div class="field-group"><div class="builder-file-stack"><button class="field-button" type="button" id="importedSelectParentBtn">Select parent container</button></div></div>` : ''}
     ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
     ${hasLinkField ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
+    ${isIconElement ? `<div class="panel-section-label" style="padding:6px 0 10px;">Font Awesome</div>` : ''}
+    ${isIconElement ? selectField('Icon library', 'importedIconFamily', [['fa-solid','Solid'],['fa-brands','Brands']], importedIconFamily) : ''}
+    ${isIconElement ? selectField('Preset icon', 'importedIconPreset', [['','Custom'], ...importedIconPresetChoices], importedIconPresetValue) : ''}
+    ${isIconElement ? fieldInput('Font Awesome class', 'importedIconClass', importedIconClass || '') : ''}
     ${hasMediaTarget ? fieldInput('Image URL', 'importedImageUrl', mediaDetails?.src || details.src || '') : ''}
     ${mediaIsImage ? fieldInput('Alt text', 'importedImageAlt', mediaDetails?.alt || details.alt || '') : ''}
     ${hasMediaTarget ? `<div class="field-group"><div class="field-group-label">Replace image</div><div class="builder-file-stack"><button class="field-button" type="button" id="importedImageLibraryBtn">Media Library</button>${imageUploadHtml('importedImageUpload')}</div></div>` : ''}
@@ -2153,7 +2253,7 @@ function renderImportedSettings(node){
     ${isContainerElement ? selectField('Justify content', 'importedJustifyContent', [['','Default'],['flex-start','Start'],['center','Center'],['flex-end','End'],['space-between','Space between']], details.styles.justifyContent || '') : ''}
     ${isContainerElement ? selectField('Align items', 'importedAlignItems', [['','Default'],['stretch','Stretch'],['flex-start','Start'],['center','Center'],['flex-end','End'],['baseline','Baseline']], details.styles.alignItems || '') : ''}
     ${isContainerElement ? fieldInput('Gap', 'importedGap', details.styles.gap || '') : ''}
-    ${(!isImageElement && !isIconElement) ? renderBoxStyleFields({ box: importedBoxState }) : ''}
+    ${(!isImageElement) ? renderBoxStyleFields({ box: importedBoxState }) : ''}
     ${hasMediaTarget ? `<div class="panel-section-label" style="padding:8px 0 10px;">Image</div>` : ''}
     ${hasMediaTarget ? sliderWithUnitField('Width', 'importedImageWidth', parseImportedMetricParts(mediaDetails?.width, 0, 'px').value, [['px','PX'],['%','PC'],['vw','VW']], parseImportedMetricParts(mediaDetails?.width, 0, 'px').unit, 0, 100, 1) : ''}
     ${hasMediaTarget ? sliderWithUnitField('Height', 'importedImageHeight', parseImportedMetricParts(mediaDetails?.height, 0, 'px').value, [['px','PX'],['%','PC'],['vh','VH']], parseImportedMetricParts(mediaDetails?.height, 0, 'px').unit, 0, 100, 1) : ''}
@@ -2194,6 +2294,31 @@ function renderImportedSettings(node){
   if(linkNode){
     linkNode.addEventListener('input', ()=> applyImportedElementUrl(importedSelectionNode, linkNode.value));
     linkNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-link', true));
+  }
+  const iconFamilyNode = document.getElementById('f_importedIconFamily');
+  const iconPresetNode = document.getElementById('f_importedIconPreset');
+  const iconClassNode = document.getElementById('f_importedIconClass');
+  const commitImportedIconReplacement = ()=>{
+    const nextNode = applyImportedIconReplacement(importedSelectionNode || node, iconFamilyNode?.value || 'fa-solid', iconClassNode?.value || iconPresetNode?.value || '');
+    if(!nextNode) return;
+    syncImportedHtmlToModel('imported-icon', true);
+    selectImportedNode(nextNode);
+  };
+  if(iconFamilyNode){
+    iconFamilyNode.addEventListener('change', commitImportedIconReplacement);
+  }
+  if(iconPresetNode){
+    iconPresetNode.addEventListener('change', ()=>{
+      if(iconClassNode && iconPresetNode.value) iconClassNode.value = iconPresetNode.value;
+      commitImportedIconReplacement();
+    });
+  }
+  if(iconClassNode){
+    iconClassNode.addEventListener('input', ()=>{
+      const normalized = normalizeImportedFontAwesomeClass(iconClassNode.value);
+      if(iconPresetNode) iconPresetNode.value = importedFontAwesomeOptions(iconFamilyNode?.value || 'fa-solid').some(([value])=> value === normalized) ? normalized : '';
+    });
+    iconClassNode.addEventListener('blur', commitImportedIconReplacement);
   }
   const imageNode = document.getElementById('f_importedImageUrl');
   if(imageNode){
@@ -2261,7 +2386,7 @@ function renderImportedSettings(node){
   }
   bindImportedColorPair('importedColor', 'color');
   bindImportedAlignField(details);
-  if(!isImageElement && !isIconElement) bindImportedBoxStyleEvents(node, importedBoxState);
+  if(!isImageElement) bindImportedBoxStyleEvents(node, importedBoxState);
   [
     ['importedFlexDirection','flexDirection'],
     ['importedJustifyContent','justifyContent'],

@@ -6771,6 +6771,7 @@ function App() {
             onEditableHtmlUpdate={handleInAppEditableHtmlUpdate}
             mediaItems={mediaLibrary}
             onUploadMediaFiles={uploadMediaFiles}
+            onDeleteMedia={deleteMediaItem}
             setNotice={setNotice}
           />
         )}

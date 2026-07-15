@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Trash2, Upload } from "lucide-react";
 
+const shortenMediaUrl = (value = "", maxLength = 54) => {
+  const raw = String(value || "").trim();
+  if (!raw || raw.length <= maxLength) return raw;
+  const keep = Math.max(10, Math.floor((maxLength - 3) / 2));
+  return `${raw.slice(0, keep)}...${raw.slice(-keep)}`;
+};
+
 export default function MediaView({
   mediaItems = [],
   mediaStorageMode = "local",
@@ -106,7 +113,9 @@ export default function MediaView({
                   </div>
                   <div>
                     <dt>URL</dt>
-                    <dd className="url">{selectedMedia.path}</dd>
+                    <dd className="url" title={selectedMedia.path}>
+                      {shortenMediaUrl(selectedMedia.path) || "Unknown"}
+                    </dd>
                   </div>
                 </dl>
                 <div className="standalone-media-sidebar-actions">
