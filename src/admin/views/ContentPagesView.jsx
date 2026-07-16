@@ -11,11 +11,7 @@ export default function ContentPagesView({
   icon: Icon,
   pageStatusFilters,
   getThumbnail,
-  isLocalDraftPage,
   openPageEditorTab,
-  setActivePageId,
-  setActiveView,
-  setEditorTab,
   deletePageById
 }) {
   const [query, setQuery] = useState("");
@@ -31,13 +27,7 @@ export default function ContentPagesView({
     );
 
   const openPage = (page, tab) => {
-    if (tab === "content" && !isLocalDraftPage(page)) {
-      openPageEditorTab(page.id);
-      return;
-    }
-    setActivePageId(page.id);
-    setEditorTab(tab);
-    setActiveView("page-editor");
+    openPageEditorTab(page.id, tab);
   };
 
   return (

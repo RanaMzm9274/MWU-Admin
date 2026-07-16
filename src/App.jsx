@@ -59,8 +59,9 @@ import OtherPagesView from "./admin/views/OtherPagesView";
 import PageEditor from "./admin/views/PageEditor";
 import PagesView from "./admin/views/PagesView";
 import BlogPagesView from "./admin/views/BlogPagesView";
+import ProgramsManagementView from "./admin/views/ProgramsView";
 import SettingsView from "./admin/views/SettingsView";
-import SiteChromeView from "./admin/views/SiteChromeView";
+import SiteChromeView, { updateProgramsMegaMenuMarkup } from "./admin/views/SiteChromeView";
 import {
   MEDIA_LIBRARY_KEY,
   LIVE_SITE_ORIGIN,
@@ -103,6 +104,7 @@ const normalizeDevProxyBaseUrl = (value, devPrefix) => {
 };
 const API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_API_BASE_URL || "", DEV_API_PROXY_PREFIX);
 const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+const SITE_CHROME_PUBLISH_URL = String(import.meta.env.VITE_SITE_CHROME_PUBLISH_URL || "").trim();
 
 const getAuthHeaders = (token) => {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -3245,7 +3247,7 @@ const buildPreviewDocument = (page = {}) => {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${page.title || "Preview"}</title>
-<base href="/" />
+<base href="${LIVE_ASSET_PROXY_PREFIX}/" />
 <link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/bootstrap.min.css" />
 <link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/main.css" />
 <link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/style.css" />
@@ -3292,9 +3294,9 @@ const buildSiteChromePreviewDocument = (kind = "header", snippetHtml = "") => {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${config.title}</title>
-<base href="/" />
-<link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/bootstrap.min.css" />
-<link rel="stylesheet" href="${LIVE_ASSET_PROXY_PREFIX}/assets/css/style.css" />
+<base href="${LIVE_SITE_ORIGIN}/" />
+<link rel="stylesheet" href="${LIVE_SITE_ORIGIN}/assets/css/bootstrap.min.css" />
+<link rel="stylesheet" href="${LIVE_SITE_ORIGIN}/assets/css/style.css" />
 <style>
   body {
     margin: 0;
@@ -3332,7 +3334,25 @@ const buildSiteChromePreviewDocument = (kind = "header", snippetHtml = "") => {
   }
 </style>
 </head>
-<body>${trimmedHtml ? stripDangerousHtml(previewBody) : `<main class="mwu-snippet-preview-main"><section><span>${config.title}</span><h1>No markup saved yet</h1><p>Paste or edit the HTML in the CRM, then save to create the global ${kind} content.</p></section></main>`}</body>
+<body>${trimmedHtml ? stripDangerousHtml(previewBody) : `<main class="mwu-snippet-preview-main"><section><span>${config.title}</span><h1>No markup saved yet</h1><p>Paste or edit the HTML in the CRM, then save to create the global ${kind} content.</p></section></main>`}
+<script>
+  document.addEventListener("click", function (event) {
+    var category = event.target.closest(".mwu-mega-category-link");
+    if (!category) return;
+    event.preventDefault();
+    var menu = category.closest(".mwu-mega-programs");
+    if (!menu) return;
+    var target = category.getAttribute("data-target");
+    menu.querySelectorAll(".mwu-mega-category-link").forEach(function (item) {
+      item.classList.toggle("active", item === category);
+      item.setAttribute("aria-selected", item === category ? "true" : "false");
+    });
+    menu.querySelectorAll(".mwu-mega-panel").forEach(function (panel) {
+      panel.classList.toggle("active", panel.getAttribute("data-panel") === target);
+    });
+  });
+</script>
+</body>
 </html>`;
 };
 
@@ -3625,7 +3645,7 @@ const toApiPagePayload = (page) => {
     title: page.title,
     slug: page.slug,
     type: page.type,
-    page_type: getApiPageType(page.type),
+    page_type: isSiteChromePage(page) ? "static" : getApiPageType(page.type),
     menu: page.menu,
     menu_group: page.menu,
     status: page.status,
@@ -4106,15 +4126,66 @@ const getSiteChromePageKind = (page = {}) => {
   return match?.[0] || "";
 };
 
-const getSiteChromeHtml = (page = {}) =>
-  page?.bodyHtml ||
-  page?.body_html ||
-  page?.rawHtml ||
-  page?.raw_html ||
-  page?.sections?.find((section) => section?.html || section?.body || section?.content)?.html ||
-  page?.sections?.find((section) => section?.html || section?.body || section?.content)?.body ||
-  page?.sections?.find((section) => section?.html || section?.body || section?.content)?.content ||
-  "";
+const looksLikeSiteChromeMarkup = (value = "") =>
+  /<(?:header|footer|nav|div|section|aside|ul|style)\b/i.test(String(value || ""));
+
+const getSiteChromeApiRecord = (payload = {}) => {
+  if (!payload || Array.isArray(payload)) return {};
+  if (payload.page && typeof payload.page === "object") return payload.page;
+  if (payload.data?.page && typeof payload.data.page === "object") return payload.data.page;
+  if (payload.data && !Array.isArray(payload.data) && typeof payload.data === "object") return payload.data;
+  return payload;
+};
+
+const normalizeSiteChromeApiPage = (payload = {}, fallbackPage = {}) => {
+  const record = getSiteChromeApiRecord(payload);
+  const sections =
+    payload?.sections ||
+    payload?.data?.sections ||
+    record?.sections ||
+    record?.page_sections ||
+    fallbackPage?.sections ||
+    [];
+  const apiMarkup = [
+    record?.bodyHtml,
+    record?.body_html,
+    record?.rawHtml,
+    record?.raw_html,
+    record?.html,
+    record?.markup,
+    record?.content,
+    payload?.html,
+    payload?.markup,
+    payload?.content
+  ].find(looksLikeSiteChromeMarkup);
+
+  return normalizePage({
+    ...fallbackPage,
+    ...record,
+    bodyHtml: apiMarkup || record?.bodyHtml || record?.body_html || fallbackPage?.bodyHtml || "",
+    rawHtml: apiMarkup ? "" : record?.rawHtml || record?.raw_html || fallbackPage?.rawHtml || "",
+    sections
+  });
+};
+
+const getSiteChromeHtml = (page = {}) => {
+  const section = page?.sections?.find((item) =>
+    [item?.html, item?.rawHtml, item?.raw_html, item?.body, item?.content].some(looksLikeSiteChromeMarkup)
+  );
+  const candidates = [
+    page?.bodyHtml,
+    page?.body_html,
+    page?.rawHtml,
+    page?.raw_html,
+    section?.html,
+    section?.rawHtml,
+    section?.raw_html,
+    section?.body,
+    section?.content
+  ];
+
+  return candidates.find(looksLikeSiteChromeMarkup) || "";
+};
 
 const hasMeaningfulSiteChromeHtml = (page = {}) => Boolean(String(getSiteChromeHtml(page) || "").trim());
 
@@ -4394,7 +4465,7 @@ const createSiteChromePage = (kind = "header", page = {}) => {
     title: page?.title || config.title,
     slug: config.slug,
     type: config.type,
-    page_type: config.type,
+    page_type: "static",
     menu: config.menu,
     menu_group: config.menu,
     template: page?.template || "Site Chrome",
@@ -4491,6 +4562,9 @@ const normalizeProgramCategory = (category) => ({
   menuOrder: Number.isFinite(Number(category?.menuOrder)) ? Number(category.menuOrder) : 1,
   featured: Boolean(category?.featured),
   heroImage: category?.heroImage || assets.agriculture,
+  programIds: Array.isArray(category?.programIds)
+    ? Array.from(new Set(category.programIds.map(String).filter(Boolean)))
+    : null,
   updatedAt: category?.updatedAt || todayIso()
 });
 
@@ -4566,6 +4640,7 @@ const normalizeProgram = (program) => ({
   title: program?.title || "New Program",
   slug: slugify(program?.slug || program?.title || "new-program"),
   categorySlug: program?.categorySlug || "undergraduate-programs",
+  pageSlug: program?.pageSlug || program?.page_slug || "",
   level: program?.level || "Undergraduate",
   college: program?.college || "Academic Affairs",
   duration: program?.duration || "4 Years",
@@ -5255,6 +5330,55 @@ function App() {
         }),
     [contentManagedPages]
   );
+  const megaMenuPrograms = useMemo(() => {
+    const catalogPrograms = programs.map((program) => ({
+      ...program,
+      id: String(program.id),
+      pageSlug: program.pageSlug || program.slug
+    }));
+    const representedKeys = new Set(
+      catalogPrograms.flatMap((program) => [
+        String(program.pageSlug || "").toLowerCase(),
+        String(program.slug || "").toLowerCase(),
+        String(program.title || "").toLowerCase()
+      ])
+    );
+    const pagePrograms = programPages
+      .filter((page) => page.slug !== "program" && !String(page.slug || "").startsWith("programs-"))
+      .filter(
+        (page) =>
+          !representedKeys.has(String(page.slug || "").toLowerCase()) &&
+          !representedKeys.has(String(page.title || "").toLowerCase())
+      )
+      .map((page) => {
+        const slug = String(page.slug || "");
+        const level = slug.includes("-phd-")
+          ? "PhD"
+          : slug.includes("-pg-")
+            ? "Postgraduate"
+            : "Undergraduate";
+        const categorySlug = level === "PhD"
+          ? "phd-programs"
+          : level === "Postgraduate"
+            ? "postgraduate-programs"
+            : "undergraduate-programs";
+        return {
+          id: `page:${page.id}`,
+          title: page.title,
+          slug,
+          pageSlug: slug,
+          categorySlug,
+          level,
+          college: page.owner || "Academic Affairs",
+          status: page.status || "Published",
+          heroImage: page.heroImage || "",
+          summary: page.summary || "",
+          source: "page"
+        };
+      });
+
+    return [...catalogPrograms, ...pagePrograms].sort((a, b) => a.title.localeCompare(b.title));
+  }, [programPages, programs]);
 
   const blogPages = useMemo(
     () =>
@@ -5653,33 +5777,42 @@ function App() {
     setActiveView("page-editor");
   };
 
-  const loadSiteChromeSnippet = async (kind, page) => {
+  const loadSiteChromeSnippet = async (kind, page, options = {}) => {
     const currentPage = createSiteChromePage(kind, page || {});
-    if (hasMeaningfulSiteChromeHtml(currentPage)) {
+    if (!options.preferWebsite && hasMeaningfulSiteChromeHtml(currentPage)) {
       return currentPage;
     }
 
     const sourcePath = currentPage.sourceUrl || getSiteChromeConfig(kind).sourceUrl;
-    const sourceUrl = getFetchableLiveAssetUrl(sourcePath);
-    if (!sourceUrl) {
+    const liveSourceUrl = getFetchableLiveAssetUrl(sourcePath);
+    const sourceCandidates = import.meta.env.DEV
+      ? Array.from(new Set([sourcePath, liveSourceUrl].filter(Boolean)))
+      : [liveSourceUrl].filter(Boolean);
+    if (!sourceCandidates.length) {
       return currentPage;
     }
 
-    try {
-      const response = await fetch(sourceUrl, { headers: { Accept: "text/html" } });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+    for (const sourceUrl of sourceCandidates) {
+      try {
+        const response = await fetch(sourceUrl, {
+          headers: { Accept: "text/html" },
+          cache: "no-store"
+        });
+        if (!response.ok) continue;
+        const html = await response.text();
+        if (!html.trim()) continue;
+        return createSiteChromePage(kind, {
+          ...currentPage,
+          bodyHtml: html,
+          rawHtml: "",
+          sourceUrl: sourcePath,
+          _siteChromeSource: sourceUrl === sourcePath ? "local-file" : "website"
+        });
+      } catch {
+        // Try the next local or live source candidate.
       }
-      const html = await response.text();
-      return createSiteChromePage(kind, {
-        ...currentPage,
-        bodyHtml: html,
-        rawHtml: "",
-        sourceUrl: sourcePath
-      });
-    } catch {
-      return currentPage;
     }
+    return currentPage;
   };
 
   const persistPageToApi = async (pageToSave, previousPageOverride = null) => {
@@ -5759,26 +5892,45 @@ function App() {
   const openSiteChromeView = async (kind = "header") => {
     const config = getSiteChromeConfig(kind);
     let existing = findSiteChromePage(pages, kind);
-    if (existing?.id && !hasMeaningfulSiteChromeHtml(existing)) {
-      try {
-        const detailResponse = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(existing.id)}`), {
-          headers: getAuthHeaders(adminToken)
-        });
-        if (detailResponse.ok) {
-          const detailPayload = await readOptionalJson(detailResponse);
-          const detailedPage = normalizePage({
-            ...(detailPayload?.page || detailPayload?.data?.page || {}),
-            sections: detailPayload?.sections || detailPayload?.data?.sections || []
+    if (existing?.id) {
+      const detailIdentifiers = getPageApiIdentifiers(existing);
+      for (const identifier of detailIdentifiers) {
+        try {
+          const detailResponse = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(identifier)}`), {
+            headers: getAuthHeaders(adminToken),
+            cache: "no-store"
           });
+          if (!detailResponse.ok) continue;
+          const detailPayload = await readOptionalJson(detailResponse);
+          const detailedPage = normalizeSiteChromeApiPage(detailPayload, existing);
           if (isMatchingSiteChromePage(detailedPage, kind)) {
-            existing = detailedPage;
+            existing = {
+              ...detailedPage,
+              _siteChromeSource: hasMeaningfulSiteChromeHtml(detailedPage) ? "api" : detailedPage._siteChromeSource
+            };
+            break;
           }
+        } catch {
+          // Try the next database identifier before using the source-file fallback.
         }
-      } catch {
-        // Fall back to source-file import below if the detailed page lookup fails.
       }
     }
-    let nextPage = await loadSiteChromeSnippet(kind, existing || {});
+    let nextPage =
+      kind === "footer" && hasMeaningfulSiteChromeHtml(existing)
+        ? createSiteChromePage("footer", {
+            ...existing,
+            _siteChromeSource: "api"
+          })
+        : await loadSiteChromeSnippet(kind, existing || {}, { preferWebsite: true });
+    if (kind === "header" && hasMeaningfulSiteChromeHtml(nextPage)) {
+      const syncedHtml = updateProgramsMegaMenuMarkup(getSiteChromeHtml(nextPage), programCategories, megaMenuPrograms);
+      nextPage = createSiteChromePage("header", {
+        ...nextPage,
+        bodyHtml: syncedHtml,
+        rawHtml: "",
+        _siteChromeSource: nextPage._siteChromeSource
+      });
+    }
     const shouldImportSourceMarkup = !existing || !hasMeaningfulSiteChromeHtml(existing);
     let importPersisted = false;
     let importErrorMessage = "";
@@ -5811,6 +5963,12 @@ function App() {
       setNotice(`${config.title} markup imported from ${config.sourceUrl} and saved to Admin API.`);
     } else if (!hasMeaningfulSiteChromeHtml(nextPage)) {
       setNotice(`${config.title} is missing both database markup and source-file markup.`);
+    } else if (nextPage._siteChromeSource === "local-file") {
+      setNotice(`${config.title} loaded from the editable local HTML partial.`);
+    } else if (nextPage._siteChromeSource === "website") {
+      setNotice(`${config.title} and its complete menu hierarchy were refreshed from maddauni.online.`);
+    } else if (nextPage._siteChromeSource === "api") {
+      setNotice(`${config.title} and its complete menu hierarchy were loaded from the Admin API.`);
     } else {
       setNotice(`Editing ${config.title.toLowerCase()} content.`);
     }
@@ -5860,7 +6018,81 @@ function App() {
       ]
     };
 
-    savePage(event, pageOverride);
+    return saveSiteChromeAndPublish(event, kind, pageOverride);
+  };
+
+  const publishSiteChromeFile = async (kind, html) => {
+    const config = getSiteChromeConfig(kind);
+    const fileName = kind === "footer" ? "universal-footer.html" : "inner-header.html";
+    const targets = [];
+
+    if (import.meta.env.DEV) {
+      targets.push({ url: "/__site_chrome_publish", scope: "local", method: "POST" });
+    }
+    if (SITE_CHROME_PUBLISH_URL) {
+      targets.push({ url: SITE_CHROME_PUBLISH_URL, scope: "live", method: "POST" });
+    } else {
+      targets.push(
+        { url: apiUrl(`/admin/site-chrome/${kind}/publish`), scope: "live", method: "PUT" },
+        { url: apiUrl("/admin/site-chrome/publish"), scope: "live", method: "POST" },
+        { url: apiUrl(`/admin/partials/${encodeURIComponent(fileName)}`), scope: "live", method: "PUT" }
+      );
+    }
+
+    const result = { local: false, live: false, error: "" };
+    for (const target of targets) {
+      try {
+        const response = await fetch(target.url, {
+          method: target.method,
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(adminToken)
+          },
+          body: JSON.stringify({
+            kind,
+            slug: config.slug,
+            path: config.sourceUrl,
+            file_name: fileName,
+            html,
+            content: html
+          })
+        });
+
+        if (response.ok) {
+          result[target.scope] = true;
+          if (target.scope === "live") break;
+          continue;
+        }
+        if (![404, 405].includes(response.status)) {
+          result.error = await readApiError(response, `${config.title} file publish failed.`);
+        }
+      } catch (error) {
+        result.error = error.message || `${config.title} file publish failed.`;
+      }
+    }
+    return result;
+  };
+
+  const saveSiteChromeAndPublish = async (event, kind, pageOverride) => {
+    const savedPage = await savePage(event, pageOverride);
+    if (!savedPage) return null;
+
+    const html = getSiteChromeHtml(savedPage) || getSiteChromeHtml(pageOverride);
+    const publishResult = await publishSiteChromeFile(kind, html);
+    if (publishResult.live) {
+      setNotice(`${getSiteChromeConfig(kind).title} saved and published to the live HTML partial.`);
+    } else if (publishResult.local) {
+      setNotice(
+        `${getSiteChromeConfig(kind).title} saved and the local HTML partial was updated. ` +
+        "The live server publish endpoint is unavailable; configure VITE_SITE_CHROME_PUBLISH_URL to deploy instantly."
+      );
+    } else {
+      setNotice(
+        publishResult.error ||
+        `${getSiteChromeConfig(kind).title} saved to the Admin API, but the live HTML partial was not updated because no writable publish endpoint is available.`
+      );
+    }
+    return savedPage;
   };
 
   const createNewPage = () => {
@@ -5871,6 +6103,64 @@ function App() {
     setEditorTab("content");
     setActiveView("page-editor");
     setNotice("Draft page created.");
+  };
+
+  const createProgramPage = (program = null) => {
+    const nextMenuOrder =
+      programPages.reduce((highestOrder, page) => Math.max(highestOrder, Number(page.menuOrder || 0)), 0) + 1;
+    const draftNumber = programPages.length + 1;
+    const programTitle = program?.title || "New Academic Program";
+    const normalizedLevel = String(program?.level || "Undergraduate").toLowerCase();
+    const levelPrefix = normalizedLevel.includes("phd")
+      ? "phd"
+      : normalizedLevel.includes("postgraduate") || normalizedLevel.includes("master")
+        ? "pg"
+        : "ug";
+    const draftSlug = program
+      ? `program-${levelPrefix}-${slugify(program.title)}`
+      : `program-ug-new-academic-program-${draftNumber}`;
+    const draft = createBlankLocalDraftPage({
+      title: programTitle,
+      slug: draftSlug,
+      type: "Academic Program",
+      menu: "Programs",
+      status: "Draft",
+      template: "Program Detail",
+      visibility: "Public",
+      parentSlug: "program",
+      menuOrder: nextMenuOrder,
+      showInHeader: 1,
+      showInFooter: 0,
+      heroHeadline: programTitle,
+      heroTag: program?.level || "Academic Program",
+      summary: program?.summary || "",
+      heroImage: program?.heroImage || "",
+      ctaLabel: "Apply Now",
+      ctaUrl: "/admission-apply",
+      owner: "Academic Affairs",
+      priority: "Medium"
+    });
+
+    if (program?.id) {
+      setPrograms((current) =>
+        current.map((entry) =>
+          entry.id === program.id
+            ? { ...entry, pageSlug: draft.slug, updatedAt: todayIso() }
+            : entry
+        )
+      );
+    }
+
+    setPages((current) => [draft, ...current]);
+    setActivePageId(draft.id);
+    setFormPage(draft);
+    setEditorTab("content");
+    setActiveView("page-editor");
+    setNotice(
+      program?.id
+        ? `${programTitle} page created and linked to its program record.`
+        : "Program page created and assigned to the Programs navigation group."
+    );
   };
 
   const savePage = async (event, pageOverride = null) => {
@@ -5896,6 +6186,7 @@ function App() {
       setActivePageId(savedPage.id);
       setFormPage(savedPage);
       setNotice(pageExistsInDatabase ? "Page updated in database." : "New page added to database.");
+      return savedPage;
     } catch (error) {
       if (String(error.message || "").includes("HTTP 401")) {
         clearAdminSession();
@@ -5903,6 +6194,7 @@ function App() {
       }
 
       setNotice(error.message || "Page save failed.");
+      return null;
     }
   };
 
@@ -6360,6 +6652,7 @@ function App() {
   };
 
   const updateProgramCategory = (categoryId, field, value) => {
+    const previousCategory = programCategories.find((category) => category.id === categoryId);
     setProgramCategories((current) =>
       current.map((category) => {
         if (category.id !== categoryId) {
@@ -6368,7 +6661,12 @@ function App() {
 
         const nextCategory = {
           ...category,
-          [field]: field === "featured" ? Boolean(value) : value,
+          [field]:
+            field === "featured"
+              ? Boolean(value)
+              : field === "programIds"
+                ? Array.from(new Set((Array.isArray(value) ? value : []).map(String).filter(Boolean)))
+                : value,
           updatedAt: todayIso()
         };
 
@@ -6387,6 +6685,60 @@ function App() {
         return nextCategory;
       })
     );
+
+    const nextCategorySlug =
+      field === "slug"
+        ? slugify(value)
+        : field === "name" && previousCategory?.slug === slugify(previousCategory.name)
+          ? slugify(value)
+          : "";
+    if (nextCategorySlug && previousCategory && nextCategorySlug !== previousCategory.slug) {
+      setPrograms((current) =>
+        current.map((program) =>
+          program.categorySlug === previousCategory.slug
+            ? { ...program, categorySlug: nextCategorySlug, updatedAt: todayIso() }
+            : program
+        )
+      );
+    }
+  };
+
+  const updateProgramMegaMenuCategory = (categoryId, programIds) => {
+    const normalizedIds = Array.from(
+      new Set((Array.isArray(programIds) ? programIds : []).map(String).filter(Boolean))
+    );
+    const nextCategories = programCategories.map((category) =>
+      category.id === categoryId
+        ? { ...category, programIds: normalizedIds, updatedAt: todayIso() }
+        : category
+    );
+    const updateHeaderPage = (page) => {
+      if (!isMatchingSiteChromePage(page, "header")) return page;
+      const currentHtml = getSiteChromeHtml(page);
+      if (!currentHtml) return page;
+      const nextHtml = updateProgramsMegaMenuMarkup(currentHtml, nextCategories, megaMenuPrograms);
+      return createSiteChromePage("header", {
+        ...page,
+        bodyHtml: nextHtml,
+        rawHtml: "",
+        sections: [
+          normalizeSection({
+            id: page.sections?.[0]?.id,
+            type: "Raw HTML",
+            title: "Website Header Markup",
+            html: nextHtml,
+            body: nextHtml,
+            layout: "Legacy HTML",
+            visible: true
+          })
+        ]
+      });
+    };
+
+    setProgramCategories(nextCategories);
+    setPages((current) => current.map(updateHeaderPage));
+    setFormPage((current) => updateHeaderPage(current));
+    setNotice("Programs mega-menu assignments updated. Save Header to publish the generated navigation.");
   };
 
   const deleteProgramCategory = async (categoryId) => {
@@ -6421,11 +6773,11 @@ function App() {
     setNotice("Category removed. Programs were moved to the default category.");
   };
 
-  const addProgram = () => {
+  const addProgram = (categorySlug = "") => {
     const program = normalizeProgram({
       title: "New Academic Program",
       slug: `new-academic-program-${programs.length + 1}`,
-      categorySlug: programCategories[0]?.slug || "undergraduate-programs",
+      categorySlug: categorySlug || programCategories[0]?.slug || "undergraduate-programs",
       status: "Draft"
     });
 
@@ -6481,6 +6833,13 @@ function App() {
     }
 
     setPrograms((current) => current.filter((program) => program.id !== programId));
+    setProgramCategories((current) =>
+      current.map((category) =>
+        Array.isArray(category.programIds) && category.programIds.includes(String(programId))
+          ? { ...category, programIds: category.programIds.filter((id) => id !== String(programId)), updatedAt: todayIso() }
+          : category
+      )
+    );
     setNotice("Program removed.");
   };
 
@@ -6777,22 +7136,27 @@ function App() {
         )}
 
         {activeView === "programs" && (
-          <ProgramsView
+          <ProgramsManagementView
             categories={programCategories}
             programs={programs}
+            megaMenuPrograms={megaMenuPrograms}
             programPages={programPages}
             mainPage={mainProgramsPage}
-            updateMainPage={updateMainProgramsPage}
-            setActivePageId={setActivePageId}
-            setActiveView={setActiveView}
-            setEditorTab={setEditorTab}
+            openPageEditorTab={openPageEditorTab}
+            createProgramPage={createProgramPage}
             deletePageById={deletePageById}
             addCategory={addProgramCategory}
             updateCategory={updateProgramCategory}
+            updateMegaMenuCategory={updateProgramMegaMenuCategory}
             deleteCategory={deleteProgramCategory}
             addProgram={addProgram}
             updateProgram={updateProgram}
             deleteProgram={deleteProgram}
+            pageStatusFilters={pageStatusFilters}
+            statusOptions={statusOptions}
+            mediaItems={mediaLibrary}
+            logoSrc={assets.logoOfficial}
+            getThumbnail={getAutoThumbnailForPage}
           />
         )}
 
@@ -6883,6 +7247,29 @@ function App() {
             savePage={saveSiteChromePage}
             parseHeaderVisualModel={parseHeaderVisualModel}
             updateHeaderHtmlFromVisualModel={updateHeaderHtmlFromVisualModel}
+            programCategories={programCategories}
+            programs={megaMenuPrograms}
+            updateProgramCategory={updateProgramMegaMenuCategory}
+            availableMenuPages={contentManagedPages
+              .filter((entry) => entry.status !== "Archived" && !isProgramPage(entry))
+              .sort((a, b) => a.title.localeCompare(b.title))
+              .map((entry) => ({
+                id: String(entry.id),
+                title: entry.title,
+                href: entry.sourceUrl || getLiveRoutePath(entry),
+                type: entry.type,
+                menu: entry.menu
+              }))}
+            linkablePages={contentManagedPages
+              .filter((entry) => entry.status !== "Archived" && !isProgramPage(entry))
+              .sort((a, b) => a.title.localeCompare(b.title))
+              .map((entry) => ({
+                id: String(entry.id),
+                title: entry.title,
+                href: entry.sourceUrl || getLiveRoutePath(entry),
+                type: entry.type
+              }))}
+            previewSourceUrl={getFetchableLiveAssetUrl(getSiteChromeConfig(siteChromeTab).sourceUrl)}
             buildSiteChromePreviewDocument={buildSiteChromePreviewDocument}
           />
         )}

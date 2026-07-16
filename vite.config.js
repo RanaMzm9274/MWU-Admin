@@ -1,5 +1,8 @@
 ﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
 const LIVE_API_ORIGIN = "https://api.maddauni.online";
@@ -10,8 +13,47 @@ const liveProxy = {
   secure: true
 };
 
+const siteChromePublishPlugin = () => ({
+  name: "mwu-site-chrome-publish",
+  configureServer(server) {
+    server.middlewares.use("/__site_chrome_publish", (request, response) => {
+      if (request.method !== "POST") {
+        response.statusCode = 405;
+        response.end("Method not allowed");
+        return;
+      }
+
+      let body = "";
+      request.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 2_000_000) request.destroy();
+      });
+      request.on("end", async () => {
+        try {
+          const payload = JSON.parse(body || "{}");
+          const fileName = payload.kind === "footer" ? "universal-footer.html" : "inner-header.html";
+          const rootDir = path.dirname(fileURLToPath(import.meta.url));
+          const partialsDir = path.resolve(rootDir, "public", "assets", "partials");
+          const targetPath = path.resolve(partialsDir, fileName);
+          if (!targetPath.startsWith(`${partialsDir}${path.sep}`)) {
+            throw new Error("Invalid site-chrome target path.");
+          }
+          await mkdir(partialsDir, { recursive: true });
+          await writeFile(targetPath, String(payload.html || payload.content || ""), "utf8");
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify({ ok: true, scope: "local", path: `/assets/partials/${fileName}` }));
+        } catch (error) {
+          response.statusCode = 400;
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify({ ok: false, error: error.message || "Header file write failed." }));
+        }
+      });
+    });
+  }
+});
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), siteChromePublishPlugin()],
   server: {
     host: "0.0.0.0",
     port: 5173,

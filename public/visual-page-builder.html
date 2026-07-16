@@ -295,6 +295,27 @@
     max-width:100%;
     height:auto;
   }
+  .responsive-edit-notice{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin:0 0 14px;
+    padding:10px 11px;
+    border:1px solid #e7c979;
+    border-radius:9px;
+    background:#fff9e9;
+    color:#6d5313;
+  }
+  .responsive-edit-notice strong{
+    font-size:11px;
+    white-space:nowrap;
+  }
+  .responsive-edit-notice span{
+    font-size:10px;
+    line-height:1.45;
+    text-align:right;
+  }
 
   .drop-zone{ height:0; margin:0; border-radius:6px; transition:.13s ease; position:relative; overflow:hidden; }
   .drop-zone.active-zone{ height:44px; background: var(--gold-050); border:1.5px dashed var(--gold-500); display:flex; align-items:center; justify-content:center; overflow:visible; }
@@ -654,6 +675,8 @@ function defaultsFor(type){
 let elements = [];
 let selectedId = null;
 let currentDevice = 'desktop';
+const RESPONSIVE_DEVICES = ['desktop','tablet','mobile'];
+const GLOBAL_ADVANCED_KEYS = new Set(['cssId','cssClasses','customCss','hideDesktop','hideTablet','hideMobile']);
 let history = [];
 let historyIndex = -1;
 let dragPayload = null; // { kind:'new', widgetType } or { kind:'move', id }
@@ -665,6 +688,74 @@ let importedSelectionNode = null;
 let importedSelectionId = '';
 let importedEditorIdCounter = 1;
 let hostImportStyleRequestId = 0;
+
+function responsiveSectionDefaults(section){
+  if(section === 'box') return defaultBox();
+  if(section === 'advanced') return defaultAdvanced();
+  return {};
+}
+function ensureElementResponsiveState(el){
+  if(!el || typeof el !== 'object') return el;
+  el.responsive = el.responsive && typeof el.responsive === 'object' ? el.responsive : {};
+  ['tablet','mobile'].forEach((device)=>{
+    const state = el.responsive[device];
+    el.responsive[device] = state && typeof state === 'object' ? state : {};
+    ['style','box','advanced'].forEach((section)=>{
+      const values = el.responsive[device][section];
+      el.responsive[device][section] = values && typeof values === 'object' ? values : {};
+    });
+  });
+  return el;
+}
+function resolveResponsiveSection(el, section, device=currentDevice){
+  ensureElementResponsiveState(el);
+  const base = { ...responsiveSectionDefaults(section), ...(el?.[section] || {}) };
+  if(device === 'desktop') return base;
+  const tablet = { ...base, ...(el.responsive?.tablet?.[section] || {}) };
+  if(device === 'tablet') return tablet;
+  return { ...tablet, ...(el.responsive?.mobile?.[section] || {}) };
+}
+function responsiveEditTarget(el, section, device=currentDevice){
+  ensureElementResponsiveState(el);
+  if(device === 'desktop'){
+    el[section] = { ...responsiveSectionDefaults(section), ...(el[section] || {}) };
+    return el[section];
+  }
+  return el.responsive[device][section];
+}
+function responsiveSectionProxy(el, section, device=currentDevice){
+  const target = responsiveEditTarget(el, section, device);
+  return new Proxy(target, {
+    get(object, property){
+      if(section === 'advanced' && GLOBAL_ADVANCED_KEYS.has(property)){
+        return el.advanced?.[property];
+      }
+      if(Object.prototype.hasOwnProperty.call(object, property)) return object[property];
+      return resolveResponsiveSection(el, section, device)[property];
+    },
+    set(object, property, value){
+      if(section === 'advanced' && GLOBAL_ADVANCED_KEYS.has(property)){
+        el.advanced = { ...defaultAdvanced(), ...(el.advanced || {}), [property]: value };
+      }else{
+        object[property] = value;
+      }
+      return true;
+    }
+  });
+}
+function resolveElementForDevice(el, device=currentDevice){
+  return {
+    ...el,
+    style: resolveResponsiveSection(el, 'style', device),
+    box: resolveResponsiveSection(el, 'box', device),
+    advanced: resolveResponsiveSection(el, 'advanced', device)
+  };
+}
+function responsiveEditorNotice(){
+  const label = currentDevice[0].toUpperCase() + currentDevice.slice(1);
+  const inherits = currentDevice === 'desktop' ? 'Base values for every device' : currentDevice === 'tablet' ? 'Inherits Desktop until overridden' : 'Inherits Tablet and Desktop until overridden';
+  return `<div class="responsive-edit-notice"><strong>${label} styles</strong><span>${inherits}</span></div>`;
+}
 
 function uid(){ return 'el_' + Math.random().toString(36).slice(2,10); }
 function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1049,6 +1140,10 @@ function resolveImportedPointerTarget(event){
   if(!event || typeof document.elementsFromPoint !== 'function') return getImportedSelectableNode(event?.target);
   const root = getImportedHtmlRoot();
   if(!root) return getImportedSelectableNode(event.target);
+  const eventTarget = getImportedSelectableNode(event.target);
+  if(eventTarget && !isImportedOverlayLikeNode(eventTarget)){
+    return eventTarget;
+  }
   const stack = document.elementsFromPoint(event.clientX, event.clientY).filter((node)=> root.contains(node));
   const directImage = stack.find((node)=> String(node?.tagName || '').toLowerCase()==='img' && !isImportedDecorativeImageNode(node));
   if(directImage) return directImage;
@@ -1071,7 +1166,7 @@ function resolveImportedPointerTarget(event){
       overlay.style.pointerEvents = oldPointerEvents;
     }
   }
-  return getImportedSelectableNode(event.target);
+  return eventTarget;
 }
 function normalizeImportedIconElement(node){
   if(!node || node.nodeType!==1) return node;
@@ -1289,14 +1384,30 @@ function serializeScopedCssRule(rule){
   return rule.cssText || '';
 }
 function scopeImportedCssText(cssText=''){
-  const raw = String(cssText || '').trim();
+  const raw = String(cssText || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/@charset\s+["'][^"']+["']\s*;?/gi, '')
+    .trim();
   if(!raw) return '';
   try{
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(raw);
     return Array.from(sheet.cssRules || []).map((rule)=> serializeScopedCssRule(rule)).join('\n');
   }catch{
-    return raw;
+    try{
+      const parserStyle = document.createElement('style');
+      parserStyle.setAttribute('data-import-parser','true');
+      parserStyle.media = 'not all';
+      parserStyle.textContent = raw;
+      document.head.appendChild(parserStyle);
+      const scoped = Array.from(parserStyle.sheet?.cssRules || [])
+        .map((rule)=> serializeScopedCssRule(rule))
+        .join('\n');
+      parserStyle.remove();
+      return scoped || raw;
+    }catch{
+      return raw;
+    }
   }
 }
 function rewriteImportedCssAssetUrls(cssText='', stylesheetUrl=''){
@@ -1549,7 +1660,7 @@ function syncImportedHtmlToModel(reason='imported-edit', push=false){
       reportImportedEditorError('sync-missing-root-or-model', { reason, hasRoot: !!root, hasModel: !!model });
       return;
     }
-    model.content.code = root.innerHTML;
+    model.content.code = importedResponsiveModelHtml(root);
     markDirty();
     if(push) pushHistory();
     notifyHost('MWU_LIVE_HTML_UPDATED', {
@@ -1564,6 +1675,77 @@ function syncImportedHtmlToModel(reason='imported-edit', push=false){
 function cssPropertyName(field){
   return String(field || '').replace(/[A-Z]/g, (match)=>`-${match.toLowerCase()}`);
 }
+function importedResponsiveAttribute(device){
+  return device === 'tablet' ? 'data-mwu-tablet-style' : 'data-mwu-mobile-style';
+}
+function readImportedResponsiveMap(node, device){
+  if(!node || device === 'desktop') return {};
+  try{
+    return JSON.parse(node.getAttribute(importedResponsiveAttribute(device)) || '{}') || {};
+  }catch{
+    return {};
+  }
+}
+function writeImportedResponsiveMap(node, device, values={}){
+  if(!node || device === 'desktop') return;
+  const attribute = importedResponsiveAttribute(device);
+  if(Object.keys(values).length) node.setAttribute(attribute, JSON.stringify(values));
+  else node.removeAttribute(attribute);
+}
+function ensureImportedDesktopStyle(node){
+  if(!node || !node.style) return;
+  if(!node.hasAttribute('data-mwu-desktop-style')){
+    node.setAttribute('data-mwu-desktop-style', node.style.cssText || '');
+  }
+}
+function applyImportedResponsiveDeviceStyles(root=getImportedHtmlRoot(), device=currentDevice){
+  if(!root) return;
+  root.querySelectorAll('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]').forEach((node)=>{
+    ensureImportedDesktopStyle(node);
+    node.style.cssText = node.getAttribute('data-mwu-desktop-style') || '';
+    if(device === 'tablet' || device === 'mobile'){
+      Object.entries(readImportedResponsiveMap(node, 'tablet')).forEach(([property,value])=>{
+        node.style.setProperty(property, value, 'important');
+      });
+    }
+    if(device === 'mobile'){
+      Object.entries(readImportedResponsiveMap(node, 'mobile')).forEach(([property,value])=>{
+        node.style.setProperty(property, value, 'important');
+      });
+    }
+  });
+}
+function importedResponsivePublishData(root){
+  if(!root) return { html:'', css:'' };
+  const clone = root.cloneNode(true);
+  const baseRules = [];
+  const tabletRules = [];
+  const mobileRules = [];
+  clone.querySelectorAll('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]').forEach((node)=>{
+    const id = ensureImportedNodeId(node);
+    const selector = `[data-import-id="${String(id).replace(/"/g,'\\"')}"]`;
+    const desktopStyle = node.getAttribute('data-mwu-desktop-style') || '';
+    const tablet = readImportedResponsiveMap(node, 'tablet');
+    const mobile = readImportedResponsiveMap(node, 'mobile');
+    const desktopDeclarations = importantDeclarations(desktopStyle);
+    if(desktopDeclarations) baseRules.push(`${selector}{${desktopDeclarations}}`);
+    if(Object.keys(tablet).length) tabletRules.push(`${selector}{${Object.entries(tablet).map(([property,value])=>`${property}:${value}!important;`).join('')}}`);
+    if(Object.keys(mobile).length) mobileRules.push(`${selector}{${Object.entries(mobile).map(([property,value])=>`${property}:${value}!important;`).join('')}}`);
+    node.removeAttribute('style');
+    node.removeAttribute('data-mwu-desktop-style');
+  });
+  const css = `${baseRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
+  return { html: clone.innerHTML, css };
+}
+function importedResponsiveModelHtml(root){
+  if(!root) return '';
+  const clone = root.cloneNode(true);
+  clone.querySelectorAll('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]').forEach((node)=>{
+    ensureImportedDesktopStyle(node);
+    node.style.cssText = node.getAttribute('data-mwu-desktop-style') || '';
+  });
+  return clone.innerHTML;
+}
 function setImportedInlineStyle(target, field, value){
   try{
     if(!target || !target.style){
@@ -1574,30 +1756,73 @@ function setImportedInlineStyle(target, field, value){
     const propertyName = cssPropertyName(field);
     const nextValue = normalizeImportedStyleValue(field, value);
     console.info('[MWU imported editor] applying style', { field, value, nextValue, propertyName, target: describeImportedDebugTarget(target), styleTarget: describeImportedDebugTarget(styleTarget) });
-    if(nextValue === ''){
-      styleTarget.style.removeProperty(propertyName);
-      return;
+    ensureImportedNodeId(styleTarget);
+    ensureImportedDesktopStyle(styleTarget);
+    if(currentDevice === 'desktop'){
+      if(nextValue === '') styleTarget.style.removeProperty(propertyName);
+      else styleTarget.style.setProperty(propertyName, nextValue, 'important');
+      styleTarget.setAttribute('data-mwu-desktop-style', styleTarget.style.cssText || '');
+    }else{
+      const responsiveValues = readImportedResponsiveMap(styleTarget, currentDevice);
+      if(nextValue === '') delete responsiveValues[propertyName];
+      else responsiveValues[propertyName] = nextValue;
+      writeImportedResponsiveMap(styleTarget, currentDevice, responsiveValues);
+      applyImportedResponsiveDeviceStyles(getImportedHtmlRoot(), currentDevice);
     }
-    styleTarget.style.setProperty(propertyName, nextValue, 'important');
+    if(isImportedImageNode(target) && /^(objectFit|objectPosition|width|height|maxWidth)$/i.test(String(field || ''))){
+      ensureImportedImageObjectFitState(target);
+    }
     if(isImportedIconNode(target) || isImportedIconNode(styleTarget)){
       if(/^(backgroundColor|borderColor|borderStyle|borderTopWidth|borderRightWidth|borderBottomWidth|borderLeftWidth|borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomRightRadius|borderBottomLeftRadius|width|height|minHeight|paddingTop|paddingRight|paddingBottom|paddingLeft)$/i.test(field)){
         ensureImportedIconShell(styleTarget);
       }
       if(field === 'color'){
-        styleTarget.style.setProperty('color', nextValue, 'important');
-        styleTarget.style.setProperty('fill', nextValue, 'important');
-        styleTarget.style.setProperty('stroke', nextValue, 'important');
+        ['color','fill','stroke'].forEach((property)=>{
+          if(currentDevice === 'desktop'){
+            styleTarget.style.setProperty(property, nextValue, 'important');
+            styleTarget.setAttribute('data-mwu-desktop-style', styleTarget.style.cssText || '');
+          }else{
+            const responsiveValues = readImportedResponsiveMap(styleTarget, currentDevice);
+            responsiveValues[property] = nextValue;
+            writeImportedResponsiveMap(styleTarget, currentDevice, responsiveValues);
+          }
+        });
+        applyImportedResponsiveDeviceStyles(getImportedHtmlRoot(), currentDevice);
       }
       if(field === 'fontSize'){
-        styleTarget.style.setProperty('font-size', nextValue, 'important');
         if(String(styleTarget.tagName || '').toLowerCase()==='svg'){
-          styleTarget.style.setProperty('width', nextValue, 'important');
-          styleTarget.style.setProperty('height', nextValue, 'important');
+          ['width','height'].forEach((property)=>{
+            if(currentDevice === 'desktop'){
+              styleTarget.style.setProperty(property, nextValue, 'important');
+              styleTarget.setAttribute('data-mwu-desktop-style', styleTarget.style.cssText || '');
+            }else{
+              const responsiveValues = readImportedResponsiveMap(styleTarget, currentDevice);
+              responsiveValues[property] = nextValue;
+              writeImportedResponsiveMap(styleTarget, currentDevice, responsiveValues);
+            }
+          });
+          applyImportedResponsiveDeviceStyles(getImportedHtmlRoot(), currentDevice);
         }
       }
     }
   }catch(error){
     reportImportedEditorError('style-apply-failed', { field, value, target: describeImportedDebugTarget(target), error });
+  }
+}
+function ensureImportedImageObjectFitState(target){
+  if(!isImportedImageNode(target)) return;
+  const frame = getImportedImageFrame(target);
+  target.style.setProperty('display', 'block', 'important');
+  target.style.setProperty('max-width', '100%', 'important');
+  if(frame){
+    frame.style.setProperty('overflow', 'hidden', 'important');
+    if(!String(target.style.width || '').trim()){
+      target.style.setProperty('width', '100%', 'important');
+    }
+    target.style.setProperty('height', '100%', 'important');
+    if(!String(target.style.objectPosition || '').trim()){
+      target.style.setProperty('object-position', '50% 50%', 'important');
+    }
   }
 }
 function setImportedMediaSource(target, src){
@@ -1637,6 +1862,7 @@ function setImportedMediaSource(target, src){
       target.removeAttribute('data-bg-src');
       target.style.setProperty('visibility', 'visible', 'important');
       target.style.setProperty('opacity', target.style.opacity || '1', 'important');
+      ensureImportedImageObjectFitState(target);
       console.info('[MWU imported editor] image source after replace', describeImportedDebugTarget(target));
       return true;
     }
@@ -2235,7 +2461,7 @@ function renderImportedSettings(node){
     ${mediaIsImage ? fieldInput('Alt text', 'importedImageAlt', mediaDetails?.alt || details.alt || '') : ''}
     ${hasMediaTarget ? `<div class="field-group"><div class="field-group-label">Replace image</div><div class="builder-file-stack"><button class="field-button" type="button" id="importedImageLibraryBtn">Media Library</button>${imageUploadHtml('importedImageUpload')}</div></div>` : ''}
   `;
-  styleBox.innerHTML = `
+  styleBox.innerHTML = `${responsiveEditorNotice()}
     ${supportsTypography ? `<div class="panel-section-label" style="padding:0 0 10px;">Typography</div>` : ''}
     ${supportsTypography ? selectField('Font family', 'importedFontFamily', importedFontChoices, selectedFontValue) : ''}
     ${supportsTypography ? `<div id="importedFontFamilyCustomWrap" style="${showCustomFontField ? '' : 'display:none;'}">${fieldInput('Custom font family', 'importedFontFamilyCustom', details.styles.fontFamily || '')}</div>` : ''}
@@ -2271,7 +2497,7 @@ function renderImportedSettings(node){
     ${hasMediaTarget ? `<div class="field-grid">${selectField('Border style', 'importedImageBorderStyle', [['none','None'],['solid','Solid'],['dashed','Dashed'],['dotted','Dotted'],['double','Double']], mediaDetails?.borderStyle || 'solid')}${colorField('Border color', 'importedImageBorderColor', mediaDetails?.borderColor || '#d7e3f2')}</div>` : ''}
     ${hasMediaTarget ? rangeField('Border width', 'importedImageBorderWidth', 0, 20, mediaBorderWidth, 'px') : ''}
   `;
-  advancedBox.innerHTML = `
+  advancedBox.innerHTML = `${responsiveEditorNotice()}
     ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
     ${selectField('Position', 'importedPosition', [['','Default'],['static','Static'],['relative','Relative'],['absolute','Absolute'],['fixed','Fixed'],['sticky','Sticky']], details.styles.position || '')}
     ${fieldInput('Z index', 'importedZIndex', details.styles.zIndex || '')}
@@ -2549,7 +2775,12 @@ function initializeImportedPage(){
   const root = getImportedHtmlRoot();
   if(!root || root.getAttribute('data-import-initialized')==='true') return;
   root.setAttribute('data-import-initialized','true');
-  hydrateImportedAssets(root);
+  try{
+    hydrateImportedAssets(root);
+    applyImportedResponsiveDeviceStyles(root, currentDevice);
+  }catch(error){
+    reportImportedEditorError('asset-hydration-failed', { error });
+  }
   root.addEventListener('click', (event)=>{
     const rawTarget = resolveImportedPointerTarget(event);
     const iconTarget = getImportedIconTarget(event.target);
@@ -2756,10 +2987,12 @@ function composeWrapStyle(el){
     style += `box-shadow:${parts.join(',')};`;
   }
   const flexGrow = Number(b.flexGrow || 0);
-  if((b.width||0) > 0) style += `width:${b.width}${(b.widthUnit||'px') === 'wh' ? '%' : (b.widthUnit||'px')};`;
+  const hasExplicitWidth = Number(b.width || 0) > 0;
+  if(hasExplicitWidth) style += `width:${b.width}${(b.widthUnit||'px') === 'wh' ? '%' : (b.widthUnit||'px')};`;
   if((b.height||0) > 0) style += `height:${b.height}${b.heightUnit||'px'};`;
   if((b.minHeight||0) > 0) style += `min-height:${b.minHeight}${b.minHeightUnit||'px'};`;
   if(flexGrow > 0) style += `display:block; flex:${flexGrow} 1 0; width:auto; min-width:0; max-width:100%;`;
+  else if(hasExplicitWidth) style += `${b.displayMode==='inline'?'display:inline-block;':'display:block;'} max-width:100%;`;
   else if(b.displayMode==='inline') style += `display:inline-block; max-width:100%;`;
   else if(b.displayMode==='fullwidth') style += `display:block; width:100%;`;
   else style += `display:block; width:fit-content; max-width:100%;`;
@@ -2890,6 +3123,16 @@ function animationClass(el){
 ============================================================ */
 const canvasPage = document.getElementById('canvasPage');
 
+function mountImportedExactHtml(scope=canvasPage){
+  if(!isImportedExactPageMode() || !scope) return;
+  const mount = scope.matches?.('[data-import-html-mount="true"]')
+    ? scope
+    : scope.querySelector?.('[data-import-html-mount="true"]');
+  const model = getImportedHtmlElementModel();
+  if(!mount || !model) return;
+  mount.innerHTML = String(model.content?.code || '');
+}
+
 function renderCanvas(){
   if(elements.length === 0){
     canvasPage.innerHTML = `<div class="canvas-empty">
@@ -2920,6 +3163,7 @@ function renderCanvas(){
     `;
   });
   canvasPage.innerHTML = html;
+  mountImportedExactHtml(canvasPage);
   wireCanvasEvents();
   wireDropZones();
   rebuildCustomStyles();
@@ -3121,6 +3365,7 @@ function reRenderElement(el){
   if(wrap){
     const inner = wrap.querySelector('.el-inner');
     inner.innerHTML = elementInnerHTML(el);
+    mountImportedExactHtml(inner);
     inner.setAttribute('style', composeWrapStyle(el));
     const cssClasses = (el.advanced && el.advanced.cssClasses) ? ' ' + el.advanced.cssClasses.trim() : '';
     inner.className = `el-inner ${el.id} ${animationClass(el)}${cssClasses}`;
@@ -3249,8 +3494,8 @@ function box_listenBlur(boxId){
 /* ---- STYLE TAB ---- */
 function renderStyleFields(el){
   const box = document.getElementById('styleFields');
-  const s = el.style;
-  let html = '';
+  const s = resolveResponsiveSection(el, 'style');
+  let html = responsiveEditorNotice();
   switch(el.type){
     case 'heading':
       html += rangeField('Font size', 'fontSize', 16, 64, s.fontSize, 'px');
@@ -3329,7 +3574,7 @@ function renderStyleFields(el){
 }
 
 function renderBoxStyleFields(el){
-  const b = { ...defaultBox(), ...(el.box || {}) };
+  const b = resolveResponsiveSection(el, 'box');
   const bgMode = resolveBoxBackgroundMode(b);
   const bgAlignment = resolveBoxBackgroundAlignment(b);
   const backgroundFields = [
@@ -3385,8 +3630,7 @@ function selectFieldGeneric(label, id, options, value){
     <select class="field-select" id="f_${id}">${options.map(([v,l])=>`<option value="${v}" ${v===value?'selected':''}>${l}</option>`).join('')}</select></div>`;
 }
 function bindBoxStyleEvents(el){
-  el.box = { ...defaultBox(), ...(el.box || {}) };
-  const b = el.box;
+  const b = responsiveSectionProxy(el, 'box');
   const displayMode = document.getElementById('f_boxDisplayMode');
   if(displayMode){
     displayMode.addEventListener('change', ()=>{ b.displayMode = displayMode.value; reRenderElement(el); pushHistory(); });
@@ -3681,7 +3925,7 @@ function syncMetricControlPair(id, value){
 }
 
 function bindStyleEvents(el){
-  const s = el.style;
+  const s = responsiveSectionProxy(el, 'style');
   // ranges
   ['fontSize','lineHeight','radius','thickness','gap','height','letterSpacing','iconSize','borderWidth','iconRadius','iconBorderWidth','titleSize','textSize'].forEach(key=>{
     const node = document.getElementById('f_'+key);
@@ -3799,8 +4043,8 @@ function bindStyleEvents(el){
 function renderAdvancedFields(el){
   const box = document.getElementById('advancedFields');
   el.advanced = el.advanced || defaultAdvanced();
-  const a = el.advanced;
-  box.innerHTML = `
+  const a = responsiveSectionProxy(el, 'advanced');
+  box.innerHTML = `${responsiveEditorNotice()}
     <div class="panel-section-label" style="padding:0 0 10px;">Spacing</div>
     ${linkedQuadField('Margin', 'a_margin', { top:a.marginTop||0, right:a.marginRight||0, bottom:a.marginBottom||0, left:a.marginLeft||0 }, a.marginLinked !== false, -200, 200)}
     ${linkedQuadField('Padding', 'a_padding', { top:a.paddingTop||0, right:a.paddingRight||0, bottom:a.paddingBottom||0, left:a.paddingLeft||0 }, a.paddingLinked !== false, 0, 200)}
@@ -3917,7 +4161,26 @@ document.querySelectorAll('[data-device]').forEach(btn=>{
     canvasPage.classList.remove('tablet','mobile');
     if(currentDevice==='tablet') canvasPage.classList.add('tablet');
     if(currentDevice==='mobile') canvasPage.classList.add('mobile');
-    renderCanvas();
+    const selectedImportedId = importedSelectionId;
+    if(selectedImportedId){
+      const importedRoot = getImportedHtmlRoot();
+      const importedModel = getImportedHtmlElementModel();
+      if(importedRoot && importedModel) importedModel.content.code = importedResponsiveModelHtml(importedRoot);
+    }
+    renderAll();
+    applyImportedResponsiveDeviceStyles(getImportedHtmlRoot(), currentDevice);
+    updateCanvasStatus();
+    if(selectedImportedId){
+      const importedNode = getImportedHtmlRoot()?.querySelector(`[data-import-id="${selectedImportedId}"]`);
+      if(importedNode) selectImportedNode(importedNode);
+    }else if(selectedId){
+      const selected = findElementDeep(selectedId)?.element;
+      if(selected){
+        renderStyleFields(selected);
+        renderAdvancedFields(selected);
+      }
+    }
+    showToast(`${currentDevice[0].toUpperCase()+currentDevice.slice(1)} responsive editing`);
   });
 });
 
@@ -3935,6 +4198,7 @@ document.getElementById('previewBtn').addEventListener('click', ()=>{
 function renderAll(){
   renderCanvas();
   initializeImportedPage();
+  updateCanvasStatus();
   if(document.getElementById('viewLayers').classList.contains('active')) renderLayers();
 }
 elements.forEach(el=>{ el.advanced = el.advanced || {}; });
@@ -4149,7 +4413,10 @@ elementInnerHTML = function(el){
       const items = normalizeSocialItemsData(c, s), justify=s.align==='center'?'center':s.align==='right'?'flex-end':'flex-start';
       return `<div class="social-widget" style="justify-content:${justify};">${items.map((item)=>`<a class="builder-link" href="${safeUrl(item.url)}" title="${escapeHtml(item.label)}" style="width:${Number(item.size||s.size||38)}px;height:${Number(item.size||s.size||38)}px;background:${item.bg||s.bg};color:${item.color||s.color};">${socialIconMarkup(item.icon || item.label, Math.round((Number(item.size||s.size||38))*0.44), item.color||s.color||'#fff')}</a>`).join('')}</div>`;
     }
-    case 'html': return `<div class="custom-html-widget">${c.code||''}</div>`;
+    case 'html':
+      return isImportedExactPageMode()
+        ? '<div class="custom-html-widget" data-import-html-mount="true"></div>'
+        : `<div class="custom-html-widget">${c.code||''}</div>`;
     default:return _elementInnerHTML(el);
   }
 };
@@ -4363,9 +4630,10 @@ const _renderAdvancedFields=renderAdvancedFields;
 renderAdvancedFields=function(el){
   _renderAdvancedFields(el);
   const box=document.getElementById('advancedFields');
-  const extra=document.createElement('div');extra.innerHTML=`<div class="panel-section-label" style="padding:16px 0 10px;">Positioning</div><div class="field-group"><div class="field-group-label">Position mode</div><select class="field-select" id="a_position"><option value="default" ${(el.advanced.position||'default')==='default'?'selected':''}>Default flow</option><option value="absolute" ${el.advanced.position==='absolute'?'selected':''}>Absolute (advanced)</option></select></div><div id="absoluteFields" style="display:${el.advanced.position==='absolute'?'block':'none'}"><div class="spacing-grid"><div class="spacing-field"><label>Left</label><input class="field-input" type="number" id="a_left" value="${el.advanced.left||0}"></div><div class="spacing-field"><label>Top</label><input class="field-input" type="number" id="a_top" value="${el.advanced.top||0}"></div><div class="spacing-field"><label>Width</label><input class="field-input" type="number" id="a_width" value="${el.advanced.width||300}"></div></div></div>`;box.appendChild(extra);
-  document.getElementById('a_position').addEventListener('change',e=>{el.advanced.position=e.target.value;document.getElementById('absoluteFields').style.display=e.target.value==='absolute'?'block':'none';renderCanvas();pushHistory()});
-  ['left','top','width'].forEach(k=>document.getElementById('a_'+k).addEventListener('input',e=>{el.advanced[k]=Number(e.target.value);renderCanvas()}));
+  const a=responsiveSectionProxy(el,'advanced');
+  const extra=document.createElement('div');extra.innerHTML=`<div class="panel-section-label" style="padding:16px 0 10px;">Positioning</div><div class="field-group"><div class="field-group-label">Position mode</div><select class="field-select" id="a_position"><option value="default" ${(a.position||'default')==='default'?'selected':''}>Default flow</option><option value="absolute" ${a.position==='absolute'?'selected':''}>Absolute (advanced)</option></select></div><div id="absoluteFields" style="display:${a.position==='absolute'?'block':'none'}"><div class="spacing-grid"><div class="spacing-field"><label>Left</label><input class="field-input" type="number" id="a_left" value="${a.left||0}"></div><div class="spacing-field"><label>Top</label><input class="field-input" type="number" id="a_top" value="${a.top||0}"></div><div class="spacing-field"><label>Width</label><input class="field-input" type="number" id="a_width" value="${a.width||300}"></div></div></div>`;box.appendChild(extra);
+  document.getElementById('a_position').addEventListener('change',e=>{a.position=e.target.value;document.getElementById('absoluteFields').style.display=e.target.value==='absolute'?'block':'none';renderCanvas();pushHistory()});
+  ['left','top','width'].forEach(k=>document.getElementById('a_'+k).addEventListener('input',e=>{a[k]=Number(e.target.value);renderCanvas()}));
 };
 
 function ensureTreeDefaults(list){
@@ -4373,6 +4641,7 @@ function ensureTreeDefaults(list){
   (list||[]).forEach(el=>{
     el.box = el.box || defaultBox();
     el.advanced = el.advanced || defaultAdvanced();
+    ensureElementResponsiveState(el);
     if(el.type==='container'){
       el.content = el.content || { name:'Container' };
       el.style = { flow:'column', gap:0, justify:'flex-start', alignItems:'stretch', ...(el.style||{}) };
@@ -4434,19 +4703,20 @@ function subtreeContainsId(el, id){
 function renderTreeElements(list, parentId=''){
   let html = dropZoneHTML(0, parentId);
   list.forEach((el, idx)=>{
+    const viewEl = resolveElementForDevice(el, currentDevice);
     const w = WIDGETS.find(item=>item.type===el.type) || {label:el.type, icon:'heading'};
     const hidden = isHiddenForDevice(el, currentDevice);
     const cssClasses = (el.advanced && el.advanced.cssClasses) ? ' ' + el.advanced.cssClasses.trim() : '';
-    let innerHtml = elementInnerHTML(el);
+    let innerHtml = elementInnerHTML(viewEl);
     if(el.type === 'container'){
       const containerChildren = Array.isArray(el.children) ? el.children : [];
-      const flowClass = (el.style&&el.style.flow)==='row' ? 'is-row' : 'is-column';
-      const gap = Number(el.style&&el.style.gap||0);
-      const justify = (el.style&&el.style.justify) || 'flex-start';
-      const alignItems = (el.style&&el.style.alignItems) || 'stretch';
-      const backgroundLayer = buildContainerBackgroundLayer(el.box || {});
+      const flowClass = (viewEl.style&&viewEl.style.flow)==='row' ? 'is-row' : 'is-column';
+      const gap = Number(viewEl.style&&viewEl.style.gap||0);
+      const justify = (viewEl.style&&viewEl.style.justify) || 'flex-start';
+      const alignItems = (viewEl.style&&viewEl.style.alignItems) || 'stretch';
+      const backgroundLayer = buildContainerBackgroundLayer(viewEl.box || {});
       innerHtml = `${backgroundLayer}<div class="container-shell ${flowClass}${backgroundLayer ? ' has-background' : ''}" style="gap:${gap}px;justify-content:${justify};align-items:${alignItems};">
-        <div class="container-children" data-container-id="${el.id}" style="display:flex;flex-direction:${(el.style&&el.style.flow)==='row'?'row':'column'};flex-wrap:nowrap;gap:${gap}px;justify-content:${justify};align-items:${alignItems};width:100%;">
+        <div class="container-children" data-container-id="${el.id}" style="display:flex;flex-direction:${(viewEl.style&&viewEl.style.flow)==='row'?'row':'column'};flex-wrap:nowrap;gap:${gap}px;justify-content:${justify};align-items:${alignItems};width:100%;">
           ${containerChildren.length ? renderTreeElements(containerChildren, el.id) : `${dropZoneHTML(0, el.id)}<div class="container-empty">Drag widgets here</div>`}
         </div>
       </div>`;
@@ -4459,7 +4729,7 @@ function renderTreeElements(list, parentId=''){
           <button class="dup-el" title="Duplicate" data-id="${el.id}">${svgIcon('dup',12)}</button>
           <button class="del-el" title="Delete" data-id="${el.id}">${svgIcon('del',12)}</button>
         </div>
-        <div class="el-inner ${el.id} ${animationClass(el)}${cssClasses}" style="${composeWrapStyle(el)}">${innerHtml}</div>
+        <div class="el-inner ${el.id} ${animationClass(viewEl)}${cssClasses}" style="${composeWrapStyle(viewEl)}">${innerHtml}</div>
       </div>
       ${dropZoneHTML(idx+1, parentId)}
     `;
@@ -4483,6 +4753,7 @@ renderCanvas = function(){
     return;
   }
   canvasPage.innerHTML = renderTreeElements(elements, '');
+  mountImportedExactHtml(canvasPage);
   wireCanvasEvents();
   wireDropZones();
   rebuildCustomStyles();
@@ -4679,7 +4950,7 @@ renderStyleFields = function(el){
   _renderStyleFields(el);
   if(el.type !== 'container') return;
   const box = document.getElementById('styleFields');
-  const s = el.style || {};
+  const s = responsiveSectionProxy(el, 'style');
   const containerFields = `
     <div class="panel-section-label" style="padding:0 0 10px;">Container flow</div>
     ${selectField('Direction', 'containerFlow', [['column','Vertical'],['row','Horizontal']], s.flow||'column')}
@@ -4702,14 +4973,86 @@ renderStyleFields = function(el){
 };
 
 const _buildPublishedHtml = buildPublishedHtml;
+function cssSafeElementClass(value=''){
+  return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+function importantDeclarations(styleText=''){
+  const probe = document.createElement('div');
+  probe.style.cssText = String(styleText || '');
+  return Array.from(probe.style)
+    .map((property)=> `${property}:${probe.style.getPropertyValue(property)}!important;`)
+    .join('');
+}
+function responsiveMarkupStyleRules(el, device){
+  const viewEl = resolveElementForDevice(el, device);
+  const prefix = `.published-widget.${cssSafeElementClass(el.id)}`;
+  const rules = [];
+  const wrapperDeclarations = importantDeclarations(composeWrapStyle(viewEl));
+  if(wrapperDeclarations) rules.push(`${prefix}{${wrapperDeclarations}}`);
+  if(isHiddenForDevice(el, device)) rules.push(`${prefix}{display:none!important;}`);
+
+  if(el.type === 'container'){
+    const s = viewEl.style || {};
+    rules.push(`${prefix}>.container-shell{display:flex!important;flex-direction:${s.flow==='row'?'row':'column'}!important;gap:${Number(s.gap||0)}px!important;justify-content:${s.justify||'flex-start'}!important;align-items:${s.alignItems||'stretch'}!important;}`);
+    rules.push(`${prefix}>.container-shell>.container-children{flex-direction:${s.flow==='row'?'row':'column'}!important;gap:${Number(s.gap||0)}px!important;justify-content:${s.justify||'flex-start'}!important;align-items:${s.alignItems||'stretch'}!important;}`);
+    return rules.join('');
+  }
+
+  const mount = document.createElement('div');
+  mount.innerHTML = elementInnerHTML(viewEl);
+  mount.querySelectorAll('[style]').forEach((node)=>{
+    const path = [];
+    let current = node;
+    while(current && current.parentElement && current.parentElement !== mount){
+      const parent = current.parentElement;
+      path.unshift(`>:nth-child(${Array.from(parent.children).indexOf(current)+1})`);
+      current = parent;
+    }
+    if(current && current.parentElement === mount){
+      path.unshift(`>:nth-child(${Array.from(mount.children).indexOf(current)+1})`);
+    }
+    const declarations = importantDeclarations(node.getAttribute('style') || '');
+    if(declarations && path.length) rules.push(`${prefix}${path.join('')}{${declarations}}`);
+  });
+  return rules.join('');
+}
+function elementHasResponsiveOverrides(el, device){
+  ensureElementResponsiveState(el);
+  const state = el.responsive?.[device] || {};
+  return ['style','box','advanced'].some((section)=> Object.keys(state[section] || {}).length > 0);
+}
+function buildPublishedResponsiveCss(){
+  const desktopRules = [];
+  const tabletRules = [];
+  const mobileRules = [];
+  visitElements(elements, (el)=>{
+    const desktopHidden = isHiddenForDevice(el, 'desktop');
+    const tabletHidden = isHiddenForDevice(el, 'tablet');
+    const mobileHidden = isHiddenForDevice(el, 'mobile');
+    if(desktopHidden) desktopRules.push(`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`);
+    if(elementHasResponsiveOverrides(el, 'tablet') || desktopHidden !== tabletHidden){
+      tabletRules.push(responsiveMarkupStyleRules(el, 'tablet'));
+    }else if(tabletHidden){
+      tabletRules.push(`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`);
+    }
+    if(elementHasResponsiveOverrides(el, 'mobile') || tabletHidden !== mobileHidden){
+      mobileRules.push(responsiveMarkupStyleRules(el, 'mobile'));
+    }else if(mobileHidden){
+      mobileRules.push(`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`);
+    }
+  });
+  return `${desktopRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
+}
 buildPublishedHtml = function(){
   if(isImportedExactPageMode()){
     const root = getImportedHtmlRoot();
     const model = getImportedHtmlElementModel();
-    const bodyHtml = root ? root.innerHTML : ((model && model.content && model.content.code) || '');
+    const responsivePublish = root ? importedResponsivePublishData(root) : { html:((model && model.content && model.content.code) || ''), css:'' };
+    const bodyHtml = responsivePublish.html;
     const cssLinks = (hostImportCssLinks || []).filter(Boolean).map((href)=>`<link rel="stylesheet" href="${href}">`).join('');
     const inlineCss = String(hostImportInlineCss || '').trim();
     const inlineStyle = inlineCss ? `<style>${inlineCss}</style>` : '';
+    const responsiveStyle = responsivePublish.css ? `<style>${responsivePublish.css}</style>` : '';
     const fontStyle = `<style>
       @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-solid-900.woff2') format('woff2'); font-weight: 900; font-style: normal; font-display: block; }
       @font-face { font-family: 'Font Awesome 6 Brands'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-brands-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
@@ -4717,26 +5060,28 @@ buildPublishedHtml = function(){
       .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
       [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
     </style>`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${inlineStyle}${fontStyle}</head><body>${bodyHtml}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}</body></html>`;
   }
   elements = ensureTreeDefaults(elements);
   const customRules = [];
   const renderPublishedTree = (items)=>{
-    return (items||[]).filter(e=>!e.advanced?.hideDesktop).map(el=>{
+    return (items||[]).map(el=>{
+      const desktopEl = resolveElementForDevice(el, 'desktop');
       const cls = `published-widget ${el.id} ${(el.advanced?.cssClasses||'')}`.trim();
       if(el.advanced && el.advanced.customCss) customRules.push(`.${el.id}{${el.advanced.customCss}}`);
       if(el.type === 'container'){
-        const s = el.style || {};
+        const s = desktopEl.style || {};
         const inner = renderPublishedTree(el.children || []);
-        const backgroundLayer = buildContainerBackgroundLayer(el.box || {});
-        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}">${backgroundLayer}<div class="container-shell ${backgroundLayer ? 'has-background' : ''}" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;min-height:84px;${backgroundLayer ? 'background:transparent;border-color:transparent;' : 'border:0;background:transparent;'}">${inner}</div></div>`;
+        const backgroundLayer = buildContainerBackgroundLayer(desktopEl.box || {});
+        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(desktopEl)}">${backgroundLayer}<div class="container-shell ${backgroundLayer ? 'has-background' : ''}" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;min-height:84px;${backgroundLayer ? 'background:transparent;border-color:transparent;' : 'border:0;background:transparent;'}"><div class="container-children" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;">${inner}</div></div></div>`;
       }
-      return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(el)}">${elementInnerHTML(el)}</div>`;
+      return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(desktopEl)}">${elementInnerHTML(desktopEl)}</div>`;
     }).join('\n');
   };
   const body = renderPublishedTree(elements);
   const custom = customRules.join('\n');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}.container-shell{position:relative;border-radius:inherit}.container-shell.has-background{background:transparent;border-color:transparent}.container-bg-layer{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}.container-bg-video{width:100%;height:100%;object-fit:cover;display:block}.container-shell>.container-children,.container-shell>.published-widget,.container-shell>.drop-zone{position:relative;z-index:1}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}.published-widget{padding-left:16px!important;padding-right:16px!important}}${custom}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
+  const responsiveCss = buildPublishedResponsiveCss();
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}.container-shell{position:relative;border-radius:inherit}.container-shell.has-background{background:transparent;border-color:transparent}.container-bg-layer{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}.container-shell>.container-children,.container-shell>.published-widget,.container-shell>.drop-zone{position:relative;z-index:1}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}}${custom}${responsiveCss}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
 };
 
 canvasPage.addEventListener('dblclick',e=>{
@@ -4756,7 +5101,7 @@ canvasPage.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.pr
 const _pushHistory=pushHistory;
 pushHistory=function(){_pushHistory();markDirty();};
 function markDirty(){dirty=true;const n=document.getElementById('saveState');n.textContent='Unsaved';n.className='save-state dirty';clearTimeout(autosaveTimer);autosaveTimer=setTimeout(()=>saveDraft(true),1200);}
-function snapshot(){return {version:3,pageSettings,elements,device:currentDevice,savedAt:new Date().toISOString()};}
+function snapshot(){return {version:4,pageSettings,elements,device:currentDevice,savedAt:new Date().toISOString()};}
 function saveDraft(silent=false){
   try{pageSettings.updatedAt=new Date().toISOString();localStorage.setItem(STORAGE_KEY,JSON.stringify(snapshot()));dirty=false;const n=document.getElementById('saveState');n.textContent='Saved';n.className='save-state saved';if(!silent)showToast('Draft saved in this browser');}
   catch(err){showToast('Draft is too large for browser storage. Export JSON instead.');}

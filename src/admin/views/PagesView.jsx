@@ -51,13 +51,11 @@ export default function PagesView({
   importPages,
   createNewPage,
   deletePageById,
-  openPageEditorView,
   pageStatusFilters,
   getThumbnail,
   getMenuReferenceLabel,
   getSeoScore,
   formatDate,
-  isLocalDraftPage,
   openPageEditorTab
 }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,15 +90,11 @@ export default function PagesView({
 
   const openPageForEdit = (page) => {
     if (!page) return;
-    if (!isLocalDraftPage(page)) {
-      openPageEditorTab(page.id);
-      return;
-    }
-    openPageEditorView(page.id, "content");
+    openPageEditorTab(page.id, "content");
   };
 
   const openPageSections = (pageId) => {
-    openPageEditorView(pageId, "builder");
+    openPageEditorTab(pageId, "builder");
   };
 
   return (

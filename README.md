@@ -30,3 +30,11 @@ Local development should point at the live backend API:
 ```bash
 VITE_API_BASE_URL=https://api.maddauni.online/api
 ```
+
+To publish Header & Footer markup directly to the live website, configure a protected backend endpoint:
+
+```bash
+VITE_SITE_CHROME_PUBLISH_URL=https://api.maddauni.online/api/admin/site-chrome/publish
+```
+
+During local development, saving Header or Footer also writes the generated file into `public/assets/partials/`.

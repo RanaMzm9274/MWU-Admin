@@ -1,6 +1,529 @@
-import { useMemo } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, Plus, Save, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Eye,
+  Globe2,
+  Layers,
+  Link2,
+  ListTree,
+  Plus,
+  Save,
+  Search,
+  Trash2,
+  X
+} from "lucide-react";
 import { Field } from "../components/Common";
+
+const cleanMenuText = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
+const escapeMenuMarkup = (value = "") =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const getCategoryProgramIds = (category, programs = []) =>
+  Array.isArray(category?.programIds)
+    ? category.programIds.map(String)
+    : programs.filter((program) => program.categorySlug === category?.slug).map((program) => String(program.id));
+
+const getProgramMenuHref = (program = {}) => {
+  const raw = String(program.pageSlug || program.slug || "").trim();
+  if (!raw) return "";
+  if (/^(https?:\/\/|\/|#)/i.test(raw) || /\.html?(?:[?#].*)?$/i.test(raw)) return raw;
+  return `${raw}.html`;
+};
+
+export const updateProgramsMegaMenuMarkup = (html = "", categories = [], programs = []) => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) return String(html || "");
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const activeCategories = [...categories]
+      .filter((category) => category.status !== "Archived")
+      .sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0));
+    const getProgramsForCategory = (category) => {
+      const selectedIds = getCategoryProgramIds(category, programs);
+      return programs
+        .filter((program) => selectedIds.includes(String(program.id)) && program.status !== "Archived")
+        .sort((a, b) => a.title.localeCompare(b.title));
+    };
+    const findProgramsItem = (root) =>
+      Array.from(root?.children || []).find((item) => {
+        const anchor = getDirectAnchor(item);
+        return cleanMenuText(anchor?.textContent).toLowerCase() === "programs";
+      });
+
+    const desktopProgramsItem = findProgramsItem(doc.querySelector(".main-menu > ul"));
+    if (desktopProgramsItem) {
+      desktopProgramsItem.classList.add("menu-item-has-children", "mega-menu-wrap", "mwu-programs-mega");
+      let megaMenu = Array.from(desktopProgramsItem.children).find(
+        (child) => child.tagName?.toLowerCase() === "ul"
+      );
+      if (!megaMenu) {
+        megaMenu = doc.createElement("ul");
+        desktopProgramsItem.appendChild(megaMenu);
+      }
+      megaMenu.className = "mega-menu mwu-mega-programs";
+      megaMenu.setAttribute("aria-label", "Programs Mega Menu");
+      megaMenu.innerHTML = `
+        <li class="mwu-mega-layout">
+          <div class="mwu-mega-categories" role="tablist" aria-label="Program Categories">
+            ${activeCategories
+              .map((category, index) => {
+                const target = `mwu-${String(category.slug || category.id).replace(/[^a-z0-9-]/gi, "-")}`;
+                return `<a href="#" class="mwu-mega-category-link${index === 0 ? " active" : ""}" data-target="${escapeMenuMarkup(target)}" role="tab" aria-selected="${index === 0 ? "true" : "false"}">${escapeMenuMarkup(category.name)}</a>`;
+              })
+              .join("")}
+          </div>
+          <div class="mwu-mega-panels">
+            ${activeCategories
+              .map((category, index) => {
+                const target = `mwu-${String(category.slug || category.id).replace(/[^a-z0-9-]/gi, "-")}`;
+                const links = getProgramsForCategory(category)
+                  .map((program) => `<li><a href="${escapeMenuMarkup(getProgramMenuHref(program))}">${escapeMenuMarkup(program.title)}</a></li>`)
+                  .join("");
+                return `<div class="mwu-mega-panel${index === 0 ? " active" : ""}" data-panel="${escapeMenuMarkup(target)}" role="tabpanel"><ul class="mwu-mega-subgrid">${links}</ul></div>`;
+              })
+              .join("")}
+          </div>
+        </li>
+      `.trim();
+    }
+
+    const mobileProgramsItem = findProgramsItem(doc.querySelector(".th-mobile-menu > ul"));
+    if (mobileProgramsItem) {
+      mobileProgramsItem.classList.add("menu-item-has-children");
+      let mobileSubmenu = Array.from(mobileProgramsItem.children).find(
+        (child) => child.tagName?.toLowerCase() === "ul"
+      );
+      if (!mobileSubmenu) {
+        mobileSubmenu = doc.createElement("ul");
+        mobileProgramsItem.appendChild(mobileSubmenu);
+      }
+      mobileSubmenu.className = "sub-menu";
+      mobileSubmenu.innerHTML = activeCategories
+        .map((category) => {
+          const programLinks = getProgramsForCategory(category)
+            .map((program) => `<li><a href="${escapeMenuMarkup(getProgramMenuHref(program))}">${escapeMenuMarkup(program.title)}</a></li>`)
+            .join("");
+          return `<li class="menu-item-has-children"><a href="#">${escapeMenuMarkup(category.name)}</a><ul class="sub-menu">${programLinks}</ul></li>`;
+        })
+        .join("");
+    }
+
+    return doc.body.innerHTML.trim();
+  } catch {
+    return String(html || "");
+  }
+};
+
+const getDirectAnchor = (element) => {
+  if (!element) return null;
+  const directAnchor = Array.from(element.children || []).find((child) => child.tagName?.toLowerCase() === "a");
+  return directAnchor || element.querySelector(":scope > .dropdown-link > a");
+};
+
+const parseMenuList = (list, path = "menu") => {
+  if (!list) return [];
+
+  return Array.from(list.children || [])
+    .filter((child) => child.tagName?.toLowerCase() === "li")
+    .map((item, index) => {
+      const directAnchor = getDirectAnchor(item);
+      const isProgramsMegaMenu =
+        item.classList.contains("mwu-programs-mega") ||
+        item.classList.contains("mega-menu-wrap") ||
+        Boolean(item.querySelector(":scope > .mwu-mega-programs"));
+      let children = [];
+
+      if (isProgramsMegaMenu) {
+        children = Array.from(item.querySelectorAll(".mwu-mega-category-link")).map((category, categoryIndex) => {
+          const target = category.getAttribute("data-target") || "";
+          const panel = target ? item.querySelector(`[data-panel="${target}"]`) : null;
+          return {
+            id: `${path}-${index}-category-${categoryIndex}`,
+            title: cleanMenuText(category.textContent),
+            href: category.getAttribute("href") || "",
+            children: Array.from(panel?.querySelectorAll("a[href]") || []).map((link, linkIndex) => ({
+              id: `${path}-${index}-category-${categoryIndex}-link-${linkIndex}`,
+              title: cleanMenuText(link.textContent),
+              href: link.getAttribute("href") || "",
+              children: []
+            }))
+          };
+        });
+      } else {
+        const childLists = [
+          ...Array.from(item.children || []).filter((child) => child.tagName?.toLowerCase() === "ul"),
+          ...Array.from(item.querySelectorAll(":scope > .dropdown-link > ul"))
+        ];
+        children = childLists.flatMap((childList, childListIndex) =>
+          parseMenuList(childList, `${path}-${index}-${childListIndex}`)
+        );
+      }
+
+      return {
+        id: `${path}-${index}`,
+        title: cleanMenuText(directAnchor?.textContent) || `Menu group ${index + 1}`,
+        href: directAnchor?.getAttribute("href") || "",
+        children
+      };
+    });
+};
+
+const linksToMenuItems = (links, path, getLabel = (link) => cleanMenuText(link.textContent)) =>
+  Array.from(links || []).map((link, index) => ({
+    id: `${path}-${index}`,
+    title: getLabel(link) || link.getAttribute("href") || `Link ${index + 1}`,
+    href: link.getAttribute("href") || "",
+    children: []
+  }));
+
+const getFooterNavigationWidgets = (doc) => {
+  let widgets = Array.from(
+    doc?.querySelectorAll("footer .widget_nav_menu, .footer-widget.widget_nav_menu, .widget.widget_nav_menu.footer-widget") || []
+  );
+  if (!widgets.length) {
+    widgets = Array.from(
+      doc?.querySelectorAll("footer .footer-widget, footer [class*='footer-menu'], footer [class*='footer-link']") || []
+    ).filter((widget) => widget.querySelector("ul"));
+  }
+  return widgets;
+};
+
+const parseWebsiteMenuHierarchy = (html = "", kind = "header") => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) return [];
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    if (kind === "header") {
+      const groups = [
+        {
+          id: "header-primary",
+          title: "Main Menu Hierarchy",
+          items: parseMenuList(doc.querySelector(".main-menu > ul"), "header-primary")
+        },
+        {
+          id: "header-utility-left",
+          title: "Utility Navigation",
+          items: parseMenuList(doc.querySelector(".header-left-wrap"), "header-utility-left")
+        },
+        {
+          id: "header-utility-right",
+          title: "Utility Actions",
+          items: parseMenuList(doc.querySelector(".header-right-wrap"), "header-utility-right")
+        },
+        {
+          id: "header-mobile",
+          title: "Mobile Navigation",
+          items: parseMenuList(doc.querySelector(".th-mobile-menu > ul"), "header-mobile")
+        }
+      ];
+      const cta = doc.querySelector(".header-action .th-btn");
+      if (cta) {
+        groups.push({
+          id: "header-cta",
+          title: "Header Call to Action",
+          items: linksToMenuItems([cta], "header-cta")
+        });
+      }
+      return groups.filter((group) => group.items.length);
+    }
+
+    const groups = [];
+    const contactLinks = doc.querySelectorAll(".footer-info a[href], footer .contact-info a[href], footer [class*='contact'] a[href]");
+    if (contactLinks.length) {
+      groups.push({
+        id: "footer-contact",
+        title: "Contact Information",
+        items: linksToMenuItems(contactLinks, "footer-contact")
+      });
+    }
+
+    getFooterNavigationWidgets(doc).forEach((widget, index) => {
+      const title =
+        cleanMenuText(widget.querySelector(".widget_title, .widget-title, h2, h3, h4")?.textContent) ||
+        `Footer Menu ${index + 1}`;
+      const list = widget.querySelector("ul.menu, ul");
+      groups.push({
+        id: `footer-nav-${index}`,
+        title,
+        items: parseMenuList(list, `footer-nav-${index}`)
+      });
+    });
+
+    const instagramLinks = doc.querySelectorAll(".instagram-feeds a[href]");
+    if (instagramLinks.length) {
+      groups.push({
+        id: "footer-instagram",
+        title: "Instagram Links",
+        items: linksToMenuItems(instagramLinks, "footer-instagram", (link) =>
+          cleanMenuText(link.closest(".insta-thumb")?.querySelector("img")?.getAttribute("alt")) || "Instagram post"
+        )
+      });
+    }
+
+    const socialLinks = doc.querySelectorAll(".th-social a[href]");
+    if (socialLinks.length) {
+      groups.push({
+        id: "footer-social",
+        title: "Social Links",
+        items: linksToMenuItems(socialLinks, "footer-social", (link) => {
+          const iconClass = link.querySelector("i")?.className || "";
+          const platform = iconClass.match(/fa-(facebook|telegram|linkedin|instagram|youtube|twitter|x-twitter)/i)?.[1];
+          return cleanMenuText(link.getAttribute("aria-label") || link.getAttribute("title") || platform || "Social profile");
+        })
+      });
+    }
+
+    return groups.filter((group) => group.items.length);
+  } catch {
+    return [];
+  }
+};
+
+const setAnchorLabel = (anchor, label = "") => {
+  if (!anchor) return;
+  const textNode = Array.from(anchor.childNodes || []).find((node) => node.nodeType === 3 && node.textContent.trim());
+  if (textNode) {
+    textNode.textContent = label;
+    return;
+  }
+  const labelElement = anchor.querySelector("span");
+  if (labelElement) {
+    labelElement.textContent = label;
+    return;
+  }
+  anchor.appendChild(anchor.ownerDocument.createTextNode(label));
+};
+
+const syncFooterMenuList = (list, items = []) => {
+  if (!list) return;
+  const listItems = Array.from(list.children || []).filter((child) => child.tagName?.toLowerCase() === "li");
+  listItems.forEach((listItem, index) => {
+    const modelItem = items[index];
+    if (!modelItem) return;
+    const anchor = getDirectAnchor(listItem);
+    if (anchor) {
+      anchor.setAttribute("href", modelItem.href || "#");
+      setAnchorLabel(anchor, modelItem.title || "Footer Link");
+    }
+    const childList = Array.from(listItem.children || []).find((child) => child.tagName?.toLowerCase() === "ul");
+    if (childList && modelItem.children?.length) {
+      syncFooterMenuList(childList, modelItem.children);
+    }
+  });
+};
+
+const updateFooterNavigationMarkup = (html = "", groups = []) => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) return String(html || "");
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    getFooterNavigationWidgets(doc).forEach((widget, index) => {
+      const group = groups.find((item) => item.id === `footer-nav-${index}`);
+      if (!group) return;
+      syncFooterMenuList(widget.querySelector("ul.menu"), group.items);
+    });
+    return doc.body.innerHTML.trim();
+  } catch {
+    return String(html || "");
+  }
+};
+
+const updateMenuTreeItem = (items = [], itemId, updater) =>
+  items.map((item) => {
+    if (item.id === itemId) return updater(item);
+    if (!item.children?.length) return item;
+    return {
+      ...item,
+      children: updateMenuTreeItem(item.children, itemId, updater)
+    };
+  });
+
+function MenuHierarchyItems({ items = [] }) {
+  return (
+    <ul className="site-chrome-hierarchy-list">
+      {items.map((item) => (
+        <li key={item.id}>
+          <div className="site-chrome-hierarchy-row">
+            <span>{item.title}</span>
+            {item.href && <code>{item.href}</code>}
+          </div>
+          {!!item.children?.length && <MenuHierarchyItems items={item.children} />}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PageLinkSelect({ value = "", pages = [], onChange, ariaLabel = "Select linked page" }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const uniquePages = Array.from(
+    new Map(
+      pages
+        .filter((page) => page?.href)
+        .map((page) => [String(page.href), page])
+    ).values()
+  );
+  const selectedPage = uniquePages.find((page) => String(page.href) === String(value)) || null;
+  const filteredPages = uniquePages.filter((page) =>
+    [page.title, page.type, page.href]
+      .join(" ")
+      .toLowerCase()
+      .includes(query.trim().toLowerCase())
+  );
+
+  const selectPage = (href, page = null) => {
+    onChange(href, page);
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div
+      className="site-chrome-page-link-select"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false);
+          setQuery("");
+        }
+      }}
+    >
+      <button
+        className={`site-chrome-page-link-trigger${isOpen ? " open" : ""}`}
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <Link2 size={16} />
+        <span>
+          <strong>{selectedPage?.title || (value ? "Current website link" : "Select a website page")}</strong>
+          <small>{selectedPage ? `${selectedPage.type || "Page"} · ${selectedPage.href}` : value || "Choose from published website pages"}</small>
+        </span>
+        <ChevronDown size={16} />
+      </button>
+
+      {isOpen && (
+        <div className="site-chrome-page-link-popover">
+          <label className="site-chrome-page-link-search">
+            <Search size={16} />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setIsOpen(false);
+                  setQuery("");
+                }
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  const firstPage = filteredPages[0];
+                  if (firstPage) selectPage(firstPage.href, firstPage);
+                }
+              }}
+              placeholder="Search pages by title or type"
+            />
+          </label>
+          <div className="site-chrome-page-link-options" role="listbox" aria-label={ariaLabel}>
+            {value && !selectedPage && (
+              <button className="current" type="button" role="option" aria-selected="true" onClick={() => selectPage(value)}>
+                <span>
+                  <strong>Keep current link</strong>
+                  <small>{value}</small>
+                </span>
+                <CheckCircle2 size={16} />
+              </button>
+            )}
+            {filteredPages.map((page) => (
+              <button
+                className={String(page.href) === String(value) ? "selected" : ""}
+                key={`${page.id}-${page.href}`}
+                type="button"
+                role="option"
+                aria-selected={String(page.href) === String(value)}
+                onClick={() => selectPage(page.href, page)}
+              >
+                <span>
+                  <strong>{page.title}</strong>
+                  <small>{page.type || "Page"} · {page.href}</small>
+                </span>
+                {String(page.href) === String(value) && <CheckCircle2 size={16} />}
+              </button>
+            ))}
+            {!filteredPages.length && <div className="site-chrome-page-link-empty">No matching website pages found.</div>}
+          </div>
+          <button className="site-chrome-page-link-clear" type="button" onClick={() => selectPage("", null)}>
+            Clear page selection
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PageLinkField({ label, children }) {
+  return (
+    <div className="field">
+      <span>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function FooterMenuItemEditor({ item, groupId, pages, depth = 0, onFieldChange, onPageSelect }) {
+  return (
+    <div className="site-chrome-footer-link-wrap" style={{ "--footer-link-depth": depth }}>
+      <div className="site-chrome-footer-link-row">
+        <Field label="Navigation Label">
+          <input value={item.title} onChange={(event) => onFieldChange(groupId, item.id, "title", event.target.value)} />
+        </Field>
+        <PageLinkField label="Linked Page">
+          <PageLinkSelect
+            value={item.href}
+            pages={pages}
+            ariaLabel={`Select footer page for ${item.title || "navigation item"}`}
+            onChange={(href, selectedPage) => onPageSelect(groupId, item.id, href, selectedPage)}
+          />
+        </PageLinkField>
+      </div>
+      {(item.children || []).map((child) => (
+        <FooterMenuItemEditor
+          key={child.id}
+          item={child}
+          groupId={groupId}
+          pages={pages}
+          depth={depth + 1}
+          onFieldChange={onFieldChange}
+          onPageSelect={onPageSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
+const hasExpectedSiteChromeMarkup = (html = "", kind = "header") => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) return false;
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return kind === "footer"
+      ? Boolean(doc.querySelector("footer, .footer-wrapper, .footer-layout"))
+      : Boolean(doc.querySelector("header, .th-header, .main-menu, .th-mobile-menu"));
+  } catch {
+    return false;
+  }
+};
 
 export default function SiteChromeView({
   kind,
@@ -14,12 +537,118 @@ export default function SiteChromeView({
   savePage,
   parseHeaderVisualModel,
   updateHeaderHtmlFromVisualModel,
+  programCategories = [],
+  programs = [],
+  updateProgramCategory,
+  availableMenuPages = [],
+  linkablePages = [],
+  previewSourceUrl = "",
   buildSiteChromePreviewDocument
 }) {
   const sourcePath = page.sourceUrl || page.source_url || config.sourceUrl;
   const statusLabel = page.status || "Draft";
   const isSavedStatus = String(statusLabel).toLowerCase() === "published";
   const visualHeaderModel = useMemo(() => parseHeaderVisualModel(snippetHtml), [parseHeaderVisualModel, snippetHtml]);
+  const websiteMenuGroups = useMemo(() => parseWebsiteMenuHierarchy(snippetHtml, kind), [kind, snippetHtml]);
+  const importedMainMenuGroup = useMemo(
+    () => websiteMenuGroups.find((group) => group.id === "header-primary") || null,
+    [websiteMenuGroups]
+  );
+  const footerNavigationGroups = useMemo(
+    () => websiteMenuGroups.filter((group) => group.id.startsWith("footer-nav-")),
+    [websiteMenuGroups]
+  );
+  const hierarchyItemCount = useMemo(() => {
+    const countItems = (items = []) => items.reduce((total, item) => total + 1 + countItems(item.children), 0);
+    return websiteMenuGroups.reduce((total, group) => total + countItems(group.items), 0);
+  }, [websiteMenuGroups]);
+  const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const [megaMenuCategoryId, setMegaMenuCategoryId] = useState("");
+  const [megaMenuProgramIds, setMegaMenuProgramIds] = useState([]);
+  const [megaMenuQuery, setMegaMenuQuery] = useState("");
+  const [mainMenuOpen, setMainMenuOpen] = useState(false);
+  const [mainMenuItems, setMainMenuItems] = useState([]);
+  const [mainMenuParentId, setMainMenuParentId] = useState("");
+  const [mainMenuPageIds, setMainMenuPageIds] = useState([]);
+  const [mainMenuQuery, setMainMenuQuery] = useState("");
+  const sortedProgramCategories = useMemo(
+    () =>
+      [...programCategories]
+        .filter((category) => category.status !== "Archived")
+        .sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0)),
+    [programCategories]
+  );
+  const activeMegaMenuCategory =
+    sortedProgramCategories.find((category) => String(category.id) === String(megaMenuCategoryId)) ||
+    sortedProgramCategories[0] ||
+    null;
+  const filteredMegaMenuPrograms = useMemo(
+    () =>
+      [...programs]
+        .filter((program) => program.status !== "Archived")
+        .filter((program) =>
+          [program.title, program.level, program.college, program.pageSlug]
+            .join(" ")
+            .toLowerCase()
+            .includes(megaMenuQuery.toLowerCase())
+        )
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    [megaMenuQuery, programs]
+  );
+  const filteredMenuPages = useMemo(
+    () =>
+      availableMenuPages.filter((page) =>
+        [page.title, page.href, page.type, page.menu]
+          .join(" ")
+          .toLowerCase()
+          .includes(mainMenuQuery.toLowerCase())
+      ),
+    [availableMenuPages, mainMenuQuery]
+  );
+  const selectedMainMenuParent =
+    mainMenuItems.find((item) => item.id === mainMenuParentId) || null;
+  const previewSnippetHtml = useMemo(() => {
+    if (kind !== "header") return snippetHtml;
+    let nextHtml = snippetHtml;
+    if (mainMenuOpen) {
+      nextHtml = updateHeaderHtmlFromVisualModel(nextHtml, {
+        ...visualHeaderModel,
+        menuItems: mainMenuItems
+      });
+    }
+    if (megaMenuOpen && activeMegaMenuCategory) {
+      const pendingCategories = programCategories.map((category) =>
+        String(category.id) === String(activeMegaMenuCategory.id)
+          ? { ...category, programIds: megaMenuProgramIds }
+          : category
+      );
+      nextHtml = updateProgramsMegaMenuMarkup(nextHtml, pendingCategories, programs);
+    }
+    return nextHtml;
+  }, [
+    activeMegaMenuCategory,
+    kind,
+    mainMenuItems,
+    mainMenuOpen,
+    megaMenuOpen,
+    megaMenuProgramIds,
+    programCategories,
+    programs,
+    snippetHtml,
+    updateHeaderHtmlFromVisualModel,
+    visualHeaderModel
+  ]);
+
+  useEffect(() => {
+    if (!megaMenuCategoryId && sortedProgramCategories[0]?.id) {
+      setMegaMenuCategoryId(String(sortedProgramCategories[0].id));
+    }
+  }, [megaMenuCategoryId, sortedProgramCategories]);
+
+  useEffect(() => {
+    if (!megaMenuOpen || !activeMegaMenuCategory) return;
+    setMegaMenuProgramIds(getCategoryProgramIds(activeMegaMenuCategory, programs));
+  }, [activeMegaMenuCategory, megaMenuOpen, programs]);
 
   const commitVisualHeaderModel = (updater) => {
     if (kind !== "header") {
@@ -65,8 +694,8 @@ export default function SiteChromeView({
         {
           id: `header-menu-added-${Date.now()}`,
           sourceIndex: current.menuItems.length,
-          title: "New Menu Item",
-          href: "#",
+          title: "",
+          href: "",
           isMega: false,
           children: []
         }
@@ -99,8 +728,8 @@ export default function SiteChromeView({
                 ...(item.children || []),
                 {
                   id: `header-child-added-${Date.now()}-${itemId}`,
-                  title: "New Dropdown Item",
-                  href: "#"
+                  title: "",
+                  href: ""
                 }
               ]
             }
@@ -148,6 +777,211 @@ export default function SiteChromeView({
     }));
   };
 
+  const selectHeaderMenuPage = (itemId, href, selectedPage) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              href,
+              title: selectedPage?.title || item.title
+            }
+          : item
+      )
+    }));
+  };
+
+  const selectHeaderChildPage = (itemId, childId, href, selectedPage) => {
+    commitVisualHeaderModel((current) => ({
+      ...current,
+      menuItems: current.menuItems.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              children: item.children.map((child) =>
+                child.id === childId
+                  ? {
+                      ...child,
+                      href,
+                      title: selectedPage?.title || child.title
+                    }
+                  : child
+              )
+            }
+          : item
+      )
+    }));
+  };
+
+  const toggleMegaMenuProgram = (programId) => {
+    const normalizedId = String(programId);
+    setMegaMenuProgramIds((current) =>
+      current.includes(normalizedId)
+        ? current.filter((id) => id !== normalizedId)
+        : [...current, normalizedId]
+    );
+  };
+
+  const cloneMainMenuItems = () =>
+    visualHeaderModel.menuItems.map((item) => ({
+      ...item,
+      children: (item.children || []).map((child) => ({ ...child }))
+    }));
+
+  const openMainMenuEditor = () => {
+    setMainMenuItems(cloneMainMenuItems());
+    setMainMenuParentId("");
+    setMainMenuPageIds([]);
+    setMainMenuQuery("");
+    setMainMenuOpen(true);
+  };
+
+  const toggleMainMenuPage = (pageId) => {
+    const normalizedId = String(pageId);
+    setMainMenuPageIds((current) =>
+      current.includes(normalizedId)
+        ? current.filter((id) => id !== normalizedId)
+        : [...current, normalizedId]
+    );
+  };
+
+  const addSelectedPagesToMainMenu = () => {
+    const selectedPages = availableMenuPages.filter((page) => mainMenuPageIds.includes(String(page.id)));
+    if (!selectedPages.length) return;
+    const hasExistingPage = (items, page) =>
+      items.some(
+        (item) =>
+          item.href === page.href ||
+          item.title === page.title ||
+          hasExistingPage(item.children || [], page)
+      );
+
+    setMainMenuItems((current) => {
+      const pagesToAdd = selectedPages.filter((page) => !hasExistingPage(current, page));
+      if (!pagesToAdd.length) return current;
+      if (!mainMenuParentId) {
+        return [
+          ...current,
+          ...pagesToAdd.map((page, index) => ({
+            id: `header-page-${page.id}-${index}`,
+            sourceIndex: current.length + index,
+            title: page.title,
+            href: page.href,
+            isMega: false,
+            children: []
+          }))
+        ];
+      }
+      return current.map((item) =>
+        item.id === mainMenuParentId
+          ? {
+              ...item,
+              children: [
+                ...(item.children || []),
+                ...pagesToAdd.map((page, index) => ({
+                  id: `header-page-child-${page.id}-${index}`,
+                  title: page.title,
+                  href: page.href
+                }))
+              ]
+            }
+          : item
+      );
+    });
+    setMainMenuPageIds([]);
+  };
+
+  const removeMainMenuRoot = (itemId) => {
+    setMainMenuItems((current) => current.filter((item) => item.id !== itemId || item.isMega));
+  };
+
+  const saveMainMenuChanges = () => {
+    updateHtml("header", updateHeaderHtmlFromVisualModel(snippetHtml, {
+      ...visualHeaderModel,
+      menuItems: mainMenuItems
+    }));
+    setMainMenuOpen(false);
+  };
+
+  const saveProgramsMegaMenu = () => {
+    if (!activeMegaMenuCategory || typeof updateProgramCategory !== "function") return;
+    const nextCategories = programCategories.map((category) =>
+      String(category.id) === String(activeMegaMenuCategory.id)
+        ? { ...category, programIds: megaMenuProgramIds }
+        : category
+    );
+    updateProgramCategory(activeMegaMenuCategory.id, "programIds", megaMenuProgramIds);
+    updateHtml("header", updateProgramsMegaMenuMarkup(snippetHtml, nextCategories, programs));
+    setMegaMenuOpen(false);
+  };
+
+  const commitFooterNavigationGroups = (updater) => {
+    if (kind !== "footer") return;
+    const nextGroups = typeof updater === "function" ? updater(footerNavigationGroups) : updater;
+    updateHtml("footer", updateFooterNavigationMarkup(snippetHtml, nextGroups));
+  };
+
+  const updateFooterMenuItem = (groupId, itemId, field, value) => {
+    commitFooterNavigationGroups((groups) =>
+      groups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              items: updateMenuTreeItem(group.items, itemId, (item) => ({ ...item, [field]: value }))
+            }
+          : group
+      )
+    );
+  };
+
+  const selectFooterMenuPage = (groupId, itemId, href, selectedPage) => {
+    commitFooterNavigationGroups((groups) =>
+      groups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              items: updateMenuTreeItem(group.items, itemId, (item) => ({
+                ...item,
+                href,
+                title: selectedPage?.title || item.title
+              }))
+            }
+          : group
+      )
+    );
+  };
+
+  const openPreviewPage = async () => {
+    const previewWindow = window.open("", "_blank");
+    if (!previewWindow) return;
+    previewWindow.opener = null;
+    previewWindow.document.write(`<!doctype html><html><head><title>Loading ${kind} preview...</title></head><body style="margin:0;display:grid;min-height:100vh;place-items:center;font-family:Inter,Segoe UI,Arial,sans-serif;background:#f4f8fb;color:#081933;"><p>Loading live ${kind} preview...</p></body></html>`);
+    previewWindow.document.close();
+
+    let previewHtml = previewSnippetHtml;
+    if (!hasExpectedSiteChromeMarkup(previewHtml, kind) && previewSourceUrl) {
+      try {
+        const response = await fetch(previewSourceUrl, {
+          headers: { Accept: "text/html" },
+          cache: "no-store"
+        });
+        if (response.ok) {
+          const fetchedHtml = await response.text();
+          if (hasExpectedSiteChromeMarkup(fetchedHtml, kind)) {
+            previewHtml = fetchedHtml;
+          }
+        }
+      } catch {
+        // The generated preview below will show the saved markup fallback.
+      }
+    }
+
+    previewWindow.document.open();
+    previewWindow.document.write(buildSiteChromePreviewDocument(kind, previewHtml));
+    previewWindow.document.close();
+  };
+
   return (
     <section className="site-chrome-shell">
       <div className="site-chrome-banner">
@@ -172,12 +1006,19 @@ export default function SiteChromeView({
               <span className="eyebrow">Global Layout</span>
               <h2>Header & Footer</h2>
             </div>
-            <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{statusLabel}</span>
+            <div className="site-chrome-panel-actions">
+              <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{statusLabel}</span>
+              <button className="ghost-button site-chrome-open-preview" type="button" onClick={openPreviewPage}>
+                <Eye size={16} />
+                <span>Preview {kind === "header" ? "Header" : "Footer"}</span>
+                <ExternalLink size={14} />
+              </button>
+            </div>
           </div>
 
           <div className="site-chrome-fields">
             <p className="site-chrome-hint">
-              Edit the global {kind} HTML here. Saving creates or updates the active CRM page with slug <code>{config.slug}</code>.
+              Edit the global {kind} HTML here. Saving updates the Admin API record and publishes the generated HTML partial when the live publish endpoint is available.
             </p>
 
             <div className="field-grid">
@@ -203,24 +1044,264 @@ export default function SiteChromeView({
               <textarea rows="3" value={page.summary} onChange={(event) => updateField("summary", event.target.value)} />
             </Field>
 
+            {kind === "footer" && (
+              <div className="site-chrome-hierarchy">
+                <div className="site-chrome-hierarchy-head">
+                  <div>
+                    <span className="eyebrow">API footer structure</span>
+                    <h3>Footer Menu Hierarchy</h3>
+                  </div>
+                  <span className="site-chrome-hierarchy-count">
+                    <ListTree size={15} />
+                    {hierarchyItemCount} links
+                  </span>
+                </div>
+                <p className="site-chrome-hint">
+                  <Globe2 size={15} />
+                  Parsed from the currently loaded footer API record.
+                </p>
+                <div className="site-chrome-hierarchy-groups">
+                  {websiteMenuGroups.map((group) => (
+                    <section className="site-chrome-hierarchy-group" key={group.id}>
+                      <div className="site-chrome-hierarchy-group-title">
+                        <strong>{group.title}</strong>
+                        <span>{group.items.length} top-level items</span>
+                      </div>
+                      <MenuHierarchyItems items={group.items} />
+                    </section>
+                  ))}
+                  {!websiteMenuGroups.length && (
+                    <div className="site-chrome-empty-note">
+                      No footer hierarchy was found in the API markup.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {kind === "header" && (
               <div className="site-chrome-visual-editor">
                 <div className="site-chrome-editor-label">
                   <strong>Visual Header Builder</strong>
-                  <small>{visualHeaderModel.menuItems.length} main items</small>
+                  <div className="site-chrome-editor-actions">
+                    <button className="ghost-button" type="button" onClick={openMainMenuEditor}>
+                      <ListTree size={16} />
+                      <span>Edit Main Menu</span>
+                    </button>
+                    <button className="ghost-button" type="button" onClick={() => setMegaMenuOpen(true)}>
+                      <Layers size={16} />
+                      <span>Edit Programs Mega Menu</span>
+                    </button>
+                  </div>
                 </div>
                 <p className="site-chrome-hint">
                   Edit the live header menu visually. Special mega-menu items are preserved, while standard menu items and dropdowns can be changed directly.
                 </p>
 
+                <div className="site-chrome-imported-main-menu">
+                  <div>
+                    <span className="eyebrow">Fetched from header HTML</span>
+                    <strong>Main Menu Hierarchy</strong>
+                    <small>
+                      {importedMainMenuGroup?.items.length || 0} top-level items ·{" "}
+                      {(importedMainMenuGroup?.items || []).reduce(
+                        (total, item) => total + (item.children?.length || 0),
+                        0
+                      )} direct child groups
+                    </small>
+                  </div>
+                  <button className="ghost-button" type="button" onClick={() => openSiteChromeView("header")}>
+                    <Globe2 size={16} />
+                    <span>Refresh from Header File</span>
+                  </button>
+                </div>
+
                 <div className="site-chrome-cta-grid">
                   <Field label="Header CTA Label">
                     <input value={visualHeaderModel.ctaLabel} onChange={(event) => updateHeaderCta("ctaLabel", event.target.value)} />
                   </Field>
-                  <Field label="Header CTA URL">
-                    <input value={visualHeaderModel.ctaUrl} onChange={(event) => updateHeaderCta("ctaUrl", event.target.value)} />
-                  </Field>
+                  <PageLinkField label="Header CTA Page">
+                    <PageLinkSelect
+                      value={visualHeaderModel.ctaUrl}
+                      pages={linkablePages}
+                      ariaLabel="Select Header CTA page"
+                      onChange={(href) => updateHeaderCta("ctaUrl", href)}
+                    />
+                  </PageLinkField>
                 </div>
+
+                {mainMenuOpen && (
+                  <div className="site-chrome-mega-editor site-chrome-main-menu-editor">
+                    <div className="site-chrome-mega-editor-head">
+                      <div>
+                        <span className="eyebrow">Primary navigation</span>
+                        <h3>Edit Main Menu</h3>
+                        <p>Choose a parent location, select multiple website pages, and add them to the imported hierarchy.</p>
+                      </div>
+                      <button className="icon-button" type="button" aria-label="Close main menu editor" onClick={() => setMainMenuOpen(false)}>
+                        <X size={17} />
+                      </button>
+                    </div>
+
+                    <div className="field-grid">
+                      <Field label="Add Pages Under">
+                        <select value={mainMenuParentId} onChange={(event) => setMainMenuParentId(event.target.value)}>
+                          <option value="">Top-level menu — show in main navigation</option>
+                          {mainMenuItems
+                            .filter((item) => !item.isMega)
+                            .map((item) => (
+                              <option key={item.id} value={item.id}>Under {item.title}</option>
+                            ))}
+                        </select>
+                      </Field>
+                      <Field label="Search Website Pages">
+                        <label className="search-field no-margin">
+                          <Search size={16} />
+                          <input value={mainMenuQuery} onChange={(event) => setMainMenuQuery(event.target.value)} placeholder="Search title, URL, or page type" />
+                        </label>
+                      </Field>
+                    </div>
+
+                    <div className="site-chrome-mega-select-actions">
+                      <strong>{mainMenuPageIds.length} pages selected</strong>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => setMainMenuPageIds(filteredMenuPages.map((page) => String(page.id)))}
+                      >
+                        Select Visible
+                      </button>
+                      <button className="ghost-button" type="button" onClick={() => setMainMenuPageIds([])}>
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="site-chrome-mega-program-list">
+                      {filteredMenuPages.map((page) => (
+                        <label className="site-chrome-mega-program-option" key={page.id}>
+                          <input
+                            type="checkbox"
+                            checked={mainMenuPageIds.includes(String(page.id))}
+                            onChange={() => toggleMainMenuPage(page.id)}
+                          />
+                          <span>
+                            <strong>{page.title}</strong>
+                            <small>{page.type} · {page.href}</small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <button className="ghost-button site-chrome-add-pages" type="button" onClick={addSelectedPagesToMainMenu} disabled={!mainMenuPageIds.length}>
+                      <Plus size={16} />
+                      <span>
+                        {selectedMainMenuParent
+                          ? `Add Selected Under ${selectedMainMenuParent.title}`
+                          : "Add Selected to Top Level"}
+                      </span>
+                    </button>
+
+                    <div className="site-chrome-main-hierarchy">
+                      {mainMenuItems.map((item) => (
+                        <article key={item.id}>
+                          <div>
+                            <strong>{item.title}</strong>
+                            <small>{item.children?.length || 0} children · {item.href}</small>
+                            {!!item.children?.length && (
+                              <div className="site-chrome-main-child-list">
+                                {item.children.map((child) => (
+                                  <span key={child.id}>{child.title}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {!item.isMega && (
+                            <button className="icon-button danger" type="button" aria-label={`Remove ${item.title}`} onClick={() => removeMainMenuRoot(item.id)}>
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+
+                    <div className="site-chrome-mega-editor-footer">
+                      <span>The live header preview reflects this hierarchy before it is saved.</span>
+                      <button className="primary-button" type="button" onClick={saveMainMenuChanges}>
+                        <Save size={16} />
+                        <span>Apply Main Menu</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {megaMenuOpen && (
+                  <div className="site-chrome-mega-editor">
+                    <div className="site-chrome-mega-editor-head">
+                      <div>
+                        <span className="eyebrow">Programs navigation</span>
+                        <h3>Edit Mega Menu</h3>
+                        <p>Select a category, then choose every program that should appear below it.</p>
+                      </div>
+                      <button className="icon-button" type="button" aria-label="Close mega menu editor" onClick={() => setMegaMenuOpen(false)}>
+                        <X size={17} />
+                      </button>
+                    </div>
+
+                    <div className="field-grid">
+                      <Field label="Program Category">
+                        <select value={activeMegaMenuCategory?.id || ""} onChange={(event) => setMegaMenuCategoryId(event.target.value)}>
+                          {sortedProgramCategories.map((category) => (
+                            <option key={category.id} value={category.id}>{category.name}</option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Search Programs">
+                        <label className="search-field no-margin">
+                          <Search size={16} />
+                          <input value={megaMenuQuery} onChange={(event) => setMegaMenuQuery(event.target.value)} placeholder="Search by title, level, or college" />
+                        </label>
+                      </Field>
+                    </div>
+
+                    <div className="site-chrome-mega-select-actions">
+                      <strong>{megaMenuProgramIds.length} selected</strong>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => setMegaMenuProgramIds(filteredMegaMenuPrograms.map((program) => String(program.id)))}
+                      >
+                        Select Visible
+                      </button>
+                      <button className="ghost-button" type="button" onClick={() => setMegaMenuProgramIds([])}>
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="site-chrome-mega-program-list">
+                      {filteredMegaMenuPrograms.map((program) => (
+                        <label className="site-chrome-mega-program-option" key={program.id}>
+                          <input
+                            type="checkbox"
+                            checked={megaMenuProgramIds.includes(String(program.id))}
+                            onChange={() => toggleMegaMenuProgram(program.id)}
+                          />
+                          <span>
+                            <strong>{program.title}</strong>
+                            <small>{program.level} · {program.college}</small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="site-chrome-mega-editor-footer">
+                      <span>The preview updates while you select programs. Apply the menu, then save Header to publish it.</span>
+                      <button className="primary-button" type="button" onClick={saveProgramsMegaMenu} disabled={!activeMegaMenuCategory}>
+                        <Save size={16} />
+                        <span>Apply Mega Menu</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="site-chrome-menu-list">
                   {visualHeaderModel.menuItems.map((item, index) => (
@@ -231,6 +1312,12 @@ export default function SiteChromeView({
                           <small>{item.isMega ? "Mega menu preserved" : item.children.length ? "Dropdown menu" : "Single link"}</small>
                         </div>
                         <div className="site-chrome-menu-actions">
+                          {item.isMega && (
+                            <button className="ghost-button" type="button" onClick={() => setMegaMenuOpen(true)}>
+                              <Layers size={16} />
+                              <span>Edit Mega Menu</span>
+                            </button>
+                          )}
                           <button className="ghost-button" type="button" onClick={() => moveHeaderMenuItem(item.id, "up")} disabled={index === 0}>
                             <ChevronUp size={16} />
                             <span>Up</span>
@@ -257,9 +1344,14 @@ export default function SiteChromeView({
                         <Field label="Label">
                           <input value={item.title} onChange={(event) => updateHeaderMenuItem(item.id, "title", event.target.value)} />
                         </Field>
-                        <Field label="URL">
-                          <input value={item.href} onChange={(event) => updateHeaderMenuItem(item.id, "href", event.target.value)} />
-                        </Field>
+                        <PageLinkField label="Linked Page">
+                          <PageLinkSelect
+                            value={item.href}
+                            pages={linkablePages}
+                            ariaLabel={`Select page for ${item.title || "menu item"}`}
+                            onChange={(href, selectedPage) => selectHeaderMenuPage(item.id, href, selectedPage)}
+                          />
+                        </PageLinkField>
                       </div>
 
                       {item.isMega ? (
@@ -283,10 +1375,11 @@ export default function SiteChromeView({
                                 onChange={(event) => updateHeaderChildItem(item.id, child.id, "title", event.target.value)}
                                 placeholder="Child label"
                               />
-                              <input
+                              <PageLinkSelect
                                 value={child.href}
-                                onChange={(event) => updateHeaderChildItem(item.id, child.id, "href", event.target.value)}
-                                placeholder="Child URL"
+                                pages={linkablePages}
+                                ariaLabel={`Select page for ${child.title || "dropdown item"}`}
+                                onChange={(href, selectedPage) => selectHeaderChildPage(item.id, child.id, href, selectedPage)}
                               />
                               <button
                                 className="icon-button"
@@ -332,6 +1425,51 @@ export default function SiteChromeView({
               </div>
             )}
 
+            {kind === "footer" && (
+              <div className="site-chrome-visual-editor site-chrome-footer-editor">
+                <div className="site-chrome-editor-label">
+                  <div>
+                    <strong>Visual Footer Builder</strong>
+                    <small>Edit the navigation groups fetched from the Admin API footer record.</small>
+                  </div>
+                  <button className="ghost-button" type="button" onClick={() => openSiteChromeView("footer")}>
+                    <Globe2 size={16} />
+                    <span>Refresh from API</span>
+                  </button>
+                </div>
+
+                {footerNavigationGroups.map((group) => (
+                  <section className="site-chrome-footer-menu-card" key={group.id}>
+                    <div className="site-chrome-footer-menu-head">
+                      <div>
+                        <span className="eyebrow">Footer navigation</span>
+                        <h3>{group.title}</h3>
+                      </div>
+                      <span>{group.items.length} links</span>
+                    </div>
+                    <div className="site-chrome-footer-menu-links">
+                      {group.items.map((item) => (
+                        <FooterMenuItemEditor
+                          key={item.id}
+                          item={item}
+                          groupId={group.id}
+                          pages={linkablePages}
+                          onFieldChange={updateFooterMenuItem}
+                          onPageSelect={selectFooterMenuPage}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+
+                {!footerNavigationGroups.length && (
+                  <div className="site-chrome-empty-note site-chrome-footer-empty">
+                    No editable navigation groups were found in the footer API markup. Refresh the API record or check that it contains the saved footer HTML.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="site-chrome-editor-block">
               <div className="site-chrome-editor-label">
                 <strong>{config.title} HTML</strong>
@@ -353,34 +1491,11 @@ export default function SiteChromeView({
               </div>
               <button className="primary-button site-chrome-save" type="submit">
                 <Save size={17} />
-                <span>Save {kind === "header" ? "Header" : "Footer"}</span>
+                <span>Save &amp; Publish {kind === "header" ? "Header" : "Footer"}</span>
               </button>
             </div>
           </div>
         </form>
-
-        <div className="site-chrome-preview-col">
-          <div className="panel site-chrome-preview-panel">
-            <div className="panel-head compact site-chrome-panel-head">
-              <div>
-                <span className="eyebrow">Live Preview</span>
-                <h2>{config.title}</h2>
-              </div>
-              <span className={`badge ${isSavedStatus ? "" : "draft"}`}>{isSavedStatus ? "Published" : "Draft"}</span>
-            </div>
-
-            <div className="website-preview website-preview-html site-chrome-preview">
-              <div className="preview-html-head site-chrome-preview-head">
-                <div>
-                  <span className="eyebrow">Snippet Canvas</span>
-                  <h3>{config.title}</h3>
-                </div>
-                <small>{sourcePath}</small>
-              </div>
-              <iframe title={`${config.title} preview`} srcDoc={buildSiteChromePreviewDocument(kind, snippetHtml)} sandbox="" />
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
