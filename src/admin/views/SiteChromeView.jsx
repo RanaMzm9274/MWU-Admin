@@ -1013,6 +1013,10 @@ export default function SiteChromeView({
                 <span>Preview {kind === "header" ? "Header" : "Footer"}</span>
                 <ExternalLink size={14} />
               </button>
+              <button className="primary-button site-chrome-top-save" type="submit">
+                <Save size={16} />
+                <span>Save Changes</span>
+              </button>
             </div>
           </div>
 
@@ -1112,7 +1116,7 @@ export default function SiteChromeView({
                   </div>
                   <button className="ghost-button" type="button" onClick={() => openSiteChromeView("header")}>
                     <Globe2 size={16} />
-                    <span>Refresh from Header File</span>
+                    <span>Refresh from API</span>
                   </button>
                 </div>
 

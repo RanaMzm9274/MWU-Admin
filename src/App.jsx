@@ -104,7 +104,12 @@ const normalizeDevProxyBaseUrl = (value, devPrefix) => {
 };
 const API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_API_BASE_URL || "", DEV_API_PROXY_PREFIX);
 const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-const SITE_CHROME_PUBLISH_URL = String(import.meta.env.VITE_SITE_CHROME_PUBLISH_URL || "").trim();
+const DEFAULT_SITE_CHROME_PUBLISH_URL = import.meta.env.DEV
+  ? "/__live_site_chrome"
+  : `${LIVE_SITE_ORIGIN}/api/site-chrome`;
+const SITE_CHROME_PUBLISH_URL = String(
+  import.meta.env.VITE_SITE_CHROME_PUBLISH_URL || DEFAULT_SITE_CHROME_PUBLISH_URL
+).trim();
 
 const getAuthHeaders = (token) => {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -4374,14 +4379,24 @@ const updateHeaderHtmlFromVisualModel = (html = "", model = {}) => {
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const menuRoot = doc.querySelector(".main-menu > ul");
+    const mobileMenuRoot = doc.querySelector(".th-mobile-menu > ul");
     const cta = doc.querySelector(".header-action .th-btn");
     const nextItems = Array.isArray(model.menuItems) ? model.menuItems : [];
 
-    if (menuRoot) {
-      const originalItems = Array.from(menuRoot.children);
-      const nextHtml = nextItems.map((item) => {
+    const buildUpdatedMenuHtml = (root, preserveMegaMarkup = false) => {
+      if (!root) return "";
+      const originalItems = Array.from(root.children);
+      return nextItems.map((item, index) => {
         if (item.isMega) {
-          const original = originalItems[item.sourceIndex];
+          const original =
+            originalItems.find((candidate) => {
+              const directLink = Array.from(candidate.children || []).find(
+                (child) => child.tagName?.toLowerCase() === "a"
+              );
+              return String(directLink?.textContent || "").trim().toLowerCase() === String(item.title || "Programs").trim().toLowerCase();
+            }) ||
+            originalItems[item.sourceIndex] ||
+            originalItems[index];
           if (!original) {
             return buildVisualHeaderMenuItemHtml(item);
           }
@@ -4391,12 +4406,20 @@ const updateHeaderHtmlFromVisualModel = (html = "", model = {}) => {
             directLink.textContent = item.title || "Programs";
             directLink.setAttribute("href", item.href || "#");
           }
+          if (!preserveMegaMarkup) {
+            clone.classList.remove("mega-menu-wrap", "mwu-programs-mega");
+          }
           return clone.outerHTML;
         }
         return buildVisualHeaderMenuItemHtml(item);
       }).join("\n");
+    };
 
-      menuRoot.innerHTML = nextHtml;
+    if (menuRoot) {
+      menuRoot.innerHTML = buildUpdatedMenuHtml(menuRoot, true);
+    }
+    if (mobileMenuRoot) {
+      mobileMenuRoot.innerHTML = buildUpdatedMenuHtml(mobileMenuRoot, false);
     }
 
     if (cta) {
@@ -5916,8 +5939,8 @@ function App() {
       }
     }
     let nextPage =
-      kind === "footer" && hasMeaningfulSiteChromeHtml(existing)
-        ? createSiteChromePage("footer", {
+      hasMeaningfulSiteChromeHtml(existing)
+        ? createSiteChromePage(kind, {
             ...existing,
             _siteChromeSource: "api"
           })
@@ -6031,15 +6054,14 @@ function App() {
     }
     if (SITE_CHROME_PUBLISH_URL) {
       targets.push({ url: SITE_CHROME_PUBLISH_URL, scope: "live", method: "POST" });
-    } else {
-      targets.push(
-        { url: apiUrl(`/admin/site-chrome/${kind}/publish`), scope: "live", method: "PUT" },
-        { url: apiUrl("/admin/site-chrome/publish"), scope: "live", method: "POST" },
-        { url: apiUrl(`/admin/partials/${encodeURIComponent(fileName)}`), scope: "live", method: "PUT" }
-      );
     }
 
-    const result = { local: false, live: false, error: "" };
+    const result = {
+      local: false,
+      live: false,
+      liveConfigured: Boolean(SITE_CHROME_PUBLISH_URL),
+      error: ""
+    };
     for (const target of targets) {
       try {
         const response = await fetch(target.url, {
@@ -6063,8 +6085,13 @@ function App() {
           if (target.scope === "live") break;
           continue;
         }
-        if (![404, 405].includes(response.status)) {
-          result.error = await readApiError(response, `${config.title} file publish failed.`);
+        if (target.scope === "live") {
+          result.error =
+            response.status === 404
+              ? "The website publishing endpoint is not deployed yet (HTTP 404)."
+              : await readApiError(response, `${config.title} file publish failed.`);
+        } else if (![404, 405].includes(response.status)) {
+          result.error = await readApiError(response, `${config.title} local file synchronization failed.`);
         }
       } catch (error) {
         result.error = error.message || `${config.title} file publish failed.`;
@@ -6081,15 +6108,19 @@ function App() {
     const publishResult = await publishSiteChromeFile(kind, html);
     if (publishResult.live) {
       setNotice(`${getSiteChromeConfig(kind).title} saved and published to the live HTML partial.`);
-    } else if (publishResult.local) {
+    } else if (publishResult.liveConfigured && publishResult.error) {
       setNotice(
-        `${getSiteChromeConfig(kind).title} saved and the local HTML partial was updated. ` +
-        "The live server publish endpoint is unavailable; configure VITE_SITE_CHROME_PUBLISH_URL to deploy instantly."
+        `${getSiteChromeConfig(kind).title} was saved to the Admin API${publishResult.local ? " and local HTML partial" : ""}, ` +
+        `but the public website was not updated. ${publishResult.error}`
       );
+    } else if (publishResult.local) {
+      setNotice(`${getSiteChromeConfig(kind).title} saved to the Admin API and the local HTML partial was synchronized.`);
+    } else if (!publishResult.liveConfigured) {
+      setNotice(`${getSiteChromeConfig(kind).title} saved successfully to the Admin API.`);
     } else {
       setNotice(
         publishResult.error ||
-        `${getSiteChromeConfig(kind).title} saved to the Admin API, but the live HTML partial was not updated because no writable publish endpoint is available.`
+        `${getSiteChromeConfig(kind).title} saved to the Admin API, but the configured live publish endpoint did not accept the update.`
       );
     }
     return savedPage;

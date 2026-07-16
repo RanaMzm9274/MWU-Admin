@@ -78,6 +78,10 @@ export default defineConfig({
       "/__live_media": {
         ...liveProxy,
         rewrite: (path) => path.replace(/^\/__live_media/, "") || "/"
+      },
+      "/__live_site_chrome": {
+        ...liveProxy,
+        rewrite: () => "/api/site-chrome"
       }
     }
   }

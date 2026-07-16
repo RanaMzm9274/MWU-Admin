@@ -31,10 +31,12 @@ Local development should point at the live backend API:
 VITE_API_BASE_URL=https://api.maddauni.online/api
 ```
 
-To publish Header & Footer markup directly to the live website, configure a protected backend endpoint:
+Header and Footer markup is saved to the authenticated Admin Pages API. During local development, the matching HTML partial is synchronized in `public/assets/partials/`.
+
+The public MWU website exposes a protected bearer-token endpoint for synchronizing the deployed Header and Footer partials. The default endpoint is:
 
 ```bash
-VITE_SITE_CHROME_PUBLISH_URL=https://api.maddauni.online/api/admin/site-chrome/publish
+VITE_SITE_CHROME_PUBLISH_URL=https://maddauni.online/api/site-chrome
 ```
 
-During local development, saving Header or Footer also writes the generated file into `public/assets/partials/`.
+The application defaults to `https://maddauni.online/api/site-chrome`. Override `VITE_SITE_CHROME_PUBLISH_URL` only when the website deployment uses a different protected publishing URL.

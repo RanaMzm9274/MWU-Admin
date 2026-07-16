@@ -1128,6 +1128,11 @@ button:disabled {
   color: var(--mwu-blue);
 }
 
+.site-chrome-top-save {
+  min-height: 40px;
+  justify-content: center;
+}
+
 .site-chrome-fields {
   display: grid;
   gap: 18px;
