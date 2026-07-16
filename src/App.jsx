@@ -6048,6 +6048,7 @@ function App() {
     const config = getSiteChromeConfig(kind);
     const fileName = kind === "footer" ? "universal-footer.html" : "inner-header.html";
     const targets = [];
+    const expectedHtml = String(html || "");
 
     if (import.meta.env.DEV) {
       targets.push({ url: "/__site_chrome_publish", scope: "local", method: "POST" });
@@ -6075,14 +6076,35 @@ function App() {
             slug: config.slug,
             path: config.sourceUrl,
             file_name: fileName,
-            html,
-            content: html
+            html: expectedHtml,
+            content: expectedHtml
           })
         });
 
         if (response.ok) {
           result[target.scope] = true;
-          if (target.scope === "live") break;
+          if (target.scope === "live") {
+            try {
+              const verificationUrl = `${getFetchableLiveAssetUrl(config.sourceUrl)}${config.sourceUrl.includes("?") ? "&" : "?"}verify=${Date.now()}`;
+              const verificationResponse = await fetch(verificationUrl, {
+                headers: { Accept: "text/html" },
+                cache: "no-store"
+              });
+              if (!verificationResponse.ok) {
+                throw new Error(`deployed partial returned HTTP ${verificationResponse.status}`);
+              }
+              const deployedHtml = await verificationResponse.text();
+              const normalizePublishedHtml = (value) => String(value || "").replace(/\r\n/g, "\n").trim();
+              if (normalizePublishedHtml(deployedHtml) !== normalizePublishedHtml(expectedHtml)) {
+                result.live = false;
+                result.error = `${config.title} publish endpoint responded successfully, but the deployed HTML partial still contains different content.`;
+              }
+            } catch (error) {
+              result.live = false;
+              result.error = `${config.title} could not be verified after publishing: ${error.message || "verification failed."}`;
+            }
+            break;
+          }
           continue;
         }
         if (target.scope === "live") {
@@ -6104,7 +6126,10 @@ function App() {
     const savedPage = await savePage(event, pageOverride);
     if (!savedPage) return null;
 
-    const html = getSiteChromeHtml(savedPage) || getSiteChromeHtml(pageOverride);
+    // The editor state is authoritative for this publish. Some page API
+    // responses omit content fields or can briefly return the previous body,
+    // which must never be republished over the user's new header/footer.
+    const html = getSiteChromeHtml(pageOverride) || getSiteChromeHtml(savedPage);
     const publishResult = await publishSiteChromeFile(kind, html);
     if (publishResult.live) {
       setNotice(`${getSiteChromeConfig(kind).title} saved and published to the live HTML partial.`);
