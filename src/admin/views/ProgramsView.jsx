@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Save,
   Trash2
 } from "lucide-react";
 import { Field, StatusPill, ViewModeToggle } from "../components/Common";
@@ -27,6 +28,7 @@ export default function ProgramsView({
   addCategory,
   updateCategory,
   updateMegaMenuCategory,
+  saveMegaMenu,
   deleteCategory,
   addProgram,
   importLivePrograms,
@@ -46,6 +48,8 @@ export default function ProgramsView({
   const [pageQuery, setPageQuery] = useState("");
   const [pageStatusFilter, setPageStatusFilter] = useState("All");
   const [pageViewMode, setPageViewMode] = useState("grid");
+  const [megaMenuDirty, setMegaMenuDirty] = useState(false);
+  const [megaMenuSaving, setMegaMenuSaving] = useState(false);
   const sortedCategories = [...categories].sort((a, b) => Number(a.menuOrder) - Number(b.menuOrder));
   const filteredProgramPages = programPages
     .filter((page) => pageStatusFilter === "All" || (page.status || "").toLowerCase() === pageStatusFilter.toLowerCase())
@@ -83,6 +87,7 @@ export default function ProgramsView({
           .map((program) => String(program.id));
   const updateMegaMenuPrograms = (category, nextIds) => {
     const normalizedIds = Array.from(new Set(nextIds.map(String)));
+    setMegaMenuDirty(true);
     if (typeof updateMegaMenuCategory === "function") {
       updateMegaMenuCategory(category.id, normalizedIds);
       return;
@@ -476,6 +481,26 @@ export default function ProgramsView({
               <span className="eyebrow">Header Navigation</span>
               <h2>Programs Mega Menu</h2>
               <p>Choose each category and assign multiple programs. These assignments are shared with the Header editor.</p>
+            </div>
+            <div className="panel-actions">
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!megaMenuDirty || megaMenuSaving}
+                onClick={async () => {
+                  if (typeof saveMegaMenu !== "function") return;
+                  setMegaMenuSaving(true);
+                  try {
+                    const saved = await saveMegaMenu();
+                    if (saved) setMegaMenuDirty(false);
+                  } finally {
+                    setMegaMenuSaving(false);
+                  }
+                }}
+              >
+                <Save size={17} />
+                <span>{megaMenuSaving ? "Saving..." : megaMenuDirty ? "Save Mega Menu" : "Saved"}</span>
+              </button>
             </div>
           </div>
 

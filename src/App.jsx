@@ -7666,7 +7666,81 @@ function App() {
     setProgramCategories(nextCategories);
     setPages((current) => current.map(updateHeaderPage));
     setFormPage((current) => updateHeaderPage(current));
-    setNotice("Programs mega-menu assignments updated. Save Header to publish the generated navigation.");
+    setNotice("Programs mega-menu assignments updated. Use Save Mega Menu to publish them live.");
+  };
+
+  const saveProgramsMegaMenu = async () => {
+    if (!requireAnyPortalAccess(["programs", "site-chrome"], "Programs mega-menu publishing")) {
+      return null;
+    }
+
+    try {
+      let headerPage = findSiteChromePage(pages, "header");
+      if (!headerPage) {
+        setNotice("Website Header record was not found in the Admin API.");
+        return null;
+      }
+
+      for (const identifier of getPageApiIdentifiers(headerPage)) {
+        try {
+          const response = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(identifier)}`), {
+            headers: getAuthHeaders(adminToken),
+            cache: "no-store"
+          });
+          if (!response.ok) continue;
+          const payload = await readOptionalJson(response);
+          const detailedPage = normalizeSiteChromeApiPage(payload, headerPage);
+          if (isMatchingSiteChromePage(detailedPage, "header")) {
+            headerPage = detailedPage;
+            break;
+          }
+        } catch {
+          // Try the next stable page identifier.
+        }
+      }
+
+      const currentHtml = getSiteChromeHtml(headerPage);
+      if (!currentHtml) {
+        setNotice("Website Header record contains no markup to update.");
+        return null;
+      }
+
+      const nextHtml = updateProgramsMegaMenuMarkup(
+        currentHtml,
+        programCategories,
+        megaMenuPrograms
+      );
+      const pageOverride = createSiteChromePage("header", {
+        ...headerPage,
+        status: "Published",
+        bodyHtml: nextHtml,
+        rawHtml: "",
+        sections: [
+          normalizeSection({
+            id: headerPage.sections?.[0]?.id,
+            type: "Raw HTML",
+            title: "Website Header Markup",
+            html: nextHtml,
+            body: nextHtml,
+            layout: "Legacy HTML",
+            visible: true
+          })
+        ]
+      });
+      const { savedPage } = await persistPageToApi(pageOverride, headerPage);
+
+      setPages((current) =>
+        current.map((page) => (isMatchingSiteChromePage(page, "header") ? savedPage : page))
+      );
+      if (isMatchingSiteChromePage(formPage, "header")) {
+        setFormPage(savedPage);
+      }
+      setNotice("Programs mega-menu saved to the Header database record and published live.");
+      return savedPage;
+    } catch (error) {
+      setNotice(error.message || "Programs mega-menu save failed.");
+      return null;
+    }
   };
 
   const importLivePrograms = async () => {
@@ -8335,6 +8409,7 @@ function App() {
             addCategory={addProgramCategory}
             updateCategory={updateProgramCategory}
             updateMegaMenuCategory={updateProgramMegaMenuCategory}
+            saveMegaMenu={saveProgramsMegaMenu}
             deleteCategory={deleteProgramCategory}
             addProgram={addProgram}
             importLivePrograms={importLivePrograms}
