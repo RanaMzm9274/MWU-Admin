@@ -94,6 +94,8 @@ const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
 const CRM_UI_STATE_KEY = "mwu_admin_ui_state_v1";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 const DEV_API_PROXY_PREFIX = "/__live_api";
+const LIVE_API_ORIGIN = "https://api.maddauni.online";
+const LIVE_PROGRAMS_API_URL = `${LIVE_API_ORIGIN}/api/programs`;
 const normalizeDevProxyBaseUrl = (value, devPrefix) => {
   const raw = String(value || "").replace(/\/$/, "");
   if (!raw) return "";
@@ -4499,6 +4501,83 @@ const parseStaticHeaderNavigation = (html = "") => {
   }
 };
 
+const getNavigationPageType = (title = "", parentTitle = "") => {
+  const value = `${title} ${parentTitle}`.toLowerCase();
+  if (value.includes("program")) return "Academic Program";
+  if (value.includes("admission")) return "Admission Page";
+  if (value.includes("event")) return "Event";
+  if (value.includes("blog") || value.includes("news") || value.includes("research")) return "News Article";
+  if (value.includes("contact") || value.includes("about") || value.includes("campus")) return "Campus Page";
+  if (value.includes("home")) return "Home Section";
+  return "Static Page";
+};
+
+const createPageFromNavigationItem = (item = {}, options = {}) => {
+  const title = String(item?.title || item?.page_title || "Imported Page").trim() || "Imported Page";
+  const slug = slugify(item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || item?.href || "") || title);
+  const parentTitle = String(options.parentTitle || "").trim();
+  const parentSlug = String(options.parentSlug || "").trim();
+  const menuTitle = parentTitle || title;
+
+  return normalizePage({
+    id: `nav-${slug}`,
+    title,
+    slug,
+    type: getNavigationPageType(title, parentTitle),
+    menu: menuTitle,
+    status: "Published",
+    template: "Standard Page",
+    visibility: "Public",
+    parentSlug,
+    menuOrder: Number(item?.sort_order || options.menuOrder || 1) || 1,
+    showInHeader: 1,
+    showInFooter: 1,
+    heroHeadline: title,
+    heroTag: menuTitle || "Website Page",
+    summary: `Live website page imported from the ${options.sourceLabel || "header navigation"}.`,
+    heroImage: assets.hero,
+    ctaLabel: "Learn More",
+    ctaUrl: item?.custom_url || item?.href || `/${slug}`,
+    seoTitle: `${title} | Madda Walabu University`,
+    seoDescription: `Madda Walabu University ${title} page.`,
+    sourceUrl: item?.custom_url || item?.href || `/${slug}`,
+    owner: "Content Office",
+    priority: "Medium",
+    updatedBy: "Header Navigation Import",
+    sections: [createSection("Hero Banner"), createSection("Text Block")]
+  });
+};
+
+const createPagesFromNavigationSnapshot = (menu = [], sourceLabel = "header navigation") => {
+  const pagesBySlug = new Map();
+  const addPage = (page) => {
+    if (!page?.slug || pagesBySlug.has(page.slug)) return;
+    pagesBySlug.set(page.slug, page);
+  };
+
+  (Array.isArray(menu) ? menu : []).forEach((item, menuIndex) => {
+    const itemSlug = slugify(item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || item?.href || "") || item?.title || "");
+    if (itemSlug) {
+      addPage(createPageFromNavigationItem(item, { menuOrder: Number(item?.sort_order || menuIndex + 1), sourceLabel }));
+    }
+
+    const parentTitle = String(item?.title || "").trim();
+    const children = Array.isArray(item?.children) ? item.children : [];
+    children.forEach((child, childIndex) => {
+      const childSlug = slugify(child?.slug || normalizeNavigationHrefToSlug(child?.custom_url || child?.href || "") || child?.title || "");
+      if (!childSlug) return;
+      addPage(createPageFromNavigationItem(child, {
+        parentTitle,
+        parentSlug: itemSlug,
+        menuOrder: Number(child?.sort_order || childIndex + 1),
+        sourceLabel
+      }));
+    });
+  });
+
+  return Array.from(pagesBySlug.values());
+};
+
 const parseHeaderVisualModel = (html = "") => {
   if (typeof DOMParser === "undefined" || !String(html || "").trim()) {
     return { menuItems: [], ctaLabel: "", ctaUrl: "" };
@@ -4625,7 +4704,7 @@ const updateHeaderHtmlFromVisualModel = (html = "", model = {}) => {
 };
 
 const applyNavigationSnapshotToPages = (pages = [], menu = []) => {
-  if (!Array.isArray(pages) || !pages.length || !Array.isArray(menu) || !menu.length) {
+  if (!Array.isArray(pages) || !Array.isArray(menu) || !menu.length) {
     return pages;
   }
 
@@ -4636,8 +4715,9 @@ const applyNavigationSnapshotToPages = (pages = [], menu = []) => {
 
   const applyToPage = (slug, updater) => {
     const index = indexBySlug.get(slugify(slug));
-    if (index === undefined) return;
+    if (index === undefined) return false;
     nextPages[index] = updater(nextPages[index]);
+    return true;
   };
 
   menu.forEach((item, menuIndex) => {
@@ -4646,23 +4726,37 @@ const applyNavigationSnapshotToPages = (pages = [], menu = []) => {
     const children = Array.isArray(item?.children) ? item.children : [];
 
     if (itemSlug) {
-      applyToPage(itemSlug, (page) => ({
+      const applied = applyToPage(itemSlug, (page) => ({
         ...page,
         menu: itemTitle || page.menu,
         menuOrder: Number(item?.sort_order || menuIndex + 1) || page.menuOrder,
         parentSlug: ""
       }));
+      if (!applied) {
+        const newPage = createPageFromNavigationItem(item, { menuOrder: Number(item?.sort_order || menuIndex + 1) });
+        indexBySlug.set(newPage.slug, nextPages.length);
+        nextPages.push(newPage);
+      }
     }
 
     children.forEach((child, childIndex) => {
       const childSlug = slugify(child?.slug || normalizeNavigationHrefToSlug(child?.custom_url || ""));
       if (!childSlug) return;
-      applyToPage(childSlug, (page) => ({
+      const applied = applyToPage(childSlug, (page) => ({
         ...page,
         menu: itemTitle || page.menu,
         menuOrder: Number(child?.sort_order || childIndex + 1) || page.menuOrder,
         parentSlug: itemSlug || page.parentSlug || ""
       }));
+      if (!applied) {
+        const newPage = createPageFromNavigationItem(child, {
+          parentTitle: itemTitle,
+          parentSlug: itemSlug,
+          menuOrder: Number(child?.sort_order || childIndex + 1)
+        });
+        indexBySlug.set(newPage.slug, nextPages.length);
+        nextPages.push(newPage);
+      }
     });
   });
 
@@ -4867,6 +4961,73 @@ const normalizeProgram = (program) => ({
   summary: program?.summary || "Write a concise program summary for students.",
   updatedAt: program?.updatedAt || todayIso()
 });
+
+const normalizeProgramLevel = (program = {}) => {
+  const raw = String(program.level || program.level_name || program.levelName || "").toLowerCase();
+  if (raw.includes("phd") || raw.includes("doctor")) return "PhD";
+  if (raw.includes("master") || raw.includes("msc") || raw.includes("ma ") || raw.includes("postgraduate")) return "Postgraduate";
+  if (raw.includes("special")) return "Specialty";
+  if (raw.includes("short")) return "Short Course";
+  return "Undergraduate";
+};
+
+const normalizeImportedProgram = (program = {}) => {
+  const title = String(program.title || "New Program").trim() || "New Program";
+  const slug = slugify(program.slug || title);
+  const departmentName = String(program.department_name || program.departmentName || program.college || "").trim();
+  const levelName = String(program.level_name || program.levelName || program.level || "").trim();
+  const categorySlug = slugify(program.department_slug || departmentName || program.level_slug || levelName || "undergraduate-programs");
+
+  return normalizeProgram({
+    id: program.id ? `live-program-${program.id}` : `live-program-${slug}`,
+    title,
+    slug,
+    categorySlug,
+    pageSlug: slug,
+    level: normalizeProgramLevel(program),
+    college: departmentName || "Academic Affairs",
+    duration: program.duration || "See admission requirements",
+    delivery: program.delivery || "Regular",
+    campus: program.campus || "Main Campus",
+    status: titleCaseStatus(program.status || "Published"),
+    featured: Number(program.sort_order || 0) <= 12,
+    applicationOpen: true,
+    heroImage:
+      categorySlug.includes("health") ? assets.health
+        : categorySlug.includes("agric") || categorySlug.includes("natural") ? assets.agriculture
+          : categorySlug.includes("tourism") || categorySlug.includes("environment") ? assets.campus
+            : assets.hero,
+    summary:
+      program.short_description ||
+      program.description ||
+      program.seo_description ||
+      `${title} program at Madda Walabu University.`,
+    updatedAt: program.updated_at || program.updatedAt || todayIso()
+  });
+};
+
+const createProgramCategoriesFromImportedPrograms = (importedPrograms = []) => {
+  const categoryMap = new Map();
+  importedPrograms.forEach((program, index) => {
+    const categorySlug = slugify(program.department_slug || program.department_name || program.level_slug || program.level_name || "undergraduate-programs");
+    if (!categorySlug || categoryMap.has(categorySlug)) return;
+    const categoryName = program.department_name || program.level_name || "Academic Programs";
+    categoryMap.set(categorySlug, normalizeProgramCategory({
+      id: `live-category-${categorySlug}`,
+      name: categoryName,
+      slug: categorySlug,
+      description: `${categoryName} programs imported from the live MWU website catalog.`,
+      status: "Published",
+      menuOrder: index + 1,
+      featured: true,
+      heroImage:
+        categorySlug.includes("health") ? assets.health
+          : categorySlug.includes("agric") || categorySlug.includes("natural") ? assets.agriculture
+            : assets.hero
+    }));
+  });
+  return Array.from(categoryMap.values());
+};
 
 const loadProgramCategories = () => {
   try {
@@ -7152,6 +7313,69 @@ function App() {
     setNotice("Programs mega-menu assignments updated. Save Header to publish the generated navigation.");
   };
 
+  const importLivePrograms = async () => {
+    if (!requireAnyPortalAccess(["programs"], "Live program import")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(LIVE_PROGRAMS_API_URL, {
+        headers: { Accept: "application/json" },
+        cache: "no-store"
+      });
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Live programs API is not available."));
+      }
+
+      const payload = await readOptionalJson(response);
+      const sourcePrograms = Array.isArray(payload?.programs)
+        ? payload.programs
+        : Array.isArray(payload?.data?.programs)
+          ? payload.data.programs
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+              ? payload
+              : [];
+
+      if (!sourcePrograms.length) {
+        setNotice("No live programs were returned by the public API.");
+        return;
+      }
+
+      const importedPrograms = sourcePrograms.map(normalizeImportedProgram);
+      const importedCategories = createProgramCategoriesFromImportedPrograms(sourcePrograms);
+
+      setProgramCategories((current) => {
+        const nextBySlug = new Map(current.map((category) => [category.slug, normalizeProgramCategory(category)]));
+        importedCategories.forEach((category) => {
+          nextBySlug.set(category.slug, {
+            ...(nextBySlug.get(category.slug) || {}),
+            ...category,
+            updatedAt: todayIso()
+          });
+        });
+        return Array.from(nextBySlug.values()).sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0));
+      });
+
+      setPrograms((current) => {
+        const nextBySlug = new Map(current.map((program) => [program.slug, normalizeProgram(program)]));
+        importedPrograms.forEach((program) => {
+          nextBySlug.set(program.slug, {
+            ...(nextBySlug.get(program.slug) || {}),
+            ...program,
+            updatedAt: todayIso()
+          });
+        });
+        return Array.from(nextBySlug.values()).sort((a, b) => a.title.localeCompare(b.title));
+      });
+
+      setNotice(`Imported ${importedPrograms.length} programs and ${importedCategories.length} categories from the live website API.`);
+    } catch (error) {
+      setNotice(error.message || "Live program import failed.");
+    }
+  };
+
   const deleteProgramCategory = async (categoryId) => {
     if (!requireAnyPortalAccess(["programs"], "Program category deletion")) {
       return;
@@ -7713,6 +7937,7 @@ function App() {
             updateMegaMenuCategory={updateProgramMegaMenuCategory}
             deleteCategory={deleteProgramCategory}
             addProgram={addProgram}
+            importLivePrograms={importLivePrograms}
             updateProgram={updateProgram}
             deleteProgram={deleteProgram}
             pageStatusFilters={pageStatusFilters}

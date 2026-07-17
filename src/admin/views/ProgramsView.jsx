@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Download,
   Eye,
   FileText,
   Filter,
@@ -28,6 +29,7 @@ export default function ProgramsView({
   updateMegaMenuCategory,
   deleteCategory,
   addProgram,
+  importLivePrograms,
   updateProgram,
   deleteProgram,
   pageStatusFilters,
@@ -159,14 +161,20 @@ export default function ProgramsView({
               <span className="eyebrow">Program Catalog</span>
               <h2>{filteredPrograms.length} Programs</h2>
             </div>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => addProgram(categoryFilter === "All" ? sortedCategories[0]?.slug : categoryFilter)}
-            >
-              <Plus size={17} />
-              <span>Add Program</span>
-            </button>
+            <div className="panel-actions">
+              <button className="ghost-button" type="button" onClick={importLivePrograms}>
+                <Download size={17} />
+                <span>Import Live Programs</span>
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => addProgram(categoryFilter === "All" ? sortedCategories[0]?.slug : categoryFilter)}
+              >
+                <Plus size={17} />
+                <span>Add Program</span>
+              </button>
+            </div>
           </div>
 
           <div className="manager-toolbar programs-toolbar programs-catalog-toolbar">

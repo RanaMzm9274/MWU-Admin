@@ -415,6 +415,14 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .topbar-actions .ghost-button,
 .topbar-actions .primary-button,
 .topbar-actions .icon-button {
