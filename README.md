@@ -7,6 +7,7 @@ React/Vite CRM portal for managing Madda Walabu University website pages.
 ```bash
 npm install
 npm run dev
+npm run admin:api
 npm run build
 npm run fetch:pages
 ```
@@ -40,3 +41,30 @@ VITE_SITE_CHROME_PUBLISH_URL=https://maddauni.online/api/site-chrome
 ```
 
 The application defaults to `https://maddauni.online/api/site-chrome`. Override `VITE_SITE_CHROME_PUBLISH_URL` only when the website deployment uses a different protected publishing URL.
+
+## Admin User Management API
+
+The Users module expects DB-backed endpoints on the configured Admin API base URL:
+
+```bash
+POST   /admin/login
+GET    /admin/me
+GET    /admin/users
+POST   /admin/users
+PUT    /admin/users/:id
+POST   /admin/users/:id/invite
+DELETE /admin/users/:id
+```
+
+This repo includes a Node/MariaDB implementation in `server/admin-api.js` and the SQL table shape in `server/admin-auth-schema.sql`.
+
+For local backend development:
+
+```bash
+cp .env.example .env
+npm run admin:api
+```
+
+Set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` before the first API start to create the initial super admin account. Configure SMTP variables to send invite emails; without SMTP, development responses return a temporary password for manual sharing.
+
+Production note: mount these routes in the same backend that serves the existing Admin Pages API, or point `VITE_API_BASE_URL` at a backend that also supports the pages/media/site-chrome routes. The React app uses one bearer token for portal access and page management, so user auth and content APIs must trust the same JWT/session issuer.

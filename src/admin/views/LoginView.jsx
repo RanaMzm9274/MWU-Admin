@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Field } from "../components/Common";
 
 export default function LoginView({ onLogin, logoSrc }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +17,8 @@ export default function LoginView({ onLogin, logoSrc }) {
     try {
       await onLogin({ email, password });
     } catch (loginError) {
-      setError(loginError.message || "Login failed.");
+      const message = loginError.message || "Login failed.";
+      setError(/failed to fetch|networkerror|load failed/i.test(message) ? "Admin API is not reachable. Start the admin API server on port 4000." : message);
     } finally {
       setLoading(false);
     }
@@ -45,13 +47,24 @@ export default function LoginView({ onLogin, logoSrc }) {
           </Field>
 
           <Field label="Password">
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div className="password-input-wrap">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+              <button
+                className="password-toggle-button"
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
           </Field>
 
           {error && (

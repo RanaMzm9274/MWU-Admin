@@ -52,7 +52,7 @@ export default function Dashboard({
     { icon: BookOpen, label: "Admissions", value: "Requirements, forms, scholarships", onClick: onOpenPages },
     { icon: MessageSquare, label: "Blog and Events", value: "Announcements and research updates", onClick: onOpenBlogs },
     { icon: ShieldCheck, label: "Approvals", value: "Draft, review, scheduled, publish", onClick: onOpenPages }
-  ];
+  ].filter((item) => typeof item.onClick === "function");
 
   return (
     <section className="dashboard-grid">
@@ -64,14 +64,18 @@ export default function Dashboard({
             Create pages, prepare homepage sections, review content quality, and preview how each page will appear on the public website.
           </p>
           <div className="hero-actions">
-            <button className="primary-button" type="button" onClick={onCreateNewPage}>
-              <Plus size={17} />
-              <span>Add Page</span>
-            </button>
-            <button className="ghost-button light" type="button" onClick={onOpenPages}>
-              <FileText size={17} />
-              <span>Manage Pages</span>
-            </button>
+            {onCreateNewPage && (
+              <button className="primary-button" type="button" onClick={onCreateNewPage}>
+                <Plus size={17} />
+                <span>Add Page</span>
+              </button>
+            )}
+            {onOpenPages && (
+              <button className="ghost-button light" type="button" onClick={onOpenPages}>
+                <FileText size={17} />
+                <span>Manage Pages</span>
+              </button>
+            )}
           </div>
         </div>
         <div className="hero-stat-stack">
@@ -87,7 +91,7 @@ export default function Dashboard({
         {contentHealth.map((item) => {
           const Icon = item.icon;
           return (
-            <button className={`metric-card ${item.tone}`} key={item.label} type="button" onClick={onOpenPages}>
+            <button className={`metric-card ${item.tone}`} key={item.label} type="button" onClick={onOpenPages} disabled={!onOpenPages}>
               <Icon size={20} />
               <span>{item.label}</span>
               <strong>{item.value}</strong>
@@ -102,10 +106,12 @@ export default function Dashboard({
             <span className="eyebrow">Content Pipeline</span>
             <h2>Recent Website Pages</h2>
           </div>
-          <button className="ghost-button" type="button" onClick={onOpenPages}>
-            <Eye size={17} />
-            <span>Open Pages</span>
-          </button>
+          {onOpenPages && (
+            <button className="ghost-button" type="button" onClick={onOpenPages}>
+              <Eye size={17} />
+              <span>Open Pages</span>
+            </button>
+          )}
         </div>
 
         <div className="recent-grid">

@@ -62,6 +62,7 @@ import BlogPagesView from "./admin/views/BlogPagesView";
 import ProgramsManagementView from "./admin/views/ProgramsView";
 import SettingsView from "./admin/views/SettingsView";
 import SiteChromeView, { updateProgramsMegaMenuMarkup } from "./admin/views/SiteChromeView";
+import UserManagementView from "./admin/views/UserManagementView";
 import {
   MEDIA_LIBRARY_KEY,
   LIVE_SITE_ORIGIN,
@@ -87,6 +88,8 @@ const PROGRAM_CATEGORIES_KEY = "mwu-crm-program-categories-v1";
 const PROGRAMS_KEY = "mwu-crm-programs-v1";
 const ADMIN_TOKEN_KEY = "mwu_admin_token";
 const ADMIN_ACTIVITY_KEY = "mwu_admin_last_activity";
+const ADMIN_PROFILE_KEY = "mwu_admin_profile";
+const ADMIN_USERS_KEY = "mwu_admin_users_v1";
 const ADMIN_PAGES_LOADED_NOTICE_KEY = "mwu_admin_pages_loaded_notice_dismissed";
 const CRM_UI_STATE_KEY = "mwu_admin_ui_state_v1";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
@@ -97,7 +100,12 @@ const normalizeDevProxyBaseUrl = (value, devPrefix) => {
   if (!import.meta.env.DEV) return raw;
   try {
     const url = new URL(raw);
-    return `${devPrefix}${url.pathname}`.replace(/\/$/, "");
+    const liveApiHost = new URL(LIVE_API_ORIGIN).hostname.replace(/^www\./, "");
+    const apiHost = url.hostname.replace(/^www\./, "");
+    if (apiHost === liveApiHost) {
+      return `${devPrefix}${url.pathname}`.replace(/\/$/, "");
+    }
+    return raw;
   } catch {
     return raw;
   }
@@ -152,26 +160,136 @@ const extractToken = (payload) =>
   payload?.data?.access_token ||
   "";
 
+const normalizeAccessMap = (value = {}, fallback = fullAccess) => {
+  const source = value && typeof value === "object" ? value : {};
+  const nextAccess = {};
+  accessModules.forEach((module) => {
+    nextAccess[module.id] = Boolean(source[module.id] ?? source[module.label] ?? fallback?.[module.id]);
+  });
+  return nextAccess;
+};
+
+const getRolePreset = (roleId = "") =>
+  rolePresets.find((role) => role.id === roleId || role.label.toLowerCase() === String(roleId).toLowerCase()) ||
+  rolePresets[1];
+
+const normalizeAdminUser = (user = {}, fallbackAccess = null) => {
+  const role = getRolePreset(user.role || user.role_id || user.roleId || "content-manager");
+  const id = String(user.id || user.user_id || user.userId || user.email || makeId());
+  const email = String(user.email || user.username || "").trim();
+  const name = String(user.name || user.full_name || user.fullName || email || "Portal User").trim();
+  return {
+    id,
+    name,
+    email,
+    role: role.id,
+    status: String(user.status || (user.active === false ? "Suspended" : "Active")),
+    department: String(user.department || user.team || ""),
+    createdAt: user.createdAt || user.created_at || todayIso(),
+    updatedAt: user.updatedAt || user.updated_at || todayIso(),
+    lastActive: user.lastActive || user.last_active || "",
+    access: normalizeAccessMap(user.access || user.permissions || user.modules, fallbackAccess || role.access)
+  };
+};
+
+const extractAdminProfile = (payload = {}, email = "") => {
+  const profile =
+    payload?.user ||
+    payload?.profile ||
+    payload?.admin ||
+    payload?.data?.user ||
+    payload?.data?.profile ||
+    payload?.data?.admin ||
+    null;
+
+  if (!profile || typeof profile !== "object") {
+    return normalizeAdminUser({
+      id: email || "current-admin",
+      name: email || "Current Admin",
+      email,
+      role: "super-admin",
+      access: fullAccess
+    }, fullAccess);
+  }
+
+  const roleValue = profile.role || profile.role_id || profile.roleId || "super-admin";
+  const fallbackRole = getRolePreset(roleValue);
+  return normalizeAdminUser(
+    {
+      ...profile,
+      email: profile.email || email,
+      role: roleValue,
+      access: profile.access || profile.permissions || profile.modules || fallbackRole.access
+    },
+    fallbackRole.access
+  );
+};
+
+const getStoredAdminProfile = () => {
+  try {
+    const raw = window.localStorage.getItem(ADMIN_PROFILE_KEY);
+    if (!raw) return null;
+    return normalizeAdminUser(JSON.parse(raw), fullAccess);
+  } catch {
+    window.localStorage.removeItem(ADMIN_PROFILE_KEY);
+    return null;
+  }
+};
+
+const storeAdminProfile = (profile) => {
+  window.localStorage.setItem(ADMIN_PROFILE_KEY, JSON.stringify(normalizeAdminUser(profile, fullAccess)));
+};
+
+const loadAdminUsers = () => {
+  try {
+    const raw = window.localStorage.getItem(ADMIN_USERS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map((user) => normalizeAdminUser(user)) : [];
+  } catch {
+    window.localStorage.removeItem(ADMIN_USERS_KEY);
+    return [];
+  }
+};
+
+const storeAdminUsers = (users = []) => {
+  window.localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(users.map((user) => normalizeAdminUser(user))));
+};
+
+const hasPortalAccess = (profile, viewId) => {
+  if (!accessModuleIds.has(viewId)) return true;
+  if (!profile) return true;
+  return Boolean(profile.access?.[viewId]);
+};
+
+const getFirstAccessibleView = (profile) =>
+  navItems.find((item) => hasPortalAccess(profile, item.id))?.id || "dashboard";
+
 const getStoredAdminToken = () => {
   const token = window.localStorage.getItem(ADMIN_TOKEN_KEY) || "";
   const lastActivity = Number(window.localStorage.getItem(ADMIN_ACTIVITY_KEY) || 0);
   if (!token || !lastActivity || Date.now() - lastActivity > INACTIVITY_LIMIT_MS) {
     window.localStorage.removeItem(ADMIN_TOKEN_KEY);
     window.localStorage.removeItem(ADMIN_ACTIVITY_KEY);
+    window.localStorage.removeItem(ADMIN_PROFILE_KEY);
     return "";
   }
 
   return token;
 };
 
-const rememberAdminSession = (token) => {
+const rememberAdminSession = (token, profile = null) => {
   window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
   window.localStorage.setItem(ADMIN_ACTIVITY_KEY, String(Date.now()));
+  if (profile) {
+    storeAdminProfile(profile);
+  }
 };
 
 const clearAdminSession = () => {
   window.localStorage.removeItem(ADMIN_TOKEN_KEY);
   window.localStorage.removeItem(ADMIN_ACTIVITY_KEY);
+  window.localStorage.removeItem(ADMIN_PROFILE_KEY);
 };
 
 const touchAdminSession = () => {
@@ -355,15 +473,88 @@ const navItems = [
   { id: "pages", label: "Pages", icon: FileText },
   { id: "other-pages", label: "Other Pages", icon: Globe2 },
   { id: "page-editor", label: "Page Editor", icon: Pencil },
-  { id: "menus", label: "Menus", icon: ListChecks },
   { id: "site-chrome", label: "Header & Footer", icon: LayoutTemplate },
   { id: "programs", label: "Programs", icon: GraduationCap },
   { id: "blogs", label: "Blogs", icon: MessageSquare },
   { id: "events", label: "Events", icon: CalendarDays },
   { id: "media", label: "Media", icon: Image },
   { id: "crm", label: "CRM Leads", icon: Users },
+  { id: "users", label: "Users", icon: UserPlus },
   { id: "settings", label: "Settings", icon: Settings }
 ];
+
+const accessModules = [
+  { id: "dashboard", label: "Dashboard", description: "Overview metrics, recent content, and quick actions." },
+  { id: "pages", label: "Pages", description: "Create, edit, publish, import, export, and delete website pages." },
+  { id: "other-pages", label: "Other Pages", description: "Manage standard public pages outside blogs, events, and programs." },
+  { id: "page-editor", label: "Page Editor", description: "Open the visual page editor and save page content." },
+  { id: "site-chrome", label: "Header & Footer", description: "Edit global header and footer markup." },
+  { id: "programs", label: "Programs", description: "Manage program categories, details, and programs mega menu." },
+  { id: "blogs", label: "Blogs", description: "Manage blog listing and article pages." },
+  { id: "events", label: "Events", description: "Manage event listing and event detail pages." },
+  { id: "media", label: "Media", description: "Upload, select, copy, and remove media assets." },
+  { id: "crm", label: "CRM Leads", description: "Review and manage admission or inquiry leads." },
+  { id: "users", label: "Users", description: "Create portal users and assign personalized access." },
+  { id: "settings", label: "Settings", description: "View brand identity and publishing configuration." }
+];
+
+const fullAccess = accessModules.reduce((permissions, module) => {
+  permissions[module.id] = true;
+  return permissions;
+}, {});
+
+const rolePresets = [
+  { id: "super-admin", label: "Super Admin", access: fullAccess },
+  {
+    id: "content-manager",
+    label: "Content Manager",
+    access: {
+      dashboard: true,
+      pages: true,
+      "other-pages": true,
+      "page-editor": true,
+      "site-chrome": true,
+      programs: true,
+      blogs: true,
+      events: true,
+      media: true
+    }
+  },
+  {
+    id: "admissions-crm",
+    label: "Admissions / CRM",
+    access: {
+      dashboard: true,
+      pages: true,
+      "page-editor": true,
+      crm: true,
+      media: true
+    }
+  },
+  {
+    id: "media-publisher",
+    label: "Media Publisher",
+    access: {
+      dashboard: true,
+      media: true,
+      pages: true,
+      "page-editor": true
+    }
+  },
+  {
+    id: "viewer",
+    label: "Viewer",
+    access: {
+      dashboard: true,
+      pages: true,
+      blogs: true,
+      events: true,
+      programs: true
+    }
+  }
+];
+
+const accessModuleIds = new Set(accessModules.map((module) => module.id));
 
 const SITE_CHROME_CONFIGS = {
   header: {
@@ -4778,6 +4969,8 @@ function App() {
   const isStandaloneEditor = Boolean(standaloneEditorPageId);
   const storedUiState = getStoredCrmUiState();
   const [adminToken, setAdminToken] = useState(getStoredAdminToken);
+  const [adminProfile, setAdminProfile] = useState(getStoredAdminProfile);
+  const [adminUsers, setAdminUsers] = useState(loadAdminUsers);
   const [pages, setPages] = useState([]);
   const [programCategories, setProgramCategories] = useState(loadProgramCategories);
   const [programs, setPrograms] = useState(loadPrograms);
@@ -4808,6 +5001,15 @@ function App() {
   const noticeTimeoutRef = useRef(null);
   const suppressInAppBuilderReinitRef = useRef(false);
   const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
+  const accessibleNavItems = useMemo(
+    () => navItems.filter((item) => hasPortalAccess(adminProfile, item.id)),
+    [adminProfile]
+  );
+  const canCreatePages = hasPortalAccess(adminProfile, "page-editor") || hasPortalAccess(adminProfile, "pages");
+  const currentAdminUser = useMemo(
+    () => adminProfile || normalizeAdminUser({ id: "current-admin", name: "Current Admin", role: "super-admin", access: fullAccess }, fullAccess),
+    [adminProfile]
+  );
   const pageEditorBuilderSourceSignature = useMemo(() => JSON.stringify({
     id: formPage.id || "",
     title: formPage.title || "",
@@ -4867,6 +5069,70 @@ function App() {
     formPage.customCss,
     formPage.custom_css
   ]);
+
+  useEffect(() => {
+    if (!adminToken || !adminProfile) {
+      return;
+    }
+
+    setAdminUsers((current) => {
+      const normalizedCurrent = current.map((user) => normalizeAdminUser(user));
+      const currentId = String(adminProfile.id);
+      const hasCurrentAdmin = normalizedCurrent.some((user) => String(user.id) === currentId || user.email === adminProfile.email);
+      const nextUsers = hasCurrentAdmin
+        ? normalizedCurrent.map((user) => (String(user.id) === currentId || user.email === adminProfile.email ? normalizeAdminUser({ ...user, ...adminProfile }, fullAccess) : user))
+        : [normalizeAdminUser(adminProfile, fullAccess), ...normalizedCurrent];
+      storeAdminUsers(nextUsers);
+      return nextUsers;
+    });
+  }, [adminToken, adminProfile]);
+
+  useEffect(() => {
+    if (!adminToken) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadUsersFromApi = async () => {
+      try {
+        const response = await fetch(apiUrl("/admin/users"), {
+          headers: getAuthHeaders(adminToken)
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        const incomingUsers = payload.users || payload.data?.users || payload.data || [];
+        if (!Array.isArray(incomingUsers) || cancelled) {
+          return;
+        }
+
+        const nextUsers = incomingUsers.map((user) => normalizeAdminUser(user));
+        const withCurrentAdmin = adminProfile && !nextUsers.some((user) => user.id === adminProfile.id || user.email === adminProfile.email)
+          ? [normalizeAdminUser(adminProfile, fullAccess), ...nextUsers]
+          : nextUsers;
+        setAdminUsers(withCurrentAdmin);
+        storeAdminUsers(withCurrentAdmin);
+      } catch {
+        // The live API may not expose user management yet; local persistence remains available.
+      }
+    };
+
+    loadUsersFromApi();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminToken, adminProfile]);
+
+  useEffect(() => {
+    if (!adminToken || isStandaloneEditor || hasPortalAccess(adminProfile, activeView)) {
+      return;
+    }
+    setActiveView(getFirstAccessibleView(adminProfile));
+  }, [activeView, adminProfile, adminToken, isStandaloneEditor]);
 
   useEffect(() => {
     if (activeView !== "page-editor") {
@@ -6152,6 +6418,10 @@ function App() {
   };
 
   const createNewPage = () => {
+    if (!canCreatePages) {
+      setNotice("Page creation is not enabled for this account.");
+      return;
+    }
     const draft = createBlankLocalDraftPage();
     setPages((current) => [draft, ...current]);
     setActivePageId(draft.id);
@@ -6899,6 +7169,111 @@ function App() {
     setNotice("Program removed.");
   };
 
+  const saveAdminUser = async (userInput) => {
+    const isExistingUser = Boolean(userInput.id) && adminUsers.some((user) => String(user.id) === String(userInput.id));
+    const response = await fetch(apiUrl(isExistingUser ? `/admin/users/${encodeURIComponent(userInput.id)}` : "/admin/users"), {
+      method: isExistingUser ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(adminToken)
+      },
+      body: JSON.stringify({
+        name: userInput.name,
+        email: userInput.email,
+        role: userInput.role,
+        status: userInput.status,
+        department: userInput.department,
+        access: userInput.access,
+        temporaryPassword: userInput.temporaryPassword,
+        sendInvite: Boolean(userInput.sendInvite)
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(await readApiError(response, "User save failed."));
+    }
+
+    const payload = await readOptionalJson(response);
+    const savedUser = normalizeAdminUser(payload?.user || payload?.data?.user || payload?.data || payload);
+
+    setAdminUsers((current) => {
+      const exists = current.some((user) => String(user.id) === String(savedUser.id));
+      const nextUsers = exists
+        ? current.map((user) => (String(user.id) === String(savedUser.id) ? savedUser : user))
+        : [savedUser, ...current];
+      storeAdminUsers(nextUsers);
+      return nextUsers;
+    });
+
+    if (adminProfile && (String(adminProfile.id) === String(savedUser.id) || adminProfile.email === savedUser.email)) {
+      setAdminProfile(savedUser);
+      storeAdminProfile(savedUser);
+    }
+
+    const temporaryPassword = payload?.temporaryPassword;
+    const inviteSent = Boolean(payload?.invite?.sent);
+    setNotice(
+      inviteSent
+        ? "User saved and invitation email sent."
+        : temporaryPassword
+          ? `User saved. SMTP is not configured, temporary password: ${temporaryPassword}`
+          : "User saved to the database."
+    );
+    return savedUser;
+  };
+
+  const sendAdminUserInvite = async (userId) => {
+    const response = await fetch(apiUrl(`/admin/users/${encodeURIComponent(userId)}/invite`), {
+      method: "POST",
+      headers: getAuthHeaders(adminToken)
+    });
+
+    if (!response.ok) {
+      throw new Error(await readApiError(response, "Invite email failed."));
+    }
+
+    const payload = await readOptionalJson(response);
+    const savedUser = normalizeAdminUser(payload?.user || payload?.data?.user || payload?.data || payload);
+    setAdminUsers((current) => {
+      const nextUsers = current.map((user) => (String(user.id) === String(savedUser.id) ? savedUser : user));
+      storeAdminUsers(nextUsers);
+      return nextUsers;
+    });
+
+    const temporaryPassword = payload?.temporaryPassword;
+    setNotice(
+      payload?.invite?.sent
+        ? "Invitation email sent."
+        : temporaryPassword
+          ? `SMTP is not configured, temporary password: ${temporaryPassword}`
+          : "Invite request completed."
+    );
+    return savedUser;
+  };
+
+  const deleteAdminUser = async (userId) => {
+    if (adminProfile && String(adminProfile.id) === String(userId)) {
+      setNotice("You cannot delete the currently signed-in user.");
+      return;
+    }
+
+    const response = await fetch(apiUrl(`/admin/users/${encodeURIComponent(userId)}`), {
+      method: "DELETE",
+      headers: getAuthHeaders(adminToken)
+    });
+
+    if (!response.ok) {
+      throw new Error(await readApiError(response, "User delete failed."));
+    }
+
+    setAdminUsers((current) => {
+      const nextUsers = current.filter((user) => String(user.id) !== String(userId));
+      storeAdminUsers(nextUsers);
+      return nextUsers;
+    });
+    setNotice("User removed.");
+  };
+
   const handleLogin = async ({ email, password }) => {
     const response = await fetch(apiUrl("/admin/login"), {
       method: "POST",
@@ -6916,16 +7291,19 @@ function App() {
       throw new Error("Login succeeded but no token was returned.");
     }
 
-    rememberAdminSession(token);
+    const profile = extractAdminProfile(payload, email);
+    rememberAdminSession(token, profile);
     setAdminToken(token);
+    setAdminProfile(profile);
     setNotice("Logged in successfully.");
-    setActiveView("dashboard");
+    setActiveView(getFirstAccessibleView(profile));
   };
 
   const handleLogout = () => {
     clearAdminSession();
     window.sessionStorage.removeItem(CRM_UI_STATE_KEY);
     setAdminToken("");
+    setAdminProfile(null);
     setPages([]);
     setActivePageId("");
     setFormPage(emptyPage());
@@ -6935,6 +7313,26 @@ function App() {
 
   if (!adminToken) {
     return <LoginView onLogin={handleLogin} logoSrc={assets.logoOfficial} />;
+  }
+
+  if (isStandaloneEditor && !hasPortalAccess(adminProfile, "page-editor")) {
+    return (
+      <main className="login-screen">
+        <section className="login-panel">
+          <div className="login-brand">
+            <img src={assets.logoOfficial} alt="Madda Walabu University" />
+            <div>
+              <span className="eyebrow">Access Restricted</span>
+              <h1>Page editor access is not enabled for this account.</h1>
+            </div>
+          </div>
+          <button className="primary-button" type="button" onClick={handleLogout}>
+            <LogOut size={17} />
+            <span>Logout</span>
+          </button>
+        </section>
+      </main>
+    );
   }
 
   if (isStandaloneEditor) {
@@ -6994,7 +7392,7 @@ function App() {
         </div>
 
         <nav className="main-nav" aria-label="CRM navigation">
-          {navItems.map((item) => {
+          {accessibleNavItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
@@ -7073,10 +7471,12 @@ function App() {
                 <Bell size={17} />
                 <span>Alerts</span>
               </button>
-              <button className="primary-button" type="button" onClick={createNewPage}>
-                <Plus size={17} />
-                <span>Add Page</span>
-              </button>
+              {canCreatePages && (
+                <button className="primary-button" type="button" onClick={createNewPage}>
+                  <Plus size={17} />
+                  <span>Add Page</span>
+                </button>
+              )}
             </div>
           </header>
         )}
@@ -7104,11 +7504,12 @@ function App() {
             pages={contentManagedPages}
             stats={stats}
             getThumbnail={getAutoThumbnailForPage}
-            onCreateNewPage={createNewPage}
-            onOpenPages={() => setActiveView("pages")}
-            onOpenPrograms={() => setActiveView("programs")}
-            onOpenBlogs={() => setActiveView("blogs")}
+            onCreateNewPage={canCreatePages ? createNewPage : undefined}
+            onOpenPages={hasPortalAccess(adminProfile, "pages") ? () => setActiveView("pages") : undefined}
+            onOpenPrograms={hasPortalAccess(adminProfile, "programs") ? () => setActiveView("programs") : undefined}
+            onOpenBlogs={hasPortalAccess(adminProfile, "blogs") ? () => setActiveView("blogs") : undefined}
             onOpenRecentPage={(page) => {
+              if (!hasPortalAccess(adminProfile, "page-editor")) return;
               if (!page) return;
               if (!isLocalDraftPage(page)) {
                 openPageEditorTab(page.id);
@@ -7275,20 +7676,20 @@ function App() {
 
         {activeView === "crm" && <CrmView />}
 
-        {activeView === "settings" && <SettingsView logoSrc={assets.logoOfficial} />}
-
-        {activeView === "menus" && (
-          <MenusView
-            pages={standardPages}
-            menuGroupChoices={liveMenuGroupChoices}
-            savePage={savePage}
-            setPages={setPages}
-            setFormPage={setFormPage}
-            setActivePageId={setActivePageId}
-            setActiveView={setActiveView}
-            setEditorTab={setEditorTab}
+        {activeView === "users" && (
+          <UserManagementView
+            users={adminUsers}
+            activeAdmin={currentAdminUser}
+            accessModules={accessModules}
+            rolePresets={rolePresets}
+            onSaveUser={saveAdminUser}
+            onDeleteUser={deleteAdminUser}
+            onSendInvite={sendAdminUserInvite}
+            onSetNotice={setNotice}
           />
         )}
+
+        {activeView === "settings" && <SettingsView logoSrc={assets.logoOfficial} />}
 
         {activeView === "site-chrome" && (
           <SiteChromeView
@@ -9436,297 +9837,6 @@ function ProgramsView({
           </div>
         </section>
       )}
-    </section>
-  );
-}
-
-function MenusView({
-  pages,
-  menuGroupChoices = [],
-  savePage,
-  setPages,
-  setFormPage,
-  setActivePageId,
-  setActiveView,
-  setEditorTab
-}) {
-  const selectableGroups = menuGroupChoices.filter((group) => group.value);
-  const [activeGroup, setActiveGroup] = useState(selectableGroups[0]?.value || "");
-  const [availableQuery, setAvailableQuery] = useState("");
-  const sortedPages = useMemo(
-    () =>
-      [...pages].sort((a, b) => {
-        const orderDiff = Number(a.menuOrder || 0) - Number(b.menuOrder || 0);
-        if (orderDiff !== 0) return orderDiff;
-        return a.title.localeCompare(b.title);
-      }),
-    [pages]
-  );
-
-  useEffect(() => {
-    if (!selectableGroups.some((group) => group.value === activeGroup)) {
-      setActiveGroup(selectableGroups[0]?.value || "");
-    }
-  }, [activeGroup, selectableGroups]);
-
-  const activeMenuPages = useMemo(
-    () => sortedPages.filter((page) => page.menu === activeGroup),
-    [activeGroup, sortedPages]
-  );
-
-  const availablePages = useMemo(
-    () =>
-      sortedPages
-        .filter((page) => page.menu !== activeGroup)
-        .filter((page) => [page.title, page.slug].join(" ").toLowerCase().includes(availableQuery.toLowerCase()))
-        .sort((a, b) => a.title.localeCompare(b.title)),
-    [activeGroup, availableQuery, sortedPages]
-  );
-
-  const rootPages = useMemo(
-    () => activeMenuPages.filter((page) => !page.parentSlug),
-    [activeMenuPages]
-  );
-
-  const syncLocalPages = (nextPages) => {
-    const updates = new Map(nextPages.map((page) => [String(page.id), normalizePage(page)]));
-    setPages((current) =>
-      current.map((page) => {
-        const replacement = updates.get(String(page.id));
-        return replacement || page;
-      })
-    );
-    setFormPage((current) => updates.get(String(current.id)) || current);
-  };
-
-  const persistPages = async (nextPages) => {
-    const normalizedPages = nextPages.map((page) => normalizePage(page));
-    syncLocalPages(normalizedPages);
-    for (const nextPage of normalizedPages) {
-      await savePage({ preventDefault() {} }, nextPage);
-    }
-  };
-
-  const openPageInEditor = (page, tab = "content") => {
-    if (tab === "content" && !isLocalDraftPage(page)) {
-      openPageEditorTab(page.id);
-      return;
-    }
-    setActivePageId(page.id);
-    setFormPage(page);
-    setEditorTab(tab);
-    setActiveView("page-editor");
-  };
-
-  const addPageToMenu = async (page) => {
-    const nextOrder = activeMenuPages.reduce((maxOrder, item) => Math.max(maxOrder, Number(item.menuOrder || 0)), 0) + 1;
-    await persistPages([
-      {
-        ...page,
-        menu: activeGroup,
-        parentSlug: "",
-        menuOrder: nextOrder
-      }
-    ]);
-  };
-
-  const removeFromMenu = async (page) => {
-    await persistPages([
-      {
-        ...page,
-        menu: "",
-        parentSlug: "",
-        menuOrder: 1
-      }
-    ]);
-  };
-
-  const updateMenuField = async (page, field, value) => {
-    if (field === "parentSlug" && value === page.slug) {
-      return;
-    }
-
-    await persistPages([
-      {
-        ...page,
-        [field]: field === "menuOrder" ? Math.max(1, Number(value || 1)) : value
-      }
-    ]);
-  };
-
-  const moveMenuPage = async (page, direction) => {
-    const siblings = activeMenuPages
-      .filter((item) => String(item.parentSlug || "") === String(page.parentSlug || ""))
-      .sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0));
-    const pageIndex = siblings.findIndex((item) => String(item.id) === String(page.id));
-    const swapIndex = direction === "up" ? pageIndex - 1 : pageIndex + 1;
-
-    if (pageIndex < 0 || swapIndex < 0 || swapIndex >= siblings.length) {
-      return;
-    }
-
-    const swapPage = siblings[swapIndex];
-    await persistPages([
-      {
-        ...page,
-        menuOrder: Number(swapPage.menuOrder || swapIndex + 1)
-      },
-      {
-        ...swapPage,
-        menuOrder: Number(page.menuOrder || pageIndex + 1)
-      }
-    ]);
-  };
-
-  return (
-    <section className="admin-view menu-builder-view">
-      <div className="view-header">
-        <div>
-          <span className="eyebrow">Navigation Builder</span>
-          <h2>Manage Website Menus</h2>
-          <p>Add pages into menus, set parent-child relationships, reorder items, and remove pages from navigation without touching their page content.</p>
-        </div>
-        <div className="view-stat-card">
-          <ListChecks size={22} />
-          <strong>{activeMenuPages.length}</strong>
-          <span>Items in {activeGroup || "menu"}</span>
-        </div>
-      </div>
-
-      <div className="view-content menu-builder-grid">
-        <section className="panel menu-builder-panel">
-          <div className="panel-head">
-            <div>
-              <span className="eyebrow">Menu Group</span>
-              <h2>Current Navigation</h2>
-            </div>
-          </div>
-
-          <div className="menu-select-row">
-            <Field label="Select Menu">
-              <select value={activeGroup} onChange={(event) => setActiveGroup(event.target.value)}>
-                {selectableGroups.map((group) => (
-                  <option key={group.value} value={group.value}>{group.label}</option>
-                ))}
-              </select>
-            </Field>
-            <span className="menu-builder-live-note">Changes save directly to the database.</span>
-          </div>
-
-          <div className="menu-builder-list">
-            {activeMenuPages.map((page) => {
-              const siblingPages = activeMenuPages
-                .filter((item) => String(item.parentSlug || "") === String(page.parentSlug || ""))
-                .sort((a, b) => Number(a.menuOrder || 0) - Number(b.menuOrder || 0));
-              const siblingIndex = siblingPages.findIndex((item) => String(item.id) === String(page.id));
-
-              return (
-                <article className="menu-builder-item" key={page.id}>
-                  <div className="menu-builder-item-head">
-                    <div>
-                      <strong>{page.title}</strong>
-                      <small>/{page.slug}</small>
-                    </div>
-                    <div className="table-actions">
-                      <button className="icon-button" type="button" aria-label="Edit page" onClick={() => openPageInEditor(page, "content")}>
-                        <Pencil size={16} />
-                      </button>
-                      <button className="icon-button" type="button" aria-label="Open builder" onClick={() => openPageInEditor(page, "builder")}>
-                        <ListTree size={16} />
-                      </button>
-                      <button className="icon-button danger" type="button" aria-label="Remove from menu" onClick={() => removeFromMenu(page)}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="field-grid menu-builder-fields">
-                    <Field label="Parent Page">
-                      <select value={page.parentSlug || ""} onChange={(event) => updateMenuField(page, "parentSlug", event.target.value)}>
-                        <option value="">Top level page</option>
-                        {rootPages
-                          .filter((item) => String(item.id) !== String(page.id))
-                          .map((item) => (
-                            <option key={item.id} value={item.slug}>{item.title}</option>
-                          ))}
-                      </select>
-                    </Field>
-                    <Field label="Menu Order">
-                      <NumericStyleInput
-                        value={String(page.menuOrder || 1)}
-                        onChange={(value) => updateMenuField(page, "menuOrder", value)}
-                        placeholder="1"
-                        fallback="1"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="menu-builder-row-actions">
-                    <button type="button" className="ghost-button" onClick={() => moveMenuPage(page, "up")} disabled={siblingIndex <= 0}>
-                      <ArrowUp size={16} />
-                      <span>Move Up</span>
-                    </button>
-                    <button type="button" className="ghost-button" onClick={() => moveMenuPage(page, "down")} disabled={siblingIndex === -1 || siblingIndex >= siblingPages.length - 1}>
-                      <ArrowDown size={16} />
-                      <span>Move Down</span>
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-
-            {!activeMenuPages.length && (
-              <div className="empty-state">
-                <ListChecks size={24} />
-                <strong>No pages linked to this menu</strong>
-                <span>Add pages from the right panel to start building this navigation group.</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="panel menu-builder-panel">
-          <div className="panel-head">
-            <div>
-              <span className="eyebrow">Available Pages</span>
-              <h2>Add or Move Pages</h2>
-            </div>
-          </div>
-
-          <div className="search-wrap">
-            <label className="search-field no-margin">
-              <Search size={16} />
-              <input value={availableQuery} onChange={(event) => setAvailableQuery(event.target.value)} placeholder="Search pages to add" />
-            </label>
-          </div>
-
-          <div className="menu-builder-list">
-            {availablePages.map((page) => (
-              <article className="menu-builder-item compact" key={page.id}>
-                <div className="menu-builder-item-head">
-                  <div>
-                    <strong>{page.title}</strong>
-                    <small>/{page.slug}</small>
-                  </div>
-                  <button className="ghost-button" type="button" onClick={() => addPageToMenu(page)}>
-                    <Plus size={16} />
-                    <span>{page.menu ? `Move to ${activeGroup}` : `Add to ${activeGroup}`}</span>
-                  </button>
-                </div>
-                <span className="menu-builder-meta">{page.menu ? `Currently in ${getMenuReferenceLabel(page, pages)}` : "Not currently linked to any menu"}</span>
-              </article>
-            ))}
-
-            {!availablePages.length && (
-              <div className="empty-state">
-                <FileText size={24} />
-                <strong>All pages are already assigned</strong>
-                <span>Use the left panel to reorder or remove menu items.</span>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
     </section>
   );
 }
