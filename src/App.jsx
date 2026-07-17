@@ -3529,10 +3529,10 @@ const getLegacyRouteCandidates = (routePath = "", page = {}) => {
       ? "program-pg-"
       : "program-ug-";
   const candidates = [
-    isAcademicProgram && slug ? `${programPrefix}${slug}` : "",
     LEGACY_ROUTE_ALIASES[slug],
     LEGACY_ROUTE_ALIASES[routeSlug],
     LEGACY_ROUTE_ALIASES[fileName.replace(/\.html$/i, "")],
+    isAcademicProgram && slug ? `${programPrefix}${slug}` : "",
     fileName,
     routeSlug,
     slug
@@ -5573,12 +5573,24 @@ function App() {
       return null;
     }
 
-    if (isImportedPlaceholderPage(nextPage) && !hasPersistedEditableMarkup(nextPage)) {
+    if (
+      isNavigationOnlyPage ||
+      (isImportedPlaceholderPage(nextPage) && !hasPersistedEditableMarkup(nextPage))
+    ) {
+      // Header-navigation pages are discovery records, not authored content.
+      // Never let their generated one-widget fallback snapshot block loading
+      // the real canonical legacy document (for example /legacy/program.html).
       nextPage = normalizePage({
         ...nextPage,
         sections: [],
         rawHtml: "",
-        bodyHtml: ""
+        raw_html: "",
+        bodyHtml: "",
+        body_html: "",
+        visualBuilder: null,
+        visual_builder: null,
+        builderKind: "",
+        builder_kind: ""
       });
     }
 
