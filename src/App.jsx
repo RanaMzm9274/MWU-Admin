@@ -820,7 +820,25 @@ const looksLikeUsableHtmlDocument = (html = "") => {
     .replace(/\s+/g, " ")
     .trim();
   const hasOnlyAppRoot = /<div[^>]+id=["']root["'][^>]*>\s*<\/div>/i.test(bodyHtml) && plainText.length < 80;
-  return bodyHtml.length > 600 && plainText.length > 80 && !hasOnlyAppRoot;
+  const scriptHeavy = (bodyHtml.match(/<script\b/gi) || []).length >= 2 && plainText.length < 120;
+  const looksLikeJsBundle =
+    /\bfunction\s+[A-Za-z_$][\w$]*\s*\(|=>\s*\{|\bconst\s+[A-Za-z_$][\w$]*\s*=|\bwindow\./.test(plainText) &&
+    !/<(main|section|article|header|footer|nav|h1|h2|p|img)\b/i.test(bodyHtml);
+  const looksLikeNotFoundPage =
+    /\b404\b/i.test(plainText) &&
+    /page\s+you\s+are\s+looking\s+for\s+doesn'?t\s+exist|page\s+not\s+found|has\s+been\s+moved/i.test(plainText);
+  return bodyHtml.length > 600 && plainText.length > 80 && !hasOnlyAppRoot && !scriptHeavy && !looksLikeJsBundle && !looksLikeNotFoundPage;
+};
+
+const isImportedPlaceholderPage = (page = {}) => {
+  const updatedBy = String(page.updatedBy || page.updated_by || "").toLowerCase();
+  const summary = String(page.summary || "").toLowerCase();
+  return (
+    updatedBy.includes("navigation import") ||
+    updatedBy.includes("program") ||
+    summary.includes("imported from the header navigation") ||
+    summary.includes("program at madda walabu university")
+  );
 };
 
 const getSectionStyles = (section = {}) => ({
@@ -1087,6 +1105,10 @@ const htmlBuilderColorFromNode = (node, key) => {
 };
 
 const extractHtmlBuilderSourceMarkup = (page = {}) => {
+  if (isImportedPlaceholderPage(page) && !(page.rawHtml || page.raw_html || page.bodyHtml || page.body_html)) {
+    return "";
+  }
+
   const storedDocument = getStoredEditableDocument(page);
   if (storedDocument?.bodyHtml) {
     return storedDocument.bodyHtml;
@@ -1286,6 +1308,10 @@ const convertDomNodeToHtmlBuilderElements = (node) => {
 };
 
 const buildHtmlVisualBuilderFallbackElements = (page = {}) => {
+  if (isImportedPlaceholderPage(page) && !hasPersistedEditableMarkup(page)) {
+    return [];
+  }
+
   const markup = extractHtmlBuilderSourceMarkup(page);
   if (markup && typeof DOMParser !== "undefined") {
     try {
@@ -1338,13 +1364,20 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
   const storedPageSettings = storedSnapshot?.pageSettings || {};
   const storedElements = Array.isArray(storedSnapshot?.elements) ? storedSnapshot.elements : [];
   const hasImportedHtml = hasPersistedEditableMarkup(page);
+  const importedPlaceholderWithoutMarkup = isImportedPlaceholderPage(page) && !hasImportedHtml;
   const shouldStartBlank =
-    !hasImportedHtml &&
+    (
+      importedPlaceholderWithoutMarkup ||
+      !hasImportedHtml
+    ) &&
     !storedElements.length &&
-    Boolean(
-      page?.isLocalDraft ||
-      page?._isLocalDraft ||
-      page?.localOnly
+    (
+      importedPlaceholderWithoutMarkup ||
+      Boolean(
+        page?.isLocalDraft ||
+        page?._isLocalDraft ||
+        page?.localOnly
+      )
     );
   const storedDocument = getStoredEditableDocument(page);
   const sourceImportHtml =
@@ -2203,6 +2236,13 @@ const hasPersistedEditableMarkup = (page = {}) =>
   );
 
 const getStoredEditableDocument = (page = {}) => {
+  if (isImportedPlaceholderPage(page) && !(page.rawHtml || page.raw_html || page.bodyHtml || page.body_html)) {
+    return {
+      fullHtml: "",
+      bodyHtml: ""
+    };
+  }
+
   const storedHtml = page.rawHtml || page.raw_html || "";
   const storedBody = page.bodyHtml || page.body_html || "";
   const sectionHtml = (page.sections || [])
@@ -3400,6 +3440,45 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
   return html;
 };
 
+const LEGACY_ROUTE_ALIASES = {
+  "about-us": "about",
+  "about-mwu": "about",
+  "programs": "program",
+  "academic-programs": "program",
+  "undergraduate-programs": "programs-undergraduate",
+  "admission": "admission",
+  "admissions": "admission",
+  "contact-us": "contact",
+  "events": "event",
+  "blogs": "blog",
+  "news": "blog",
+  "research-centers": "research",
+  "research-center": "research",
+  "campuses": "campus"
+};
+
+const normalizeLegacyHtmlRoute = (routePath = "", page = {}) => {
+  const explicitUrl = String(page?.sourceUrl || page?.source_url || page?.url || "").trim();
+  const explicitPath = explicitUrl && !/^https?:\/\//i.test(explicitUrl)
+    ? explicitUrl
+    : (() => {
+        try {
+          return explicitUrl ? new URL(explicitUrl).pathname : "";
+        } catch {
+          return "";
+        }
+      })();
+  const sourcePath = explicitPath || routePath || "";
+  const normalizedPath = String(sourcePath || "").split("?")[0].replace(/^\/+/, "").replace(/\/$/, "");
+  const fileName = normalizedPath.split("/").filter(Boolean).pop() || "";
+  const slug = String(page?.slug || "").trim().replace(/^\/+/, "").replace(/\/$/, "");
+  const routeSlug = normalizedPath.replace(/^legacy\//i, "").replace(/\.html$/i, "");
+  const aliasedSlug = LEGACY_ROUTE_ALIASES[slug] || LEGACY_ROUTE_ALIASES[routeSlug] || "";
+  const candidate = aliasedSlug || fileName || routeSlug || slug || "index";
+  const htmlFile = candidate.endsWith(".html") ? candidate : `${candidate}.html`;
+  return `/legacy/${htmlFile.replace(/^legacy\//i, "")}`;
+};
+
 const getLiveFetchPath = (page = {}) => `/__live_page${getLiveRoutePath(page)}`;
 
 const getLegacyRoutePath = (page = {}) => {
@@ -3410,13 +3489,10 @@ const getLegacyRoutePath = (page = {}) => {
   if (/^\/legacy\//i.test(routePath)) {
     return routePath;
   }
-  if (/\.html$/i.test(routePath)) {
-    return routePath;
-  }
-  return `/legacy${routePath}.html`;
+  return normalizeLegacyHtmlRoute(routePath, page);
 };
 
-const getLegacyFetchPath = (page = {}) => `/__live_page${getLegacyRoutePath(page)}`;
+const getLegacyFetchPath = (page = {}) => getLegacyRoutePath(page);
 
 const getEditableFetchCandidates = (page = {}) =>
   // Editable mode needs a real HTML document, not the Vite/React SPA shell.
@@ -5029,6 +5105,45 @@ const createProgramCategoriesFromImportedPrograms = (importedPrograms = []) => {
   return Array.from(categoryMap.values());
 };
 
+const createProgramPageFromProgram = (program = {}) =>
+  createBlankLocalDraftPage({
+    title: program.title || "Academic Program",
+    slug: program.slug || slugify(program.title || "academic-program"),
+    type: "Academic Program",
+    menu: "Programs",
+    status: program.status || "Published",
+    template: "Program Detail",
+    visibility: "Public",
+    parentSlug: "program",
+    menuOrder: Number(program.menuOrder || 1) || 1,
+    showInHeader: 1,
+    showInFooter: 0,
+    heroHeadline: program.title || "Academic Program",
+    heroTag: program.level || "Academic Program",
+    summary: program.summary || `${program.title || "Academic program"} at Madda Walabu University.`,
+    heroImage: program.heroImage || assets.hero,
+    ctaLabel: "Apply Now",
+    ctaUrl: "/admission-apply",
+    seoTitle: `${program.title || "Academic Program"} | Madda Walabu University`,
+    seoDescription: program.summary || `${program.title || "Academic program"} at Madda Walabu University.`,
+    owner: program.college || "Academic Affairs",
+    priority: "Medium",
+    sections: [
+      createSection("Hero Banner"),
+      normalizeSection({
+        type: "Text Block",
+        title: "Program Overview",
+        body: program.summary || `${program.title || "This program"} is offered by Madda Walabu University.`
+      }),
+      normalizeSection({
+        type: "Feature Cards",
+        title: "Program Details",
+        body: `Level: ${program.level || "Academic Program"} | College: ${program.college || "Academic Affairs"} | Duration: ${program.duration || "See admission requirements"} | Delivery: ${program.delivery || "Regular"}`
+      }),
+      createSection("CTA Banner")
+    ]
+  });
+
 const loadProgramCategories = () => {
   try {
     const stored = window.localStorage.getItem(PROGRAM_CATEGORIES_KEY);
@@ -5339,6 +5454,15 @@ function App() {
 
     if (!nextPage) {
       return null;
+    }
+
+    if (isImportedPlaceholderPage(nextPage) && !hasPersistedEditableMarkup(nextPage)) {
+      nextPage = normalizePage({
+        ...nextPage,
+        sections: [],
+        rawHtml: "",
+        bodyHtml: ""
+      });
     }
 
     const hasHtmlBuilderSnapshot = Array.isArray(nextPage?.visualBuilder?.elements) ||
@@ -7345,6 +7469,37 @@ function App() {
 
       const importedPrograms = sourcePrograms.map(normalizeImportedProgram);
       const importedCategories = createProgramCategoriesFromImportedPrograms(sourcePrograms);
+      const importedProgramPages = importedPrograms.map((program, index) =>
+        normalizePage({
+          ...createProgramPageFromProgram({ ...program, menuOrder: index + 1 }),
+          id: `program-page-${program.slug}`,
+          isLocalDraft: false,
+          localOnly: false,
+          pageSlug: program.slug
+        })
+      );
+      const savedProgramPages = [];
+      for (const page of importedProgramPages) {
+        try {
+          const existingPage = pages.find((entry) => entry.slug === page.slug);
+          const response = await fetch(apiUrl(existingPage ? `/admin/pages/${encodeURIComponent(existingPage.id || existingPage.slug)}` : "/admin/pages"), {
+            method: existingPage ? "PUT" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...getAuthHeaders(adminToken)
+            },
+            body: JSON.stringify(toApiPagePayload({ ...existingPage, ...page, id: existingPage?.id || page.id }))
+          });
+          if (response.ok) {
+            const payload = await readOptionalJson(response);
+            savedProgramPages.push(normalizePage(payload?.page || payload?.data?.page || payload?.data || page));
+          } else {
+            savedProgramPages.push(page);
+          }
+        } catch {
+          savedProgramPages.push(page);
+        }
+      }
 
       setProgramCategories((current) => {
         const nextBySlug = new Map(current.map((category) => [category.slug, normalizeProgramCategory(category)]));
@@ -7364,13 +7519,26 @@ function App() {
           nextBySlug.set(program.slug, {
             ...(nextBySlug.get(program.slug) || {}),
             ...program,
+            pageSlug: program.slug,
             updatedAt: todayIso()
           });
         });
         return Array.from(nextBySlug.values()).sort((a, b) => a.title.localeCompare(b.title));
       });
 
-      setNotice(`Imported ${importedPrograms.length} programs and ${importedCategories.length} categories from the live website API.`);
+      setPages((current) => {
+        const nextBySlug = new Map(current.map((page) => [page.slug, normalizePage(page)]));
+        savedProgramPages.forEach((page) => {
+          nextBySlug.set(page.slug, {
+            ...(nextBySlug.get(page.slug) || {}),
+            ...page,
+            updatedAt: todayIso()
+          });
+        });
+        return Array.from(nextBySlug.values());
+      });
+
+      setNotice(`Imported ${importedPrograms.length} programs, ${importedCategories.length} categories, and ${savedProgramPages.length} program pages from the live website API.`);
     } catch (error) {
       setNotice(error.message || "Live program import failed.");
     }

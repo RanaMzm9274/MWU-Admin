@@ -42,6 +42,7 @@ export default function ProgramsView({
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [programQuery, setProgramQuery] = useState("");
   const [programStatusFilter, setProgramStatusFilter] = useState("All");
+  const [selectedProgramId, setSelectedProgramId] = useState("");
   const [pageQuery, setPageQuery] = useState("");
   const [pageStatusFilter, setPageStatusFilter] = useState("All");
   const [pageViewMode, setPageViewMode] = useState("grid");
@@ -62,6 +63,17 @@ export default function ProgramsView({
     )
     .sort((a, b) => a.title.localeCompare(b.title));
   const featuredPrograms = programs.filter((program) => program.featured && program.status !== "Archived");
+  const selectedProgram =
+    filteredPrograms.find((program) => String(program.id) === String(selectedProgramId)) ||
+    filteredPrograms[0] ||
+    programs.find((program) => String(program.id) === String(selectedProgramId)) ||
+    null;
+  const selectedProgramLinkedPage = selectedProgram
+    ? programPages.find((page) => page.slug === selectedProgram.pageSlug)
+    : null;
+  const selectedProgramCategoryName = selectedProgram
+    ? sortedCategories.find((category) => category.slug === selectedProgram.categorySlug)?.name || "Uncategorized"
+    : "";
   const selectableMegaMenuPrograms = megaMenuPrograms.length ? megaMenuPrograms : programs;
   const getMegaMenuProgramIds = (category) =>
     Array.isArray(category.programIds)
@@ -105,10 +117,16 @@ export default function ProgramsView({
               <span className="eyebrow">Imported Program Pages</span>
               <h2>{filteredProgramPages.length} Program Pages</h2>
             </div>
-            <button className="primary-button" type="button" onClick={() => createProgramPage()}>
-              <Plus size={17} />
-              <span>Add Page</span>
-            </button>
+            <div className="panel-actions">
+              <button className="ghost-button" type="button" onClick={importLivePrograms}>
+                <Download size={17} />
+                <span>Import Live Programs</span>
+              </button>
+              <button className="primary-button" type="button" onClick={() => createProgramPage()}>
+                <Plus size={17} />
+                <span>Add Page</span>
+              </button>
+            </div>
           </div>
 
           <div className="manager-toolbar programs-toolbar programs-pages-toolbar">
@@ -162,10 +180,6 @@ export default function ProgramsView({
               <h2>{filteredPrograms.length} Programs</h2>
             </div>
             <div className="panel-actions">
-              <button className="ghost-button" type="button" onClick={importLivePrograms}>
-                <Download size={17} />
-                <span>Import Live Programs</span>
-              </button>
               <button
                 className="primary-button"
                 type="button"
@@ -199,37 +213,86 @@ export default function ProgramsView({
           </div>
 
           <div className="program-editor-list">
-            {filteredPrograms.map((program) => {
-              const linkedPage = programPages.find((page) => page.slug === program.pageSlug);
-              const categoryName = sortedCategories.find((category) => category.slug === program.categorySlug)?.name || "Uncategorized";
-              return (
-                <article className="program-editor-card" key={program.id}>
-                  <div className="program-editor-media">
-                    <img src={program.heroImage} alt="" />
-                    <StatusPill status={program.status} />
-                    <small>{categoryName}</small>
+            {selectedProgram ? (
+              <article className="program-editor-card single-editor" key={selectedProgram.id}>
+                <div className="program-editor-media">
+                  <img src={selectedProgram.heroImage} alt="" />
+                  <div className="program-editor-rail-meta">
+                    <StatusPill status={selectedProgram.status} />
+                    <strong>{selectedProgram.level}</strong>
+                    <small>{selectedProgramCategoryName}</small>
                   </div>
-                  <div className="program-editor-fields">
+                  <div className="program-editor-rail-stats">
+                    <span>{selectedProgram.applicationOpen ? "Applications open" : "Applications closed"}</span>
+                    <span>{selectedProgram.featured ? "Featured listing" : "Standard listing"}</span>
+                    <span>{selectedProgramLinkedPage ? `Linked: /${selectedProgramLinkedPage.slug}` : "No page linked"}</span>
+                  </div>
+                </div>
+                <div className="program-editor-fields">
+                  <div className="program-editor-header">
+                    <div>
+                      <span className="eyebrow">Selected Program</span>
+                      <h3>{selectedProgram.title}</h3>
+                      <p>{selectedProgram.college} / {selectedProgram.campus}</p>
+                    </div>
+                    <div className="program-editor-header-actions">
+                      {selectedProgramLinkedPage ? (
+                        <button className="ghost-button" type="button" onClick={() => openPageEditorTab(selectedProgramLinkedPage.id, "content")}>
+                          <Pencil size={16} />
+                          <span>Edit Page</span>
+                        </button>
+                      ) : (
+                        <button className="ghost-button" type="button" onClick={() => createProgramPage(selectedProgram)}>
+                          <LinkIcon size={16} />
+                          <span>Create Page</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="program-editor-section">
+                    <div className="program-editor-section-title">
+                      <strong>Selection</strong>
+                      <span>Choose the catalog record and its public page relationship.</span>
+                    </div>
                     <div className="field-grid">
-                      <Field label="Program Name">
-                        <input value={program.title} onChange={(event) => updateProgram(program.id, "title", event.target.value)} />
-                      </Field>
-                      <Field label="Catalog Slug">
-                        <input value={program.slug} onChange={(event) => updateProgram(program.id, "slug", event.target.value)} />
-                      </Field>
-                      <Field label="Category">
-                        <select value={program.categorySlug} onChange={(event) => updateProgram(program.id, "categorySlug", event.target.value)}>
-                          {sortedCategories.map((category) => <option key={category.id} value={category.slug}>{category.name}</option>)}
+                      <Field label="Program">
+                        <select value={selectedProgram.id} onChange={(event) => setSelectedProgramId(event.target.value)}>
+                          {filteredPrograms.map((program) => (
+                            <option key={program.id} value={program.id}>
+                              {program.title} / {program.level}
+                            </option>
+                          ))}
                         </select>
                       </Field>
-                      <Field label="Linked Program Page">
-                        <select value={program.pageSlug} onChange={(event) => updateProgram(program.id, "pageSlug", event.target.value)}>
+                      <Field label="Linked Page">
+                        <select value={selectedProgram.pageSlug} onChange={(event) => updateProgram(selectedProgram.id, "pageSlug", event.target.value)}>
                           <option value="">Not linked</option>
                           {programPages.map((page) => <option key={page.id} value={page.slug}>{page.title}</option>)}
                         </select>
                       </Field>
+                    </div>
+                  </div>
+
+                  <div className="program-editor-section">
+                    <div className="program-editor-section-title">
+                      <strong>Academic Details</strong>
+                      <span>Update the catalog fields shown across program listings.</span>
+                    </div>
+                    <div className="field-grid">
+                      <Field label="Program Name">
+                        <input value={selectedProgram.title} onChange={(event) => updateProgram(selectedProgram.id, "title", event.target.value)} />
+                      </Field>
+                      <Field label="Catalog Slug">
+                        <input value={selectedProgram.slug} onChange={(event) => updateProgram(selectedProgram.id, "slug", event.target.value)} />
+                      </Field>
+                      <Field label="Category">
+                        <select value={selectedProgram.categorySlug} onChange={(event) => updateProgram(selectedProgram.id, "categorySlug", event.target.value)}>
+                          {sortedCategories.map((category) => <option key={category.id} value={category.slug}>{category.name}</option>)}
+                        </select>
+                      </Field>
                       <Field label="Level">
-                        <select value={program.level} onChange={(event) => updateProgram(program.id, "level", event.target.value)}>
+                        <select value={selectedProgram.level} onChange={(event) => updateProgram(selectedProgram.id, "level", event.target.value)}>
                           <option>Undergraduate</option>
                           <option>Postgraduate</option>
                           <option>PhD</option>
@@ -238,13 +301,13 @@ export default function ProgramsView({
                         </select>
                       </Field>
                       <Field label="College / School">
-                        <input value={program.college} onChange={(event) => updateProgram(program.id, "college", event.target.value)} />
+                        <input value={selectedProgram.college} onChange={(event) => updateProgram(selectedProgram.id, "college", event.target.value)} />
                       </Field>
                       <Field label="Duration">
-                        <input value={program.duration} onChange={(event) => updateProgram(program.id, "duration", event.target.value)} />
+                        <input value={selectedProgram.duration} onChange={(event) => updateProgram(selectedProgram.id, "duration", event.target.value)} />
                       </Field>
                       <Field label="Delivery">
-                        <select value={program.delivery} onChange={(event) => updateProgram(program.id, "delivery", event.target.value)}>
+                        <select value={selectedProgram.delivery} onChange={(event) => updateProgram(selectedProgram.id, "delivery", event.target.value)}>
                           <option>Regular</option>
                           <option>Weekend</option>
                           <option>Extension</option>
@@ -253,52 +316,50 @@ export default function ProgramsView({
                         </select>
                       </Field>
                       <Field label="Campus">
-                        <input value={program.campus} onChange={(event) => updateProgram(program.id, "campus", event.target.value)} />
+                        <input value={selectedProgram.campus} onChange={(event) => updateProgram(selectedProgram.id, "campus", event.target.value)} />
                       </Field>
+                    </div>
+                    <Field label="Program Summary">
+                      <textarea rows="3" value={selectedProgram.summary} onChange={(event) => updateProgram(selectedProgram.id, "summary", event.target.value)} />
+                    </Field>
+                  </div>
+
+                  <div className="program-editor-section">
+                    <div className="program-editor-section-title">
+                      <strong>Publishing</strong>
+                      <span>Control visibility, image, and admission callouts.</span>
+                    </div>
+                    <div className="field-grid">
                       <Field label="Image">
-                        <select value={program.heroImage} onChange={(event) => updateProgram(program.id, "heroImage", event.target.value)}>
+                        <select value={selectedProgram.heroImage} onChange={(event) => updateProgram(selectedProgram.id, "heroImage", event.target.value)}>
                           {mediaItems.map((media) => <option key={media.id} value={media.path}>{media.title}</option>)}
                         </select>
                       </Field>
                       <Field label="Status">
-                        <select value={program.status} onChange={(event) => updateProgram(program.id, "status", event.target.value)}>
+                        <select value={selectedProgram.status} onChange={(event) => updateProgram(selectedProgram.id, "status", event.target.value)}>
                           {statusOptions.map((status) => <option key={status}>{status}</option>)}
                         </select>
                       </Field>
                     </div>
-                    <Field label="Program Summary">
-                      <textarea rows="3" value={program.summary} onChange={(event) => updateProgram(program.id, "summary", event.target.value)} />
-                    </Field>
-                    <div className="program-switches">
-                      <label className="toggle-field">
-                        <input type="checkbox" checked={program.featured} onChange={(event) => updateProgram(program.id, "featured", event.target.checked)} />
-                        <span>Featured program</span>
-                      </label>
-                      <label className="toggle-field">
-                        <input type="checkbox" checked={program.applicationOpen} onChange={(event) => updateProgram(program.id, "applicationOpen", event.target.checked)} />
-                        <span>Applications open</span>
-                      </label>
-                      {linkedPage ? (
-                        <button className="ghost-button" type="button" onClick={() => openPageEditorTab(linkedPage.id, "content")}>
-                          <Pencil size={16} />
-                          <span>Edit Linked Page</span>
-                        </button>
-                      ) : (
-                        <button className="ghost-button" type="button" onClick={() => createProgramPage(program)}>
-                          <LinkIcon size={16} />
-                          <span>Create Linked Page</span>
-                        </button>
-                      )}
-                      <button className="danger-button" type="button" onClick={() => deleteProgram(program.id)}>
-                        <Trash2 size={17} />
-                        <span>Delete Program</span>
-                      </button>
-                    </div>
                   </div>
-                </article>
-              );
-            })}
-            {!filteredPrograms.length && (
+
+                  <div className="program-switches">
+                    <label className="toggle-field">
+                      <input type="checkbox" checked={selectedProgram.featured} onChange={(event) => updateProgram(selectedProgram.id, "featured", event.target.checked)} />
+                      <span>Featured program</span>
+                    </label>
+                    <label className="toggle-field">
+                      <input type="checkbox" checked={selectedProgram.applicationOpen} onChange={(event) => updateProgram(selectedProgram.id, "applicationOpen", event.target.checked)} />
+                      <span>Applications open</span>
+                    </label>
+                    <button className="danger-button" type="button" onClick={() => deleteProgram(selectedProgram.id)}>
+                      <Trash2 size={17} />
+                      <span>Delete Program</span>
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ) : (
               <div className="program-catalog-empty">
                 <GraduationCap size={26} />
                 <strong>No programs match these filters</strong>
