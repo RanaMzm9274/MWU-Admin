@@ -212,6 +212,153 @@ const audit = async ({ actorId = null, targetId = null, action, details = null }
   );
 };
 
+const slugify = (value = "") =>
+  String(value || "untitled-page")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "untitled-page";
+
+const titleCaseStatus = (status = "Draft") => {
+  const value = String(status || "Draft").toLowerCase();
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const pageJson = (value, fallback) => {
+  if (value === undefined) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return value ?? fallback;
+};
+
+const normalizePagePayload = (body = {}, fallback = {}) => {
+  const merged = { ...fallback, ...body };
+  const title = String(merged.title || merged.page_title || merged.name || "Untitled Page").trim() || "Untitled Page";
+  const slug = slugify(merged.slug || fallback.slug || title);
+  const menu = String(merged.menu ?? merged.menu_group ?? merged.menuGroup ?? fallback.menu ?? "").trim();
+  const menuOrder = Number(merged.menuOrder ?? merged.menu_order ?? merged.sort_order ?? fallback.menuOrder ?? fallback.menu_order ?? 1) || 1;
+  const showInHeader = Number(merged.showInHeader ?? merged.show_in_header ?? (menu ? 1 : 0)) ? 1 : 0;
+  const showInFooter = Number(merged.showInFooter ?? merged.show_in_footer ?? 1) ? 1 : 0;
+
+  return {
+    ...merged,
+    title,
+    slug,
+    type: merged.type || merged.page_type || fallback.type || "Static Page",
+    page_type: merged.page_type || merged.type || fallback.page_type || "static",
+    menu,
+    menu_group: menu,
+    status: titleCaseStatus(merged.status || fallback.status || "Draft"),
+    template: merged.template || fallback.template || "Standard Page",
+    visibility: merged.visibility || fallback.visibility || "Public",
+    parentSlug: merged.parentSlug || merged.parent_slug || fallback.parentSlug || fallback.parent_slug || "",
+    parent_slug: merged.parent_slug || merged.parentSlug || fallback.parent_slug || fallback.parentSlug || "",
+    menuOrder,
+    menu_order: menuOrder,
+    sort_order: menuOrder,
+    showInHeader,
+    show_in_header: showInHeader,
+    showInFooter,
+    show_in_footer: showInFooter,
+    heroHeadline: merged.heroHeadline || merged.hero_headline || fallback.heroHeadline || fallback.hero_headline || title,
+    hero_headline: merged.hero_headline || merged.heroHeadline || fallback.hero_headline || fallback.heroHeadline || title,
+    heroTag: merged.heroTag || merged.hero_tag || fallback.heroTag || fallback.hero_tag || "Website Page",
+    hero_tag: merged.hero_tag || merged.heroTag || fallback.hero_tag || fallback.heroTag || "Website Page",
+    summary: merged.summary || merged.excerpt || fallback.summary || "",
+    heroImage: merged.heroImage || merged.hero_image || fallback.heroImage || fallback.hero_image || "",
+    hero_image: merged.hero_image || merged.heroImage || fallback.hero_image || fallback.heroImage || "",
+    ctaLabel: merged.ctaLabel || merged.cta_label || fallback.ctaLabel || fallback.cta_label || "Learn More",
+    cta_label: merged.cta_label || merged.ctaLabel || fallback.cta_label || fallback.ctaLabel || "Learn More",
+    ctaUrl: merged.ctaUrl || merged.cta_url || fallback.ctaUrl || fallback.cta_url || `/${slug}`,
+    cta_url: merged.cta_url || merged.ctaUrl || fallback.cta_url || fallback.ctaUrl || `/${slug}`,
+    seoTitle: merged.seoTitle || merged.seo_title || fallback.seoTitle || fallback.seo_title || title,
+    seo_title: merged.seo_title || merged.seoTitle || fallback.seo_title || fallback.seoTitle || title,
+    seoDescription: merged.seoDescription || merged.seo_description || fallback.seoDescription || fallback.seo_description || merged.summary || "",
+    seo_description: merged.seo_description || merged.seoDescription || fallback.seo_description || fallback.seoDescription || merged.summary || "",
+    sourceUrl: merged.sourceUrl || merged.source_url || fallback.sourceUrl || fallback.source_url || "",
+    source_url: merged.source_url || merged.sourceUrl || fallback.source_url || fallback.sourceUrl || "",
+    builderKind: merged.builderKind || merged.builder_kind || fallback.builderKind || fallback.builder_kind || "",
+    builder_kind: merged.builder_kind || merged.builderKind || fallback.builder_kind || fallback.builderKind || "",
+    visualBuilder: pageJson(merged.visualBuilder ?? merged.visual_builder, pageJson(fallback.visualBuilder ?? fallback.visual_builder, null)),
+    visual_builder: pageJson(merged.visual_builder ?? merged.visualBuilder, pageJson(fallback.visual_builder ?? fallback.visualBuilder, null)),
+    rawHtml: merged.rawHtml || merged.raw_html || fallback.rawHtml || fallback.raw_html || "",
+    raw_html: merged.raw_html || merged.rawHtml || fallback.raw_html || fallback.rawHtml || "",
+    bodyHtml: merged.bodyHtml || merged.body_html || fallback.bodyHtml || fallback.body_html || "",
+    body_html: merged.body_html || merged.bodyHtml || fallback.body_html || fallback.bodyHtml || "",
+    customCss: merged.customCss || merged.custom_css || fallback.customCss || fallback.custom_css || "",
+    custom_css: merged.custom_css || merged.customCss || fallback.custom_css || fallback.customCss || "",
+    styles: pageJson(merged.styles, pageJson(fallback.styles, {})),
+    sections: Array.isArray(merged.sections) ? merged.sections : Array.isArray(fallback.sections) ? fallback.sections : [],
+    revisions: Array.isArray(merged.revisions) ? merged.revisions : Array.isArray(fallback.revisions) ? fallback.revisions : [],
+    owner: merged.owner || fallback.owner || "",
+    priority: merged.priority || fallback.priority || "Medium",
+    scheduledAt: merged.scheduledAt || merged.scheduled_at || fallback.scheduledAt || fallback.scheduled_at || null,
+    scheduled_at: merged.scheduled_at || merged.scheduledAt || fallback.scheduled_at || fallback.scheduledAt || null
+  };
+};
+
+const serializePage = (row) => {
+  const payload = pageJson(row.payload_json, {});
+  return normalizePagePayload(
+    {
+      ...payload,
+      id: row.id,
+      page_id: row.id,
+      title: row.title,
+      slug: row.slug,
+      type: row.type,
+      page_type: row.page_type,
+      menu: row.menu_group,
+      menu_group: row.menu_group,
+      status: row.status,
+      updatedAt: row.updated_at,
+      updated_at: row.updated_at,
+      createdAt: row.created_at,
+      created_at: row.created_at,
+      updatedBy: row.updated_by,
+      updated_by: row.updated_by
+    },
+    payload
+  );
+};
+
+const findPageByIdentifier = async (identifier) => {
+  const [rows] = await pool.execute("SELECT * FROM admin_pages WHERE id = ? OR slug = ? LIMIT 1", [identifier, identifier]);
+  return rows[0] || null;
+};
+
+const insertPage = async (payload, actorName = "Content Editor") => {
+  const id = crypto.randomUUID();
+  const page = normalizePagePayload({ ...payload, id, page_id: id, updatedBy: actorName, updated_by: actorName });
+  await pool.execute(
+    `INSERT INTO admin_pages
+      (id, title, slug, type, page_type, menu_group, status, updated_by, payload_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, page.title, page.slug, page.type, page.page_type, page.menu, page.status, actorName, JSON.stringify(page)]
+  );
+  return serializePage(await findPageByIdentifier(id));
+};
+
+const updatePage = async (identifier, payload, actorName = "Content Editor") => {
+  const existing = await findPageByIdentifier(identifier);
+  if (!existing) return null;
+  const existingPage = serializePage(existing);
+  const page = normalizePagePayload({ ...payload, id: existing.id, page_id: existing.id, updatedBy: actorName, updated_by: actorName }, existingPage);
+  await pool.execute(
+    `UPDATE admin_pages
+     SET title = ?, slug = ?, type = ?, page_type = ?, menu_group = ?, status = ?, updated_by = ?, payload_json = ?
+     WHERE id = ?`,
+    [page.title, page.slug, page.type, page.page_type, page.menu, page.status, actorName, JSON.stringify(page), existing.id]
+  );
+  return serializePage(await findPageByIdentifier(existing.id));
+};
+
 const ensureSchema = async () => {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS admin_users (
@@ -244,6 +391,25 @@ const ensureSchema = async () => {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_admin_user_audit_target (target_user_id),
       INDEX idx_admin_user_audit_actor (actor_user_id)
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS admin_pages (
+      id CHAR(36) PRIMARY KEY,
+      title VARCHAR(220) NOT NULL,
+      slug VARCHAR(220) NOT NULL UNIQUE,
+      type VARCHAR(80) NOT NULL DEFAULT 'Static Page',
+      page_type VARCHAR(80) NOT NULL DEFAULT 'static',
+      menu_group VARCHAR(160) NULL,
+      status VARCHAR(40) NOT NULL DEFAULT 'Draft',
+      updated_by VARCHAR(160) NULL,
+      payload_json LONGTEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_admin_pages_status (status),
+      INDEX idx_admin_pages_type (type),
+      INDEX idx_admin_pages_menu_group (menu_group),
+      INDEX idx_admin_pages_updated_at (updated_at)
     )
   `);
 };
@@ -359,6 +525,153 @@ app.post(`${API_PREFIX}/admin/login`, async (request, response, next) => {
 
 app.get(`${API_PREFIX}/admin/me`, requireAuth, (request, response) => {
   response.json({ user: request.adminUser });
+});
+
+app.get(`${API_PREFIX}/admin/pages`, requireAuth, requireModule("pages"), async (request, response, next) => {
+  try {
+    const limit = Math.max(1, Math.min(Number(request.query.limit || 200), 500));
+    const [rows] = await pool.query(
+      "SELECT * FROM admin_pages ORDER BY updated_at DESC, created_at DESC LIMIT ?",
+      [limit]
+    );
+    response.json({ pages: rows.map(serializePage), data: rows.map(serializePage) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get(`${API_PREFIX}/admin/pages/:identifier`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    const row = await findPageByIdentifier(request.params.identifier);
+    if (!row) {
+      response.status(404).json({ error: "Page not found." });
+      return;
+    }
+    const page = serializePage(row);
+    response.json({ page, data: { page }, sections: page.sections || [] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(`${API_PREFIX}/admin/pages`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    if (String(request.body?.action || request.body?.operation || "").toLowerCase() === "delete") {
+      const identifier = request.body?.id || request.body?.page_id || request.body?.pageId || request.body?.slug;
+      if (!identifier) {
+        response.status(400).json({ error: "Page identifier is required." });
+        return;
+      }
+      const row = await findPageByIdentifier(identifier);
+      if (!row) {
+        response.status(404).json({ error: "Page not found." });
+        return;
+      }
+      await pool.execute("DELETE FROM admin_pages WHERE id = ?", [row.id]);
+      await audit({ actorId: request.adminUser.id, targetId: row.id, action: "admin_page_deleted", details: { slug: row.slug } });
+      response.json({ ok: true });
+      return;
+    }
+
+    const incomingIdentifier = request.body?.id || request.body?.page_id || request.body?.pageId || "";
+    const existing = incomingIdentifier ? await findPageByIdentifier(incomingIdentifier) : null;
+    const page = existing
+      ? await updatePage(existing.id, request.body, request.adminUser.name)
+      : await insertPage(request.body, request.adminUser.name);
+    await audit({
+      actorId: request.adminUser.id,
+      targetId: page.id,
+      action: existing ? "admin_page_updated" : "admin_page_created",
+      details: { slug: page.slug, status: page.status }
+    });
+    response.status(existing ? 200 : 201).json({ page, data: page });
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY") {
+      response.status(409).json({ error: "A page with this slug already exists." });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.put(`${API_PREFIX}/admin/pages`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    const page = await insertPage(request.body, request.adminUser.name);
+    await audit({ actorId: request.adminUser.id, targetId: page.id, action: "admin_page_created", details: { slug: page.slug, status: page.status } });
+    response.status(201).json({ page, data: page });
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY") {
+      response.status(409).json({ error: "A page with this slug already exists." });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.put(`${API_PREFIX}/admin/pages/:identifier`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    const page = await updatePage(request.params.identifier, request.body, request.adminUser.name);
+    if (!page) {
+      response.status(404).json({ error: "Page not found." });
+      return;
+    }
+    await audit({ actorId: request.adminUser.id, targetId: page.id, action: "admin_page_updated", details: { slug: page.slug, status: page.status } });
+    response.json({ page, data: page });
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY") {
+      response.status(409).json({ error: "A page with this slug already exists." });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.patch(`${API_PREFIX}/admin/pages/:identifier`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    const page = await updatePage(request.params.identifier, request.body, request.adminUser.name);
+    if (!page) {
+      response.status(404).json({ error: "Page not found." });
+      return;
+    }
+    await audit({ actorId: request.adminUser.id, targetId: page.id, action: "admin_page_updated", details: { slug: page.slug, status: page.status } });
+    response.json({ page, data: page });
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY") {
+      response.status(409).json({ error: "A page with this slug already exists." });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.post(`${API_PREFIX}/admin/pages/:identifier/delete`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    const row = await findPageByIdentifier(request.params.identifier);
+    if (!row) {
+      response.status(404).json({ error: "Page not found." });
+      return;
+    }
+    await pool.execute("DELETE FROM admin_pages WHERE id = ?", [row.id]);
+    await audit({ actorId: request.adminUser.id, targetId: row.id, action: "admin_page_deleted", details: { slug: row.slug } });
+    response.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete(`${API_PREFIX}/admin/pages/:identifier`, requireAuth, requireModule("page-editor"), async (request, response, next) => {
+  try {
+    const row = await findPageByIdentifier(request.params.identifier);
+    if (!row) {
+      response.status(404).json({ error: "Page not found." });
+      return;
+    }
+    await pool.execute("DELETE FROM admin_pages WHERE id = ?", [row.id]);
+    await audit({ actorId: request.adminUser.id, targetId: row.id, action: "admin_page_deleted", details: { slug: row.slug } });
+    response.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get(`${API_PREFIX}/admin/users`, requireAuth, requireModule("users"), async (_request, response, next) => {

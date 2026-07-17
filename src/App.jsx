@@ -5005,7 +5005,15 @@ function App() {
     () => navItems.filter((item) => hasPortalAccess(adminProfile, item.id)),
     [adminProfile]
   );
-  const canCreatePages = hasPortalAccess(adminProfile, "page-editor") || hasPortalAccess(adminProfile, "pages");
+  const hasAnyPortalAccess = (...viewIds) => viewIds.some((viewId) => hasPortalAccess(adminProfile, viewId));
+  const canCreatePages = hasAnyPortalAccess("page-editor");
+  const requireAnyPortalAccess = (viewIds, actionLabel = "This action") => {
+    if (viewIds.some((viewId) => hasPortalAccess(adminProfile, viewId))) {
+      return true;
+    }
+    setNotice(`${actionLabel} is not enabled for this account.`);
+    return false;
+  };
   const currentAdminUser = useMemo(
     () => adminProfile || normalizeAdminUser({ id: "current-admin", name: "Current Admin", role: "super-admin", access: fullAccess }, fullAccess),
     [adminProfile]
@@ -5214,6 +5222,9 @@ function App() {
   };
 
   const openPageEditorTab = async (pageId, tab = "content") => {
+    if (!requireAnyPortalAccess(["page-editor"], "Page editor access")) {
+      return;
+    }
     setActivePageId(pageId);
     const targetPage = await loadDetailedPageForEditor(pageId);
     if (targetPage) {
@@ -5226,6 +5237,9 @@ function App() {
   };
 
   const persistInAppPageEditorBuilderState = async (builderState, saveMode = "draft") => {
+    if (!requireAnyPortalAccess(["page-editor"], "Page editor saving")) {
+      return;
+    }
     const snapshot = builderState?.snapshot || {};
     const snapshotPageSettings = snapshot.pageSettings || {};
     const publishedHtml = String(builderState?.publishedHtml || "").trim();
@@ -5813,6 +5827,9 @@ function App() {
     if (!fileList.length) {
       return [];
     }
+    if (!requireAnyPortalAccess(["media"], "Media uploads")) {
+      return [];
+    }
 
     if (mediaStorageMode === "api") {
       let credentials = getStoredMediaApiCredentials();
@@ -5891,6 +5908,9 @@ function App() {
   };
 
   const deleteMediaItem = async (mediaId) => {
+    if (!requireAnyPortalAccess(["media"], "Media delete")) {
+      return false;
+    }
     const removedItem = mediaLibrary.find((item) => String(item.id) === String(mediaId)) || null;
     if (!removedItem) {
       return false;
@@ -6057,6 +6077,9 @@ function App() {
   };
 
   const openPageEditorView = (pageId, tab = "content") => {
+    if (!requireAnyPortalAccess(["page-editor"], "Page editor access")) {
+      return;
+    }
     const targetPage = pages.find((page) => String(page.id) === String(pageId));
     if (targetPage) {
       setFormPage(targetPage);
@@ -6179,6 +6202,9 @@ function App() {
   };
 
   const openSiteChromeView = async (kind = "header") => {
+    if (!requireAnyPortalAccess(["site-chrome"], "Header and footer access")) {
+      return;
+    }
     const config = getSiteChromeConfig(kind);
     let existing = findSiteChromePage(pages, kind);
     if (existing?.id) {
@@ -6264,6 +6290,9 @@ function App() {
   };
 
   const updateSiteChromeHtml = (kind, value) => {
+    if (!requireAnyPortalAccess(["site-chrome"], "Header and footer editing")) {
+      return;
+    }
     setFormPage((current) => {
       const nextPage = createSiteChromePage(kind, current);
       const sectionId = nextPage.sections?.[0]?.id || makeId();
@@ -6288,6 +6317,10 @@ function App() {
   };
 
   const saveSiteChromePage = (event, kind = siteChromeTab) => {
+    if (!requireAnyPortalAccess(["site-chrome"], "Header and footer editing")) {
+      event?.preventDefault?.();
+      return null;
+    }
     const chromePage = createSiteChromePage(kind, formPage);
     const html = getSiteChromeHtml(chromePage);
     const pageOverride = {
@@ -6389,6 +6422,10 @@ function App() {
   };
 
   const saveSiteChromeAndPublish = async (event, kind, pageOverride) => {
+    if (!requireAnyPortalAccess(["site-chrome"], "Header and footer publishing")) {
+      event?.preventDefault?.();
+      return null;
+    }
     const savedPage = await savePage(event, pageOverride);
     if (!savedPage) return null;
 
@@ -6419,7 +6456,7 @@ function App() {
 
   const createNewPage = () => {
     if (!canCreatePages) {
-      setNotice("Page creation is not enabled for this account.");
+      setNotice("Page editor access is not enabled for this account.");
       return;
     }
     const draft = createBlankLocalDraftPage();
@@ -6432,6 +6469,9 @@ function App() {
   };
 
   const createProgramPage = (program = null) => {
+    if (!requireAnyPortalAccess(["programs"], "Program page creation")) {
+      return;
+    }
     const nextMenuOrder =
       programPages.reduce((highestOrder, page) => Math.max(highestOrder, Number(page.menuOrder || 0)), 0) + 1;
     const draftNumber = programPages.length + 1;
@@ -6491,6 +6531,9 @@ function App() {
 
   const savePage = async (event, pageOverride = null) => {
     event?.preventDefault?.();
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page saving")) {
+      return null;
+    }
     const pageToSave = pageOverride ? { ...formPage, ...pageOverride } : formPage;
 
     try {
@@ -6525,6 +6568,9 @@ function App() {
   };
 
   const updateActiveStatus = (status) => {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page status updates")) {
+      return;
+    }
     const nextPage = {
       ...formPage,
       status,
@@ -6538,6 +6584,9 @@ function App() {
   };
 
   const duplicatePage = () => {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page duplication")) {
+      return;
+    }
     const copyPage = {
       ...formPage,
       id: makeId(),
@@ -6556,6 +6605,9 @@ function App() {
   };
 
   const performDeletePage = async (targetPage, options = {}) => {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page deletion")) {
+      return false;
+    }
     const { silentSuccess = false } = options;
     try {
       const identifiers = getPageApiIdentifiers(targetPage);
@@ -6698,6 +6750,9 @@ function App() {
   };
 
   const bulkDeletePages = async () => {
+    if (!requireAnyPortalAccess(["pages"], "Bulk page deletion")) {
+      return;
+    }
     if (!selectedPageIds.length) {
       setNotice("Select pages first.");
       return;
@@ -6757,6 +6812,9 @@ function App() {
   };
 
   const restoreRevision = (revisionId) => {
+    if (!requireAnyPortalAccess(["page-editor"], "Revision restore")) {
+      return;
+    }
     const revision = formPage.revisions?.find((item) => item.id === revisionId);
     if (!revision) {
       return;
@@ -6793,6 +6851,9 @@ function App() {
   };
 
   const bulkUpdateStatus = (status) => {
+    if (!requireAnyPortalAccess(["pages"], "Bulk page status updates")) {
+      return;
+    }
     if (!selectedPageIds.length) {
       setNotice("Select pages first.");
       return;
@@ -6815,6 +6876,9 @@ function App() {
   };
 
   const bulkDuplicate = () => {
+    if (!requireAnyPortalAccess(["pages"], "Bulk page duplication")) {
+      return;
+    }
     if (!selectedPageIds.length) {
       setNotice("Select pages first.");
       return;
@@ -6862,6 +6926,12 @@ function App() {
   };
 
   const importPages = async (event) => {
+    if (!requireAnyPortalAccess(["pages"], "Page import")) {
+      if (event?.target) {
+        event.target.value = "";
+      }
+      return;
+    }
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -6905,6 +6975,9 @@ function App() {
   };
 
   const importLivePublishedPages = async () => {
+    if (!requireAnyPortalAccess(["pages"], "Admin page sync")) {
+      return;
+    }
     try {
       const response = await fetch(apiUrl("/admin/pages?limit=200"), {
         headers: getAuthHeaders(adminToken)
@@ -6952,6 +7025,9 @@ function App() {
     formPage;
 
   const updateMainProgramsPage = (field, value) => {
+    if (!requireAnyPortalAccess(["programs"], "Program page updates")) {
+      return;
+    }
     const nextPage = {
       ...mainProgramsPage,
       [field]: field === "slug" ? slugify(value) : value,
@@ -6966,6 +7042,9 @@ function App() {
   };
 
   const addProgramCategory = () => {
+    if (!requireAnyPortalAccess(["programs"], "Program category creation")) {
+      return;
+    }
     const category = normalizeProgramCategory({
       name: "New Program Category",
       slug: `new-program-category-${programCategories.length + 1}`,
@@ -6978,6 +7057,9 @@ function App() {
   };
 
   const updateProgramCategory = (categoryId, field, value) => {
+    if (!requireAnyPortalAccess(["programs"], "Program category updates")) {
+      return;
+    }
     const previousCategory = programCategories.find((category) => category.id === categoryId);
     setProgramCategories((current) =>
       current.map((category) => {
@@ -7030,6 +7112,9 @@ function App() {
   };
 
   const updateProgramMegaMenuCategory = (categoryId, programIds) => {
+    if (!requireAnyPortalAccess(["programs", "site-chrome"], "Programs mega-menu updates")) {
+      return;
+    }
     const normalizedIds = Array.from(
       new Set((Array.isArray(programIds) ? programIds : []).map(String).filter(Boolean))
     );
@@ -7068,6 +7153,9 @@ function App() {
   };
 
   const deleteProgramCategory = async (categoryId) => {
+    if (!requireAnyPortalAccess(["programs"], "Program category deletion")) {
+      return;
+    }
     const category = programCategories.find((item) => item.id === categoryId);
     if (!category) {
       return;
@@ -7100,6 +7188,9 @@ function App() {
   };
 
   const addProgram = (categorySlug = "") => {
+    if (!requireAnyPortalAccess(["programs"], "Program creation")) {
+      return;
+    }
     const program = normalizeProgram({
       title: "New Academic Program",
       slug: `new-academic-program-${programs.length + 1}`,
@@ -7112,6 +7203,9 @@ function App() {
   };
 
   const updateProgram = (programId, field, value) => {
+    if (!requireAnyPortalAccess(["programs"], "Program updates")) {
+      return;
+    }
     setPrograms((current) =>
       current.map((program) => {
         if (program.id !== programId) {
@@ -7138,6 +7232,9 @@ function App() {
   };
 
   const deleteProgram = async (programId) => {
+    if (!requireAnyPortalAccess(["programs"], "Program deletion")) {
+      return;
+    }
     const targetProgram = programs.find((program) => program.id === programId);
     if (!targetProgram) {
       return;
@@ -7170,6 +7267,9 @@ function App() {
   };
 
   const saveAdminUser = async (userInput) => {
+    if (!requireAnyPortalAccess(["users"], "User management")) {
+      return null;
+    }
     const isExistingUser = Boolean(userInput.id) && adminUsers.some((user) => String(user.id) === String(userInput.id));
     const response = await fetch(apiUrl(isExistingUser ? `/admin/users/${encodeURIComponent(userInput.id)}` : "/admin/users"), {
       method: isExistingUser ? "PUT" : "POST",
@@ -7223,6 +7323,9 @@ function App() {
   };
 
   const sendAdminUserInvite = async (userId) => {
+    if (!requireAnyPortalAccess(["users"], "User invitations")) {
+      return null;
+    }
     const response = await fetch(apiUrl(`/admin/users/${encodeURIComponent(userId)}/invite`), {
       method: "POST",
       headers: getAuthHeaders(adminToken)
@@ -7252,6 +7355,9 @@ function App() {
   };
 
   const deleteAdminUser = async (userId) => {
+    if (!requireAnyPortalAccess(["users"], "User deletion")) {
+      return;
+    }
     if (adminProfile && String(adminProfile.id) === String(userId)) {
       setNotice("You cannot delete the currently signed-in user.");
       return;
@@ -7499,7 +7605,7 @@ function App() {
           />
         )}
 
-        {activeView === "dashboard" && (
+        {activeView === "dashboard" && hasPortalAccess(adminProfile, "dashboard") && (
           <Dashboard
             pages={contentManagedPages}
             stats={stats}
@@ -7522,7 +7628,7 @@ function App() {
           />
         )}
 
-        {activeView === "pages" && (
+        {activeView === "pages" && hasPortalAccess(adminProfile, "pages") && (
           <PagesView
             pages={filteredPages}
             allPages={standardPages}
@@ -7563,7 +7669,7 @@ function App() {
           />
         )}
 
-        {activeView === "other-pages" && (
+        {activeView === "other-pages" && hasPortalAccess(adminProfile, "other-pages") && (
           <OtherPagesView
             pages={standardPages}
             pageStatusFilters={pageStatusFilters}
@@ -7577,7 +7683,7 @@ function App() {
           />
         )}
 
-        {activeView === "page-editor" && (
+        {activeView === "page-editor" && hasPortalAccess(adminProfile, "page-editor") && (
           <PageEditor
             page={formPage}
             editableSrcDoc={pageEditorEditableSrcDoc}
@@ -7592,7 +7698,7 @@ function App() {
           />
         )}
 
-        {activeView === "programs" && (
+        {activeView === "programs" && hasPortalAccess(adminProfile, "programs") && (
           <ProgramsManagementView
             categories={programCategories}
             programs={programs}
@@ -7617,7 +7723,7 @@ function App() {
           />
         )}
 
-        {activeView === "blogs" && (
+        {activeView === "blogs" && hasPortalAccess(adminProfile, "blogs") && (
           <BlogPagesView
             pages={blogPages}
             pageStatusFilters={pageStatusFilters}
@@ -7631,7 +7737,7 @@ function App() {
           />
         )}
 
-        {activeView === "events" && (
+        {activeView === "events" && hasPortalAccess(adminProfile, "events") && (
           <EventPagesView
             pages={eventPages}
             pageStatusFilters={pageStatusFilters}
@@ -7645,7 +7751,7 @@ function App() {
           />
         )}
 
-        {activeView === "builder" && (
+        {activeView === "builder" && hasPortalAccess(adminProfile, "page-editor") && (
           <BuilderView
             page={formPage}
             setActiveView={setActiveView}
@@ -7659,7 +7765,7 @@ function App() {
           />
         )}
 
-        {activeView === "media" && (
+        {activeView === "media" && hasPortalAccess(adminProfile, "media") && (
           <MediaView
             mediaItems={mediaLibrary}
             mediaStorageMode={mediaStorageMode}
@@ -7674,9 +7780,9 @@ function App() {
           />
         )}
 
-        {activeView === "crm" && <CrmView />}
+        {activeView === "crm" && hasPortalAccess(adminProfile, "crm") && <CrmView />}
 
-        {activeView === "users" && (
+        {activeView === "users" && hasPortalAccess(adminProfile, "users") && (
           <UserManagementView
             users={adminUsers}
             activeAdmin={currentAdminUser}
@@ -7689,9 +7795,9 @@ function App() {
           />
         )}
 
-        {activeView === "settings" && <SettingsView logoSrc={assets.logoOfficial} />}
+        {activeView === "settings" && hasPortalAccess(adminProfile, "settings") && <SettingsView logoSrc={assets.logoOfficial} />}
 
-        {activeView === "site-chrome" && (
+        {activeView === "site-chrome" && hasPortalAccess(adminProfile, "site-chrome") && (
           <SiteChromeView
             kind={siteChromeTab}
             page={activeSiteChromePage}

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "admin:api": "node server/admin-api.js",
-    "dev": "vite",
+    "dev": "node scripts/dev-with-api.mjs",
+    "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "fetch:pages": "node fetch-published-pages.mjs"

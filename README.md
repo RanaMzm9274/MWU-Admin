@@ -12,6 +12,8 @@ npm run build
 npm run fetch:pages
 ```
 
+`npm run dev` starts both the local Admin API on port `4000` and Vite on port `5173`. Use `npm run dev:vite` only when the API is already running elsewhere, such as through PM2 on the server.
+
 ## Current Scope
 
 - Dashboard styled around the MWU public website palette, imagery, and official `madda-logo.png` brand mark.

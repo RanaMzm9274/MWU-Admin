@@ -5912,6 +5912,7 @@ button:disabled {
 
 .readonly-field input[type="checkbox"] {
   accent-color: var(--mwu-green);
+  max-width: 20px;
 }
 
 .password-field-row {
