@@ -1111,6 +1111,7 @@ function isImportedOverlayLikeNode(node){
   if(!node || node.nodeType!==1) return false;
   const tag = String(node.tagName || '').toLowerCase();
   if(['img','picture','source','video','canvas','svg','path','i'].includes(tag)) return false;
+  if(node.getAttribute?.('data-bg-src') || node.getAttribute?.('data-background') || isImportedBackgroundMediaNode(node)) return false;
   const marker = importedClassText(node);
   if(node.getAttribute('data-overlay') != null || node.getAttribute('aria-hidden') === 'true') return true;
   if(/(overlay|overly|shape|shap|mask|pattern|decor|decoration|ornament|particle|anim|motion|line-|bg-|before|after|breadcumb-shape|hero-shape|image-layer)/i.test(marker)) return true;
@@ -1469,6 +1470,40 @@ function importedNodeBackgroundSource(node){
 function isImportedBackgroundMediaNode(node){
   return !!importedNodeBackgroundSource(node);
 }
+function getImportedBackgroundContextTarget(node){
+  const root = getImportedHtmlRoot();
+  let current = node?.nodeType===3 ? node.parentElement : node;
+  while(current && current!==root){
+    if(isImportedBackgroundMediaNode(current) || current.getAttribute?.('data-bg-src') || current.getAttribute?.('data-background')) return current;
+    current = current.parentElement;
+  }
+  return null;
+}
+function getImportedProgressContext(node){
+  const root = getImportedHtmlRoot();
+  const start = node?.nodeType===3 ? node.parentElement : node;
+  const feature = start?.closest?.('.skill-feature, [data-progress-context]');
+  const progress = start?.closest?.('.progress, [role="progressbar"]') || feature?.querySelector?.('.progress, [role="progressbar"]');
+  if(!progress || !root?.contains(progress)) return null;
+  const bar = progress.matches?.('.progress-bar, [role="progressbar"]') ? progress : progress.querySelector?.('.progress-bar, [role="progressbar"]');
+  if(!bar) return null;
+  const label = feature?.querySelector?.('.skill-feature-title, .progress-title, [data-progress-label]') || null;
+  const valueNode = bar.querySelector?.('.progress-value, [data-progress-value]') || feature?.querySelector?.('.progress-value, [data-progress-value]') || null;
+  const parsed = parseFloat(String(bar.style?.width || bar.getAttribute?.('aria-valuenow') || valueNode?.textContent || '0'));
+  return { feature:feature || progress.parentElement, progress, bar, label, valueNode, value:Number.isFinite(parsed) ? Math.max(0,Math.min(100,parsed)) : 0 };
+}
+function getImportedSliderContext(node){
+  const root = getImportedHtmlRoot();
+  const start = node?.nodeType===3 ? node.parentElement : node;
+  const slide = start?.closest?.('.swiper-slide, .slick-slide, [data-gallery-slide]');
+  if(!slide || !root?.contains(slide)) return null;
+  const slider = slide.closest?.('.swiper, .th-slider, .slick-slider, [data-gallery]') || slide.parentElement?.parentElement;
+  const wrapper = slide.parentElement;
+  const slides = Array.from(wrapper?.children || []).filter((item)=> item.matches?.('.swiper-slide, .slick-slide, [data-gallery-slide]'));
+  const image = slide.querySelector?.('img') || null;
+  const caption = slide.querySelector?.('figcaption, [data-caption], .box-text, .gallery-caption, .story-content .box-text') || null;
+  return { slider, wrapper, slide, slides, image, caption, index:Math.max(0,slides.indexOf(slide)) };
+}
 function getImportedBestDescendantImage(node){
   if(!node || !node.querySelector) return null;
   const root = getImportedHtmlRoot();
@@ -1492,16 +1527,16 @@ function getImportedEditableMediaTarget(node){
   if(!node) return null;
   const root = getImportedHtmlRoot();
   let current = node.nodeType===3 ? node.parentElement : node;
-  if(current && String(current.tagName || '').toLowerCase() !== 'img'){
+  if(current && String(current.tagName || '').toLowerCase() !== 'img' && !isImportedBackgroundMediaNode(current)){
     const descendantImage = getImportedBestDescendantImage(current);
     if(descendantImage) return descendantImage;
   }
   while(current && current!==root){
     const tag = String(current.tagName || '').toLowerCase();
     if(tag==='img' && !isImportedDecorativeImageNode(current)) return current;
+    if(isImportedBackgroundMediaNode(current)) return current;
     const descendantImage = getImportedBestDescendantImage(current);
     if(descendantImage) return descendantImage;
-    if(isImportedBackgroundMediaNode(current)) return current;
     current = current.parentElement;
   }
   return null;
@@ -2416,12 +2451,13 @@ function renderImportedSettings(node){
   const isIconElement = details.type === 'icon';
   const isContainerElement = details.type === 'container';
   const supportsTypography = isHeadingElement || isTextElement || isButtonElement;
-  const mediaTarget = isImageElement
-    ? node
-    : (isImportedBackgroundMediaNode(node) ? node : null);
-  const mediaDetails = details.media || null;
+  const backgroundContextTarget = isImageElement ? null : getImportedBackgroundContextTarget(node);
+  const mediaTarget = isImageElement ? node : backgroundContextTarget;
+  const mediaDetails = details.media || (backgroundContextTarget ? describeImportedNode(backgroundContextTarget)?.media : null);
   const hasMediaTarget = !!mediaTarget;
-  const mediaIsImage = mediaDetails?.type === 'image';
+  const mediaIsImage = String(mediaTarget?.tagName || '').toLowerCase() === 'img';
+  const progressContext = getImportedProgressContext(node);
+  const sliderContext = getImportedSliderContext(node);
   const parentTarget = getImportedParentSelectableNode(node);
   const hasLinkField = !!(getImportedLinkElement(node) || details.type==='button' || String(details.url || '').trim());
   const importedBoxState = buildImportedBoxState(details, node);
@@ -2460,6 +2496,8 @@ function renderImportedSettings(node){
     ${hasMediaTarget ? fieldInput('Image URL', 'importedImageUrl', mediaDetails?.src || details.src || '') : ''}
     ${mediaIsImage ? fieldInput('Alt text', 'importedImageAlt', mediaDetails?.alt || details.alt || '') : ''}
     ${hasMediaTarget ? `<div class="field-group"><div class="field-group-label">Replace image</div><div class="builder-file-stack"><button class="field-button" type="button" id="importedImageLibraryBtn">Media Library</button>${imageUploadHtml('importedImageUpload')}</div></div>` : ''}
+    ${progressContext ? `<div class="panel-section-label" style="padding:8px 0 10px;">Progress bar</div>${fieldInput('Label', 'importedProgressLabel', progressContext.label?.textContent?.trim() || '')}${rangeField('Progress', 'importedProgressValue', 0, 100, progressContext.value, '%')}` : ''}
+    ${sliderContext ? `<div class="panel-section-label" style="padding:8px 0 10px;">Gallery / slider context</div><div class="field-hint">Slide ${sliderContext.index + 1} of ${sliderContext.slides.length}. Edit the selected slide without changing the other gallery items.</div>${sliderContext.caption ? fieldTextarea('Slide caption', 'importedSlideCaption', sliderContext.caption.textContent?.trim() || '', 4) : ''}<div class="field-group"><div class="builder-file-stack"><button class="field-button" type="button" id="importedSlidePrevBtn">Previous slide</button><button class="field-button" type="button" id="importedSlideNextBtn">Next slide</button><button class="field-button" type="button" id="importedSlideDuplicateBtn">Duplicate slide</button><button class="field-button" type="button" id="importedSlideRemoveBtn" ${sliderContext.slides.length < 2 ? 'disabled' : ''}>Remove slide</button></div></div>` : ''}
   `;
   styleBox.innerHTML = `${responsiveEditorNotice()}
     ${supportsTypography ? `<div class="panel-section-label" style="padding:0 0 10px;">Typography</div>` : ''}
@@ -2486,8 +2524,8 @@ function renderImportedSettings(node){
     ${isContainerElement ? fieldInput('Gap', 'importedGap', details.styles.gap || '') : ''}
     ${(!isImageElement) ? renderBoxStyleFields({ box: importedBoxState }) : ''}
     ${hasMediaTarget ? `<div class="panel-section-label" style="padding:8px 0 10px;">Image</div>` : ''}
-    ${hasMediaTarget ? sliderWithUnitField('Width', 'importedImageWidth', parseImportedMetricParts(mediaDetails?.width, 0, 'px').value, [['px','PX'],['%','PC'],['vw','VW']], parseImportedMetricParts(mediaDetails?.width, 0, 'px').unit, 0, 100, 1) : ''}
-    ${hasMediaTarget ? sliderWithUnitField('Height', 'importedImageHeight', parseImportedMetricParts(mediaDetails?.height, 0, 'px').value, [['px','PX'],['%','PC'],['vh','VH']], parseImportedMetricParts(mediaDetails?.height, 0, 'px').unit, 0, 100, 1) : ''}
+    ${hasMediaTarget ? sliderWithUnitField('Width', 'importedImageWidth', parseImportedMetricParts(mediaDetails?.width, 0, 'px').value, [['px','PX'],['%','PC'],['vw','VW']], parseImportedMetricParts(mediaDetails?.width, 0, 'px').unit, 0, 2000, 1) : ''}
+    ${hasMediaTarget ? sliderWithUnitField('Height', 'importedImageHeight', parseImportedMetricParts(mediaDetails?.height, 0, 'px').value, [['px','PX'],['%','PC'],['vh','VH']], parseImportedMetricParts(mediaDetails?.height, 0, 'px').unit, 0, 2000, 1) : ''}
     ${hasMediaTarget ? selectField('Object fit / crop', 'importedObjectFit', [['','Default'],['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None'],['scale-down','Scale down']], mediaDetails?.objectFit || '') : ''}
     ${hasMediaTarget ? fieldInput('Image position', 'importedObjectPosition', mediaDetails?.objectPosition || '') : ''}
     ${hasMediaTarget ? rangeField('Corner radius', 'importedImageRadius', 0, 120, mediaRadius, 'px') : ''}
@@ -2496,6 +2534,7 @@ function renderImportedSettings(node){
     ${hasMediaTarget ? rangeField('Contrast', 'importedImageContrast', -100, 100, mediaContrast, '%') : ''}
     ${hasMediaTarget ? `<div class="field-grid">${selectField('Border style', 'importedImageBorderStyle', [['none','None'],['solid','Solid'],['dashed','Dashed'],['dotted','Dotted'],['double','Double']], mediaDetails?.borderStyle || 'solid')}${colorField('Border color', 'importedImageBorderColor', mediaDetails?.borderColor || '#d7e3f2')}</div>` : ''}
     ${hasMediaTarget ? rangeField('Border width', 'importedImageBorderWidth', 0, 20, mediaBorderWidth, 'px') : ''}
+    ${progressContext ? `<div class="panel-section-label" style="padding:8px 0 10px;">Progress bar</div>${colorField('Fill color', 'importedProgressColor', normalizeImportedColorValue(getImportedStyleValue(progressContext.bar,'backgroundColor'), '#2257a5'))}${colorField('Track color', 'importedProgressTrackColor', normalizeImportedColorValue(getImportedStyleValue(progressContext.progress,'backgroundColor'), '#edf1f8'))}` : ''}
   `;
   advancedBox.innerHTML = `${responsiveEditorNotice()}
     ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
@@ -2521,6 +2560,68 @@ function renderImportedSettings(node){
   if(parentSelectButton && parentTarget){
     parentSelectButton.addEventListener('click', ()=> selectImportedNode(parentTarget));
   }
+  const progressLabelNode = document.getElementById('f_importedProgressLabel');
+  if(progressLabelNode && progressContext?.label){
+    progressLabelNode.addEventListener('input', ()=>{ progressContext.label.textContent = progressLabelNode.value; syncImportedHtmlToModel('imported-progress'); });
+    progressLabelNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-progress', true));
+  }
+  const progressValueNode = document.getElementById('f_importedProgressValue');
+  if(progressValueNode && progressContext){
+    progressValueNode.addEventListener('input', ()=>{
+      const value = Math.max(0,Math.min(100,Number(progressValueNode.value)||0));
+      progressContext.bar.style.setProperty('width', `${value}%`, 'important');
+      progressContext.bar.setAttribute('aria-valuenow', String(value));
+      if(progressContext.valueNode) progressContext.valueNode.textContent = `${value}%`;
+      const valueLabel = document.getElementById('v_importedProgressValue');
+      if(valueLabel) valueLabel.textContent = `${value}%`;
+      syncImportedHtmlToModel('imported-progress');
+    });
+    progressValueNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-progress', true));
+  }
+  const bindProgressColor = (id, target)=>{
+    const picker = document.getElementById(`f_${id}`);
+    const textInput = document.getElementById(`t_${id}`);
+    if(!picker || !textInput || !target) return;
+    const apply = (value)=>{ setImportedInlineStyle(target, 'backgroundColor', value); syncImportedHtmlToModel('imported-progress'); };
+    picker.addEventListener('input', ()=>{ textInput.value=picker.value; apply(picker.value); });
+    picker.addEventListener('change', ()=> syncImportedHtmlToModel('imported-progress', true));
+    textInput.addEventListener('input', ()=>{ if(/^#[0-9A-Fa-f]{6}$/.test(textInput.value)) picker.value=textInput.value; apply(textInput.value); });
+    textInput.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-progress', true));
+  };
+  bindProgressColor('importedProgressColor', progressContext?.bar);
+  bindProgressColor('importedProgressTrackColor', progressContext?.progress);
+  const slideCaptionNode = document.getElementById('f_importedSlideCaption');
+  if(slideCaptionNode && sliderContext?.caption){
+    slideCaptionNode.addEventListener('input', ()=>{ sliderContext.caption.textContent=slideCaptionNode.value; syncImportedHtmlToModel('imported-slider'); });
+    slideCaptionNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-slider', true));
+  }
+  const selectContextSlide = (offset)=>{
+    if(!sliderContext?.slides?.length) return;
+    const nextIndex = (sliderContext.index + offset + sliderContext.slides.length) % sliderContext.slides.length;
+    const nextSlide = sliderContext.slides[nextIndex];
+    const nextTarget = nextSlide.querySelector?.('img') || nextSlide;
+    nextSlide.scrollIntoView?.({ behavior:'smooth', block:'nearest', inline:'center' });
+    selectImportedNode(nextTarget);
+  };
+  document.getElementById('importedSlidePrevBtn')?.addEventListener('click', ()=> selectContextSlide(-1));
+  document.getElementById('importedSlideNextBtn')?.addEventListener('click', ()=> selectContextSlide(1));
+  document.getElementById('importedSlideDuplicateBtn')?.addEventListener('click', ()=>{
+    if(!sliderContext?.slide || !sliderContext?.wrapper) return;
+    const clone = sliderContext.slide.cloneNode(true);
+    clone.querySelectorAll?.('[data-import-id], [data-import-selected]').forEach((item)=>{ item.removeAttribute('data-import-id'); item.removeAttribute('data-import-selected'); });
+    clone.removeAttribute?.('data-import-id');
+    clone.removeAttribute?.('data-import-selected');
+    sliderContext.slide.insertAdjacentElement('afterend', clone);
+    syncImportedHtmlToModel('imported-slider-duplicate', true);
+    selectImportedNode(clone.querySelector?.('img') || clone);
+  });
+  document.getElementById('importedSlideRemoveBtn')?.addEventListener('click', ()=>{
+    if(!sliderContext?.slide || sliderContext.slides.length < 2) return;
+    const fallback = sliderContext.slides[sliderContext.index > 0 ? sliderContext.index - 1 : 1];
+    sliderContext.slide.remove();
+    syncImportedHtmlToModel('imported-slider-remove', true);
+    selectImportedNode(fallback?.querySelector?.('img') || fallback);
+  });
   const linkNode = document.getElementById('f_importedLinkUrl');
   if(linkNode){
     linkNode.addEventListener('input', ()=> applyImportedElementUrl(importedSelectionNode, linkNode.value));
@@ -3513,8 +3614,8 @@ function renderStyleFields(el){
       html += alignField('align', s.align, s.verticalAlign||'top');
       break;
     case 'image':
-      html += sliderWithUnitField('Width', 'width', s.width||100, [['px','PX'],['%','PC'],['wh','WH']], s.widthUnit||'%', 0, 100, 1);
-      html += sliderWithUnitField('Height', 'imageHeight', s.height||0, [['px','PX'],['%','PC'],['vh','VH']], s.heightUnit||'px', 0, 100, 1);
+      html += sliderWithUnitField('Width', 'width', s.width||100, [['px','PX'],['%','PC'],['wh','WH']], s.widthUnit||'%', 0, 2000, 1);
+      html += sliderWithUnitField('Height', 'imageHeight', s.height||0, [['px','PX'],['%','PC'],['vh','VH']], s.heightUnit||'px', 0, 2000, 1);
       html += selectField('Fit', 'fit', [['cover','Cover'],['contain','Contain'],['fill','Fill'],['none','None']], s.fit||'cover');
       html += rangeField('Corner radius', 'radius', 0, 50, s.radius, 'px');
       html += alignField('align', s.align, s.verticalAlign||'top');
@@ -3601,9 +3702,9 @@ function renderBoxStyleFields(el){
     ${selectFieldGeneric('Container style', 'boxDisplayMode', [['block','Block'],['inline','Inline'],['fullwidth','Full width']], b.displayMode||'block')}
     <div class="panel-section-label" style="padding:4px 0 10px;">Dimensions</div>
     <div class="dimension-stack">
-      ${sliderWithUnitField('Width', 'boxWidth', b.width||0, [['px','PX'],['%','PC'],['wh','WH']], b.widthUnit||'px', 0, 100, 1)}
-      ${sliderWithUnitField('Height', 'boxHeight', b.height||0, [['px','PX'],['%','PC'],['vh','VH']], b.heightUnit||'px', 0, 100, 1)}
-      ${sliderWithUnitField('Minimum height', 'boxMinHeight', b.minHeight||0, [['px','PX'],['%','PC'],['vh','VH']], b.minHeightUnit||'px', 0, 100, 1)}
+    ${sliderWithUnitField('Width', 'boxWidth', b.width||0, [['px','PX'],['%','PC'],['wh','WH']], b.widthUnit||'px', 0, 2000, 1)}
+    ${sliderWithUnitField('Height', 'boxHeight', b.height||0, [['px','PX'],['%','PC'],['vh','VH']], b.heightUnit||'px', 0, 2000, 1)}
+    ${sliderWithUnitField('Minimum height', 'boxMinHeight', b.minHeight||0, [['px','PX'],['%','PC'],['vh','VH']], b.minHeightUnit||'px', 0, 2000, 1)}
     </div>
     <div class="panel-section-label" style="padding:4px 0 10px;">Background</div>
     ${backgroundFields}
@@ -5043,6 +5144,13 @@ function buildPublishedResponsiveCss(){
   });
   return `${desktopRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
 }
+function restorePublishedLiveAssetUrls(value=''){
+  const proxyPrefix = String(hostLiveAssetProxyPrefix || '').replace(/\/$/, '');
+  const liveOrigin = String(hostLiveSiteOrigin || '').replace(/\/$/, '');
+  if(!proxyPrefix || !liveOrigin) return String(value || '');
+  const escaped = proxyPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return String(value || '').replace(new RegExp(escaped, 'g'), liveOrigin);
+}
 buildPublishedHtml = function(){
   if(isImportedExactPageMode()){
     const root = getImportedHtmlRoot();
@@ -5060,7 +5168,7 @@ buildPublishedHtml = function(){
       .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
       [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
     </style>`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}</body></html>`;
+    return restorePublishedLiveAssetUrls(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}</body></html>`);
   }
   elements = ensureTreeDefaults(elements);
   const customRules = [];
@@ -5145,7 +5253,17 @@ function showPublish(){const html=buildPublishedHtml();try{localStorage.setItem(
 }
 function showHelp(){openModal('Keyboard shortcuts',`<div class="shortcut-grid"><span>Save draft</span><span class="kbd">Ctrl / ⌘ + S</span></div><div class="shortcut-grid"><span>Undo</span><span class="kbd">Ctrl / ⌘ + Z</span></div><div class="shortcut-grid"><span>Redo</span><span class="kbd">Ctrl / ⌘ + Y</span></div><div class="shortcut-grid"><span>Duplicate selected widget</span><span class="kbd">Ctrl / ⌘ + D</span></div><div class="shortcut-grid"><span>Delete selected widget</span><span class="kbd">Delete</span></div><div class="shortcut-grid"><span>Exit preview / close dialog</span><span class="kbd">Esc</span></div><div class="field-hint" style="margin-top:16px;">Click any element card to append it, drag it between existing widgets for precise placement, and double-click visible text for inline editing.</div>`,`<button class="btn btn-gold" id="closeHelpBtn">Got it</button>`,true);document.getElementById('closeHelpBtn').addEventListener('click',closeModal);}
 
-function getBridgeState(saveMode=''){ return { snapshot: snapshot(), publishedHtml: buildPublishedHtml(), selectedId, saveMode }; }
+function getBridgeState(saveMode=''){
+  // The visualBuilder snapshot is the first source used when a saved page is
+  // reopened. Capture the current imported DOM immediately before save/publish
+  // so a stale element.content.code cannot overwrite the newly published HTML.
+  if(isImportedExactPageMode()){
+    const root = getImportedHtmlRoot();
+    const model = getImportedHtmlElementModel();
+    if(root && model) model.content.code = importedResponsiveModelHtml(root);
+  }
+  return { snapshot: snapshot(), publishedHtml: buildPublishedHtml(), selectedId, saveMode };
+}
 function notifyHost(type, extra={}){ if(window.parent!==window) window.parent.postMessage({ type, ...extra }, '*'); }
 function describeImportedDebugTarget(node){
   if(!node || node.nodeType!==1) return { exists: false, value: String(node || '') };
@@ -5276,6 +5394,14 @@ function loadHostSnapshot(data={}){
   hostImportInlineCss = String(data.importInlineCss || '');
   hostLiveAssetProxyPrefix = data.liveAssetProxyPrefix || hostLiveAssetProxyPrefix;
   hostLiveSiteOrigin = data.liveSiteOrigin || hostLiveSiteOrigin;
+  console.info('[MWU editor debug] iframe:load-payload', {
+    elementCount: Array.isArray(data.elements) ? data.elements.length : 0,
+    firstElementType: data.elements && data.elements[0] ? data.elements[0].type : '',
+    exactImport: !!pageSettings.exactImport,
+    importCssCount: hostImportCssLinks.length,
+    importInlineCssLength: hostImportInlineCss.length,
+    htmlBytes: data.elements && data.elements[0] && data.elements[0].content ? String(data.elements[0].content.code || '').length : 0
+  });
   syncHostStylesheets(hostImportCssLinks, hostImportInlineCss);
   if(Array.isArray(data.elements)) elements=migrateLegacyColumns(data.elements);
   if(data.device) currentDevice=data.device;

@@ -55,7 +55,6 @@ import Dashboard from "./admin/views/Dashboard";
 import EventPagesView from "./admin/views/EventPagesView";
 import LoginView from "./admin/views/LoginView";
 import MediaView from "./admin/views/MediaView";
-import OtherPagesView from "./admin/views/OtherPagesView";
 import PageEditor from "./admin/views/PageEditor";
 import PagesView from "./admin/views/PagesView";
 import BlogPagesView from "./admin/views/BlogPagesView";
@@ -151,6 +150,13 @@ const dismissNoticeMessage = (notice, setNotice) => {
     window.sessionStorage.setItem(ADMIN_PAGES_LOADED_NOTICE_KEY, "1");
   }
   setNotice("");
+};
+
+const EDITOR_DEBUG_ENABLED = true;
+
+const editorDebugLog = (stage, details = {}) => {
+  if (!EDITOR_DEBUG_ENABLED) return;
+  console.info(`[MWU editor debug] ${stage}`, details);
 };
 
 const extractToken = (payload) =>
@@ -473,7 +479,6 @@ const getMenuGroupChoices = (pages = []) => {
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "pages", label: "Pages", icon: FileText },
-  { id: "other-pages", label: "Other Pages", icon: Globe2 },
   { id: "page-editor", label: "Page Editor", icon: Pencil },
   { id: "site-chrome", label: "Header & Footer", icon: LayoutTemplate },
   { id: "programs", label: "Programs", icon: GraduationCap },
@@ -488,7 +493,6 @@ const navItems = [
 const accessModules = [
   { id: "dashboard", label: "Dashboard", description: "Overview metrics, recent content, and quick actions." },
   { id: "pages", label: "Pages", description: "Create, edit, publish, import, export, and delete website pages." },
-  { id: "other-pages", label: "Other Pages", description: "Manage standard public pages outside blogs, events, and programs." },
   { id: "page-editor", label: "Page Editor", description: "Open the visual page editor and save page content." },
   { id: "site-chrome", label: "Header & Footer", description: "Edit global header and footer markup." },
   { id: "programs", label: "Programs", description: "Manage program categories, details, and programs mega menu." },
@@ -513,7 +517,6 @@ const rolePresets = [
     access: {
       dashboard: true,
       pages: true,
-      "other-pages": true,
       "page-editor": true,
       "site-chrome": true,
       programs: true,
@@ -1308,7 +1311,7 @@ const convertDomNodeToHtmlBuilderElements = (node) => {
 };
 
 const buildHtmlVisualBuilderFallbackElements = (page = {}) => {
-  if (isImportedPlaceholderPage(page) && !hasPersistedEditableMarkup(page)) {
+  if (isLocalDraftPage(page) && !hasPersistedEditableMarkup(page)) {
     return [];
   }
 
@@ -1354,7 +1357,26 @@ const buildHtmlVisualBuilderFallbackElements = (page = {}) => {
     return [];
   }
 
-  return [];
+  const fallbackCopy = String(
+    page?.summary ||
+    page?.seoDescription ||
+    page?.seo_description ||
+    "This saved page does not have imported HTML yet. Add or edit its content here."
+  ).trim();
+
+  return [
+    createHtmlBuilderContainerElement(
+      [
+        createHtmlBuilderHeadingElement(page?.heroHeadline || page?.title || "Untitled Page", "h1"),
+        ...(fallbackCopy ? [createHtmlBuilderTextElement(fallbackCopy)] : [])
+      ],
+      {
+        name: page?.type || "Page content",
+        box: { displayMode: "boxed", width: 1180, widthUnit: "px" },
+        advanced: { paddingTop: 64, paddingRight: 24, paddingBottom: 64, paddingLeft: 24 }
+      }
+    )
+  ];
 };
 
 const buildHtmlVisualBuilderInitPayload = (page = {}) => {
@@ -1364,20 +1386,13 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
   const storedPageSettings = storedSnapshot?.pageSettings || {};
   const storedElements = Array.isArray(storedSnapshot?.elements) ? storedSnapshot.elements : [];
   const hasImportedHtml = hasPersistedEditableMarkup(page);
-  const importedPlaceholderWithoutMarkup = isImportedPlaceholderPage(page) && !hasImportedHtml;
   const shouldStartBlank =
-    (
-      importedPlaceholderWithoutMarkup ||
-      !hasImportedHtml
-    ) &&
+    !hasImportedHtml &&
     !storedElements.length &&
-    (
-      importedPlaceholderWithoutMarkup ||
-      Boolean(
-        page?.isLocalDraft ||
-        page?._isLocalDraft ||
-        page?.localOnly
-      )
+    Boolean(
+      page?.isLocalDraft ||
+      page?._isLocalDraft ||
+      page?.localOnly
     );
   const storedDocument = getStoredEditableDocument(page);
   const sourceImportHtml =
@@ -2234,6 +2249,18 @@ const hasPersistedEditableMarkup = (page = {}) =>
     page.body_html ||
     (page.sections || []).some((section) => section.html || section.rawHtml || section.raw_html)
   );
+
+const hasUsableHtmlBuilderSnapshot = (page = {}) => {
+  const directSnapshot = page?.visualBuilder || page?.visual_builder || {};
+  const embeddedSnapshot = getHtmlVisualBuilderSnapshotFromPage(page) || {};
+  const snapshot = Array.isArray(directSnapshot?.elements) ? directSnapshot : embeddedSnapshot;
+  const elements = Array.isArray(snapshot?.elements) ? snapshot.elements : [];
+  if (elements.length > 0) {
+    return true;
+  }
+
+  return Boolean(snapshot?.pageSettings?.exactImport && hasPersistedEditableMarkup(page));
+};
 
 const getStoredEditableDocument = (page = {}) => {
   if (isImportedPlaceholderPage(page) && !(page.rawHtml || page.raw_html || page.bodyHtml || page.body_html)) {
@@ -3441,23 +3468,45 @@ const buildEditableLiveDocument = (page = {}, sourceHtml = "") => {
 };
 
 const LEGACY_ROUTE_ALIASES = {
+  "": "index",
+  "home": "index",
+  "index": "index",
+  "about": "about",
   "about-us": "about",
   "about-mwu": "about",
+  "program": "program",
   "programs": "program",
   "academic-programs": "program",
+  "graduate-programs": "programs-graduate",
+  "phd-programs": "programs-phd",
   "undergraduate-programs": "programs-undergraduate",
   "admission": "admission",
   "admissions": "admission",
+  "contact": "contact",
   "contact-us": "contact",
+  "event": "event",
   "events": "event",
+  "blog": "blog",
   "blogs": "blog",
   "news": "blog",
+  "research": "research",
   "research-centers": "research",
   "research-center": "research",
+  "campus": "campus",
   "campuses": "campus"
 };
 
-const normalizeLegacyHtmlRoute = (routePath = "", page = {}) => {
+const toLegacyHtmlPath = (candidate = "") => {
+  const clean = String(candidate || "index")
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(/^legacy\//i, "")
+    .replace(/\/$/, "")
+    .replace(/\.html$/i, "") || "index";
+  return `/legacy/${clean}.html`;
+};
+
+const getLegacyRouteCandidates = (routePath = "", page = {}) => {
   const explicitUrl = String(page?.sourceUrl || page?.source_url || page?.url || "").trim();
   const explicitPath = explicitUrl && !/^https?:\/\//i.test(explicitUrl)
     ? explicitUrl
@@ -3473,10 +3522,23 @@ const normalizeLegacyHtmlRoute = (routePath = "", page = {}) => {
   const fileName = normalizedPath.split("/").filter(Boolean).pop() || "";
   const slug = String(page?.slug || "").trim().replace(/^\/+/, "").replace(/\/$/, "");
   const routeSlug = normalizedPath.replace(/^legacy\//i, "").replace(/\.html$/i, "");
-  const aliasedSlug = LEGACY_ROUTE_ALIASES[slug] || LEGACY_ROUTE_ALIASES[routeSlug] || "";
-  const candidate = aliasedSlug || fileName || routeSlug || slug || "index";
-  const htmlFile = candidate.endsWith(".html") ? candidate : `${candidate}.html`;
-  return `/legacy/${htmlFile.replace(/^legacy\//i, "")}`;
+  const isAcademicProgram = String(page?.type || page?.page_type || "").toLowerCase().includes("program");
+  const programPrefix = /^phd(?:-|\s)/i.test(slug)
+    ? "program-phd-"
+    : /^(?:ma|msc|mba|specialty)(?:-|\s)/i.test(slug)
+      ? "program-pg-"
+      : "program-ug-";
+  const candidates = [
+    isAcademicProgram && slug ? `${programPrefix}${slug}` : "",
+    LEGACY_ROUTE_ALIASES[slug],
+    LEGACY_ROUTE_ALIASES[routeSlug],
+    LEGACY_ROUTE_ALIASES[fileName.replace(/\.html$/i, "")],
+    fileName,
+    routeSlug,
+    slug
+  ].filter(Boolean);
+
+  return Array.from(new Set(candidates.map(toLegacyHtmlPath)));
 };
 
 const getLiveFetchPath = (page = {}) => `/__live_page${getLiveRoutePath(page)}`;
@@ -3489,15 +3551,45 @@ const getLegacyRoutePath = (page = {}) => {
   if (/^\/legacy\//i.test(routePath)) {
     return routePath;
   }
-  return normalizeLegacyHtmlRoute(routePath, page);
+  return getLegacyRouteCandidates(routePath, page)[0] || "/legacy/index.html";
 };
 
 const getLegacyFetchPath = (page = {}) => getLegacyRoutePath(page);
+const getLegacyFetchPaths = (page = {}) => {
+  const routePath = getLiveRoutePath(page).split("?")[0].replace(/\/$/, "");
+  if (!routePath || routePath === "/") {
+    return ["/legacy/index.html"];
+  }
+  if (/^\/legacy\//i.test(routePath)) {
+    return [routePath];
+  }
+  return getLegacyRouteCandidates(routePath, page);
+};
 
 const getEditableFetchCandidates = (page = {}) =>
   // Editable mode needs a real HTML document, not the Vite/React SPA shell.
   // Use the static legacy HTML first; if the live route is server-rendered, it can be used as a fallback.
-  Array.from(new Set([getLegacyFetchPath(page), getLiveFetchPath(page)].filter(Boolean)));
+  Array.from(new Set([...getLegacyFetchPaths(page), getLiveFetchPath(page)].filter(Boolean)));
+
+const getCanonicalEditableSourceUrl = (page = {}) => getLegacyFetchPaths(page)[0] || getLiveRoutePath(page) || "/";
+
+const normalizePageForEditableImport = (page = {}) => {
+  const normalized = normalizePage(page);
+  const hasSavedHtml = hasPersistedEditableMarkup(normalized);
+  const hasUsableSnapshot = hasUsableHtmlBuilderSnapshot(normalized);
+  return normalizePage({
+    ...normalized,
+    sourceUrl: getCanonicalEditableSourceUrl(normalized),
+    source_url: getCanonicalEditableSourceUrl(normalized),
+    visualBuilder: hasUsableSnapshot ? normalized.visualBuilder || normalized.visual_builder : null,
+    visual_builder: hasUsableSnapshot ? normalized.visual_builder || normalized.visualBuilder : null,
+    rawHtml: hasSavedHtml ? normalized.rawHtml || normalized.raw_html : "",
+    raw_html: hasSavedHtml ? normalized.raw_html || normalized.rawHtml : "",
+    bodyHtml: hasSavedHtml ? normalized.bodyHtml || normalized.body_html : "",
+    body_html: hasSavedHtml ? normalized.body_html || normalized.bodyHtml : "",
+    sections: hasSavedHtml || hasUsableSnapshot ? normalized.sections : []
+  });
+};
 
 const buildPreviewDocument = (page = {}) => {
   const storedDocument = getStoredEditableDocument(page);
@@ -3995,10 +4087,8 @@ const uniqueValues = (values) =>
 const getPageApiIdentifiers = (page = {}) =>
   uniqueValues([page.id, page.page_id, page.pageId, page.slug]);
 
-const looksLikeLocalPageId = (value = "") => /^[a-z0-9]+-[a-z0-9]+$/i.test(String(value || ""));
-
 const isLocalDraftPage = (page = {}) =>
-  Boolean(page.isLocalDraft || page._isLocalDraft || page.localOnly || looksLikeLocalPageId(page.id));
+  Boolean(page.isLocalDraft || page._isLocalDraft || page.localOnly);
 
 const withPageApiIdentifiers = (page = {}, payload = {}) => ({
   ...payload,
@@ -4595,7 +4685,7 @@ const createPageFromNavigationItem = (item = {}, options = {}) => {
   const parentSlug = String(options.parentSlug || "").trim();
   const menuTitle = parentTitle || title;
 
-  return normalizePage({
+  return normalizePageForEditableImport({
     id: `nav-${slug}`,
     title,
     slug,
@@ -5276,6 +5366,7 @@ function App() {
   const importInputRef = useRef(null);
   const noticeTimeoutRef = useRef(null);
   const suppressInAppBuilderReinitRef = useRef(false);
+  const pageEditorHydrationKeyRef = useRef("");
   const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
   const accessibleNavItems = useMemo(
     () => navItems.filter((item) => hasPortalAccess(adminProfile, item.id)),
@@ -5435,8 +5526,24 @@ function App() {
       return listPage;
     }
     let nextPage = listPage ? normalizePage(listPage) : null;
+    editorDebugLog("page-editor-open:start", {
+      pageId,
+      listTitle: listPage?.title,
+      listSlug: listPage?.slug,
+      listSourceUrl: listPage?.sourceUrl || listPage?.source_url,
+      listHasRawHtml: Boolean(listPage?.rawHtml || listPage?.raw_html),
+      listHasBodyHtml: Boolean(listPage?.bodyHtml || listPage?.body_html),
+      listVisualElements: Array.isArray(listPage?.visualBuilder?.elements || listPage?.visual_builder?.elements)
+        ? (listPage?.visualBuilder?.elements || listPage?.visual_builder?.elements).length
+        : null
+    });
+    setNotice(`Editor check: opening ${nextPage?.title || pageId}...`);
 
+    const isNavigationOnlyPage = String(pageId || "").startsWith("nav-");
     try {
+      if (isNavigationOnlyPage) {
+        throw new Error("Navigation-only page uses its legacy source instead of an Admin API detail record.");
+      }
       const detailResponse = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(pageId)}`), {
         headers: getAuthHeaders(adminToken)
       });
@@ -5447,9 +5554,19 @@ function App() {
           ...(detailPayload?.page || detailPayload?.data?.page || {}),
           sections: detailPayload?.sections || detailPayload?.data?.sections || detailPayload?.page?.sections || detailPayload?.data?.page?.sections || nextPage?.sections || []
         });
+        editorDebugLog("page-editor-open:api-detail", {
+          ok: true,
+          title: nextPage.title,
+          slug: nextPage.slug,
+          sourceUrl: nextPage.sourceUrl || nextPage.source_url,
+          rawHtmlBytes: String(nextPage.rawHtml || nextPage.raw_html || "").length,
+          bodyHtmlBytes: String(nextPage.bodyHtml || nextPage.body_html || "").length,
+          sections: nextPage.sections?.length || 0
+        });
       }
     } catch {
       // Fall back to the list payload and live HTML fetch below.
+      editorDebugLog("page-editor-open:api-detail", { ok: false, pageId });
     }
 
     if (!nextPage) {
@@ -5465,23 +5582,43 @@ function App() {
       });
     }
 
-    const hasHtmlBuilderSnapshot = Array.isArray(nextPage?.visualBuilder?.elements) ||
-      Array.isArray(nextPage?.visual_builder?.elements) ||
-      Array.isArray(getHtmlVisualBuilderSnapshotFromPage(nextPage)?.elements);
+    const hasHtmlBuilderSnapshot = hasUsableHtmlBuilderSnapshot(nextPage);
 
     if (!hasHtmlBuilderSnapshot && !hasPersistedEditableMarkup(nextPage)) {
       const candidates = getEditableFetchCandidates(nextPage);
+      editorDebugLog("page-editor-open:fetch-candidates", {
+        title: nextPage.title,
+        slug: nextPage.slug,
+        candidates
+      });
+      setNotice(`Editor check: fetching HTML for ${nextPage.title} (${candidates[0] || "no path"})`);
       for (const fetchPath of candidates) {
         try {
           const response = await fetch(fetchPath, { headers: { Accept: "text/html" } });
-          if (!response.ok) continue;
-          const html = await response.text();
-          if (!html || !/<body[\s>]/i.test(html) || !looksLikeUsableHtmlDocument(html)) {
+          if (!response.ok) {
+            editorDebugLog("page-editor-open:fetch-result", { fetchPath, ok: false, status: response.status });
             continue;
           }
+          const html = await response.text();
+          if (!html || !/<body[\s>]/i.test(html) || !looksLikeUsableHtmlDocument(html)) {
+            editorDebugLog("page-editor-open:fetch-result", {
+              fetchPath,
+              ok: false,
+              reason: "not usable html",
+              bytes: html?.length || 0,
+              hasBody: /<body[\s>]/i.test(html || "")
+            });
+            continue;
+          }
+          editorDebugLog("page-editor-open:fetch-result", {
+            fetchPath,
+            ok: true,
+            bytes: html.length,
+            bodyBytes: extractBodyHtml(html).length
+          });
           nextPage = normalizePage({
             ...nextPage,
-            sourceUrl: nextPage.sourceUrl || getLivePageUrl(nextPage),
+            sourceUrl: fetchPath,
             rawHtml: html,
             bodyHtml: extractBodyHtml(html),
             sections: [
@@ -5496,12 +5633,24 @@ function App() {
               })
             ]
           });
+          setNotice(`Editor check: HTML loaded for ${nextPage.title} (${html.length} bytes). Sending to editor...`);
           break;
         } catch {
+          editorDebugLog("page-editor-open:fetch-result", { fetchPath, ok: false, reason: "exception" });
           // Try next candidate.
         }
       }
     }
+
+    editorDebugLog("page-editor-open:final-page", {
+      title: nextPage.title,
+      slug: nextPage.slug,
+      sourceUrl: nextPage.sourceUrl || nextPage.source_url,
+      rawHtmlBytes: String(nextPage.rawHtml || nextPage.raw_html || "").length,
+      bodyHtmlBytes: String(nextPage.bodyHtml || nextPage.body_html || "").length,
+      hasPersistedEditableMarkup: hasPersistedEditableMarkup(nextPage),
+      hasUsableHtmlBuilderSnapshot: hasUsableHtmlBuilderSnapshot(nextPage)
+    });
 
     return nextPage;
   };
@@ -5510,6 +5659,7 @@ function App() {
     if (!requireAnyPortalAccess(["page-editor"], "Page editor access")) {
       return;
     }
+    pageEditorHydrationKeyRef.current = "";
     setActivePageId(pageId);
     const targetPage = await loadDetailedPageForEditor(pageId);
     if (targetPage) {
@@ -5577,7 +5727,11 @@ function App() {
     updateField("bodyHtml", persistedBodyHtml);
     updateField("rawHtml", publishedHtml);
     updateField("customCss", extractedCustomCss);
-    await savePage({ preventDefault() {} }, pageOverride);
+    await savePage(
+      { preventDefault() {} },
+      pageOverride,
+      { suppressBuilderReinit: true }
+    );
   };
 
   const handleInAppEditableHtmlUpdate = (data = {}) => {
@@ -5827,8 +5981,13 @@ function App() {
     let cancelled = false;
 
     const loadRemoteMediaLibrary = async () => {
+      const remoteMediaUrl = mediaApiUrl();
+      if (!remoteMediaUrl) {
+        setMediaStorageMode("local");
+        return;
+      }
       try {
-        const response = await fetch(mediaApiUrl(), {
+        const response = await fetch(remoteMediaUrl, {
           headers: { Accept: "application/json" },
           cache: "no-store"
         });
@@ -5881,11 +6040,29 @@ function App() {
       return;
     }
 
-    if (String(formPage?.id || "") === String(activePageId) && hasPersistedEditableMarkup(formPage)) {
+    const hydrationKey = [
+      activePageId,
+      activeListPage?.updatedAt || activeListPage?.updated_at || "",
+      activeListPage?.sourceUrl || activeListPage?.source_url || "",
+      String(activeListPage?.rawHtml || activeListPage?.raw_html || "").length,
+      String(activeListPage?.bodyHtml || activeListPage?.body_html || "").length,
+      Array.isArray(activeListPage?.visualBuilder?.elements || activeListPage?.visual_builder?.elements)
+        ? (activeListPage?.visualBuilder?.elements || activeListPage?.visual_builder?.elements).length
+        : ""
+    ].join("|");
+
+    if (pageEditorHydrationKeyRef.current === hydrationKey) {
       return;
     }
+    pageEditorHydrationKeyRef.current = hydrationKey;
 
     let cancelled = false;
+    editorDebugLog("page-editor-hydrate:effect", {
+      activePageId,
+      title: activeListPage?.title,
+      slug: activeListPage?.slug,
+      hydrationKey
+    });
     loadDetailedPageForEditor(activePageId).then((targetPage) => {
       if (cancelled || !targetPage) return;
       setFormPage(targetPage);
@@ -5895,7 +6072,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [activePageId, activeView, formPage, isStandaloneEditor, pages.length]);
+  }, [activePageId, activeView, formPage?.id, isStandaloneEditor, pages]);
 
   const contentManagedPages = useMemo(() => pages.filter((page) => !isSiteChromePage(page)), [pages]);
 
@@ -6814,9 +6991,9 @@ function App() {
     );
   };
 
-  const savePage = async (event, pageOverride = null) => {
+  const savePage = async (event, pageOverride = null, options = {}) => {
     event?.preventDefault?.();
-    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page saving")) {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "programs", "site-chrome"], "Page saving")) {
       return null;
     }
     const pageToSave = pageOverride ? { ...formPage, ...pageOverride } : formPage;
@@ -6837,6 +7014,12 @@ function App() {
 
         return replaced ? nextPages : [savedPage, ...nextPages];
       });
+      if (options.suppressBuilderReinit) {
+        // Saving first updates the controlled form fields and then updates them
+        // again with the API response. Keep both renders from reinitializing the
+        // iframe, otherwise the response render replaces the live edited DOM.
+        suppressInAppBuilderReinitRef.current = true;
+      }
       setActivePageId(savedPage.id);
       setFormPage(savedPage);
       setNotice(pageExistsInDatabase ? "Page updated in database." : "New page added to database.");
@@ -6853,7 +7036,7 @@ function App() {
   };
 
   const updateActiveStatus = (status) => {
-    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page status updates")) {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "programs", "site-chrome"], "Page status updates")) {
       return;
     }
     const nextPage = {
@@ -6869,7 +7052,7 @@ function App() {
   };
 
   const duplicatePage = () => {
-    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page duplication")) {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "programs", "site-chrome"], "Page duplication")) {
       return;
     }
     const copyPage = {
@@ -6890,7 +7073,7 @@ function App() {
   };
 
   const performDeletePage = async (targetPage, options = {}) => {
-    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "other-pages", "programs", "site-chrome"], "Page deletion")) {
+    if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "programs", "site-chrome"], "Page deletion")) {
       return false;
     }
     const { silentSuccess = false } = options;
@@ -7273,27 +7456,64 @@ function App() {
 
       const payload = await response.json();
       const incomingPages = (payload.data || payload.pages || []).map((page, index) =>
-        normalizePage({
+        normalizePageForEditableImport({
           ...page,
           id: page.id || makeId(),
           menuOrder: page.menuOrder || index + 1,
           updatedAt: todayIso(),
-          updatedBy: page.updatedBy || "Admin API"
+          updatedBy: "Editable Path Reimport"
         })
       );
+      editorDebugLog("pages-import:api-pages", {
+        count: incomingPages.length,
+        sample: incomingPages.slice(0, 8).map((page) => ({
+          title: page.title,
+          slug: page.slug,
+          sourceUrl: page.sourceUrl || page.source_url,
+          rawHtmlBytes: String(page.rawHtml || page.raw_html || "").length,
+          bodyHtmlBytes: String(page.bodyHtml || page.body_html || "").length
+        }))
+      });
 
       if (!incomingPages.length) {
         setNotice("No pages found in Admin API.");
         return;
       }
 
-      const selectedPage = incomingPages.find(isNormalWebsitePage) || incomingPages[0];
+      const savedPages = [];
+      for (const page of incomingPages) {
+        try {
+          editorDebugLog("pages-import:save-page", {
+            title: page.title,
+            slug: page.slug,
+            sourceUrl: page.sourceUrl || page.source_url
+          });
+          const response = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(page.id || page.slug)}`), {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...getAuthHeaders(adminToken)
+            },
+            body: JSON.stringify(toApiPagePayload(page))
+          });
+          if (response.ok) {
+            const savedPayload = await readOptionalJson(response);
+            savedPages.push(normalizePageForEditableImport(savedPayload?.page || savedPayload?.data?.page || savedPayload?.data || page));
+          } else {
+            savedPages.push(page);
+          }
+        } catch {
+          savedPages.push(page);
+        }
+      }
 
-      setPages(incomingPages);
+      const selectedPage = savedPages.find(isNormalWebsitePage) || savedPages[0];
+
+      setPages(savedPages);
       setActivePageId(selectedPage.id);
       setFormPage(selectedPage);
       setActiveView("pages");
-      setNotice(`Loaded ${incomingPages.length} pages from Admin API.`);
+      setNotice(`Reimported ${savedPages.length} pages with corrected editable HTML paths.`);
     } catch (error) {
       if (String(error.message || "").includes("HTTP 401")) {
         clearAdminSession();
@@ -8061,7 +8281,7 @@ function App() {
           />
         )}
 
-        {activeView === "other-pages" && hasPortalAccess(adminProfile, "other-pages") && (
+        {/* {activeView === "other-pages" && hasPortalAccess(adminProfile, "other-pages") && (
           <OtherPagesView
             pages={standardPages}
             pageStatusFilters={pageStatusFilters}
@@ -8073,7 +8293,7 @@ function App() {
             setEditorTab={setEditorTab}
             deletePageById={deletePageById}
           />
-        )}
+        )} */}
 
         {activeView === "page-editor" && hasPortalAccess(adminProfile, "page-editor") && (
           <PageEditor

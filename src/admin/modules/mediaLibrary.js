@@ -19,12 +19,12 @@ const normalizeDevProxyBaseUrl = (value, devPrefix) => {
 };
 
 const MEDIA_API_BASE_URL = normalizeDevProxyBaseUrl(
-  import.meta.env.VITE_MEDIA_API_BASE_URL || `${LIVE_SITE_ORIGIN}/api`,
+  import.meta.env.VITE_MEDIA_API_BASE_URL || "",
   DEV_MEDIA_PROXY_PREFIX
 );
 
 const mediaApiUrl = (path = MEDIA_API_PATH) =>
-  `${MEDIA_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  MEDIA_API_BASE_URL ? `${MEDIA_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}` : "";
 
 const assets = {
   logoOfficial: "/assets/img/madda-logo.png",

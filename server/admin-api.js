@@ -245,6 +245,18 @@ const normalizePagePayload = (body = {}, fallback = {}) => {
   const menuOrder = Number(merged.menuOrder ?? merged.menu_order ?? merged.sort_order ?? fallback.menuOrder ?? fallback.menu_order ?? 1) || 1;
   const showInHeader = Number(merged.showInHeader ?? merged.show_in_header ?? (menu ? 1 : 0)) ? 1 : 0;
   const showInFooter = Number(merged.showInFooter ?? merged.show_in_footer ?? 1) ? 1 : 0;
+  // API mutations use snake_case while older payload_json records can contain
+  // camelCase copies as well. Always resolve one canonical value and emit it
+  // through both aliases; otherwise an old rawHtml/visualBuilder value can win
+  // over the freshly published raw_html/visual_builder value.
+  const canonicalBuilderKind = body.builder_kind ?? body.builderKind ?? fallback.builder_kind ?? fallback.builderKind ?? "";
+  const canonicalVisualBuilder = pageJson(
+    body.visual_builder ?? body.visualBuilder,
+    pageJson(fallback.visual_builder ?? fallback.visualBuilder, null)
+  );
+  const canonicalRawHtml = body.raw_html ?? body.rawHtml ?? fallback.raw_html ?? fallback.rawHtml ?? "";
+  const canonicalBodyHtml = body.body_html ?? body.bodyHtml ?? fallback.body_html ?? fallback.bodyHtml ?? "";
+  const canonicalCustomCss = body.custom_css ?? body.customCss ?? fallback.custom_css ?? fallback.customCss ?? "";
 
   return {
     ...merged,
@@ -283,16 +295,16 @@ const normalizePagePayload = (body = {}, fallback = {}) => {
     seo_description: merged.seo_description || merged.seoDescription || fallback.seo_description || fallback.seoDescription || merged.summary || "",
     sourceUrl: merged.sourceUrl || merged.source_url || fallback.sourceUrl || fallback.source_url || "",
     source_url: merged.source_url || merged.sourceUrl || fallback.source_url || fallback.sourceUrl || "",
-    builderKind: merged.builderKind || merged.builder_kind || fallback.builderKind || fallback.builder_kind || "",
-    builder_kind: merged.builder_kind || merged.builderKind || fallback.builder_kind || fallback.builderKind || "",
-    visualBuilder: pageJson(merged.visualBuilder ?? merged.visual_builder, pageJson(fallback.visualBuilder ?? fallback.visual_builder, null)),
-    visual_builder: pageJson(merged.visual_builder ?? merged.visualBuilder, pageJson(fallback.visual_builder ?? fallback.visualBuilder, null)),
-    rawHtml: merged.rawHtml || merged.raw_html || fallback.rawHtml || fallback.raw_html || "",
-    raw_html: merged.raw_html || merged.rawHtml || fallback.raw_html || fallback.rawHtml || "",
-    bodyHtml: merged.bodyHtml || merged.body_html || fallback.bodyHtml || fallback.body_html || "",
-    body_html: merged.body_html || merged.bodyHtml || fallback.body_html || fallback.bodyHtml || "",
-    customCss: merged.customCss || merged.custom_css || fallback.customCss || fallback.custom_css || "",
-    custom_css: merged.custom_css || merged.customCss || fallback.custom_css || fallback.customCss || "",
+    builderKind: canonicalBuilderKind,
+    builder_kind: canonicalBuilderKind,
+    visualBuilder: canonicalVisualBuilder,
+    visual_builder: canonicalVisualBuilder,
+    rawHtml: canonicalRawHtml,
+    raw_html: canonicalRawHtml,
+    bodyHtml: canonicalBodyHtml,
+    body_html: canonicalBodyHtml,
+    customCss: canonicalCustomCss,
+    custom_css: canonicalCustomCss,
     styles: pageJson(merged.styles, pageJson(fallback.styles, {})),
     sections: Array.isArray(merged.sections) ? merged.sections : Array.isArray(fallback.sections) ? fallback.sections : [],
     revisions: Array.isArray(merged.revisions) ? merged.revisions : Array.isArray(fallback.revisions) ? fallback.revisions : [],
@@ -525,6 +537,27 @@ app.post(`${API_PREFIX}/admin/login`, async (request, response, next) => {
 
 app.get(`${API_PREFIX}/admin/me`, requireAuth, (request, response) => {
   response.json({ user: request.adminUser });
+});
+
+// Public website content feed. Only explicitly published pages are exposed;
+// drafts, review content, users, and all mutation routes remain protected.
+app.get(`${API_PREFIX}/pages/:identifier`, async (request, response, next) => {
+  try {
+    const row = await findPageByIdentifier(request.params.identifier);
+    if (!row) {
+      response.status(404).json({ error: "Published page not found." });
+      return;
+    }
+    const page = serializePage(row);
+    if (String(page.status || "").toLowerCase() !== "published") {
+      response.status(404).json({ error: "Published page not found." });
+      return;
+    }
+    response.setHeader("Cache-Control", "no-store, max-age=0");
+    response.json({ ok: true, page, data: { page } });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get(`${API_PREFIX}/admin/pages`, requireAuth, requireModule("pages"), async (request, response, next) => {

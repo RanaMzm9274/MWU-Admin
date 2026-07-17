@@ -8,6 +8,10 @@ const shortenMediaUrl = (value = "", maxLength = 54) => {
   return `${raw.slice(0, keep)}...${raw.slice(-keep)}`;
 };
 
+const editorDebugLog = (stage, details = {}) => {
+  console.info(`[MWU editor debug] ${stage}`, details);
+};
+
 export default function PageEditor({
   page,
   builderInitPayload,
@@ -24,6 +28,13 @@ export default function PageEditor({
   const builderUrl = `/visual-page-builder.html?pageId=${encodeURIComponent(pageId)}`;
   const builderFrameRef = useRef(null);
   const latestPayloadRef = useRef(builderInitPayload || {});
+  const builderPayloadSignature = useMemo(() => JSON.stringify({
+    pageId,
+    elementCount: Array.isArray(builderInitPayload?.elements) ? builderInitPayload.elements.length : 0,
+    exactImport: Boolean(builderInitPayload?.pageSettings?.exactImport),
+    importCssCount: Array.isArray(builderInitPayload?.importCssLinks) ? builderInitPayload.importCssLinks.length : 0,
+    importInlineCssLength: String(builderInitPayload?.importInlineCss || "").length
+  }), [builderInitPayload, pageId]);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [mediaPickerQuery, setMediaPickerQuery] = useState("");
   const [selectedMediaId, setSelectedMediaId] = useState("");
@@ -71,15 +82,30 @@ export default function PageEditor({
   ] : [];
 
   const postInitMessage = () => {
+    const payload = latestPayloadRef.current || {};
+    editorDebugLog("iframe-host:post-init", {
+      pageId,
+      title: safePage.title,
+      elementCount: Array.isArray(payload.elements) ? payload.elements.length : 0,
+      firstElementType: payload.elements?.[0]?.type || "",
+      exactImport: Boolean(payload.pageSettings?.exactImport),
+      importCssCount: Array.isArray(payload.importCssLinks) ? payload.importCssLinks.length : 0,
+      htmlBytes: String(payload.elements?.[0]?.content?.code || "").length
+    });
     builderFrameRef.current?.contentWindow?.postMessage(
-      { type: "MWU_HTML_BUILDER_INIT", payload: latestPayloadRef.current || {} },
+      { type: "MWU_HTML_BUILDER_INIT", payload },
       "*"
     );
   };
 
   useEffect(() => {
     latestPayloadRef.current = builderInitPayload || {};
-  }, [builderInitPayload]);
+    // Do not reinitialize the iframe for every React field update. Save/publish
+    // updates status, raw HTML, and the API response in quick succession; each
+    // re-init used to replace the already-styled imported DOM with raw markup
+    // while its stylesheets were still loading. Initial load is handled by the
+    // iframe READY/load events, and real external refreshes use initRevision.
+  }, [builderInitPayload, builderPayloadSignature]);
 
   useEffect(() => {
     const frame = builderFrameRef.current;
@@ -111,6 +137,7 @@ export default function PageEditor({
     const handleMessage = (event) => {
       const data = event.data || {};
       if (data.type === "MWU_HTML_BUILDER_READY") {
+        editorDebugLog("iframe-host:builder-ready", { pageId, title: safePage.title });
         postInitMessage();
         return;
       }
@@ -250,6 +277,7 @@ export default function PageEditor({
           </div>
         </div>
         <iframe
+          key={pageId}
           ref={builderFrameRef}
           title={`${safePage.title || "Page"} visual builder`}
           src={builderUrl}
