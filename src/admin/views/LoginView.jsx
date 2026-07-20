@@ -18,7 +18,7 @@ export default function LoginView({ onLogin, logoSrc }) {
       await onLogin({ email, password });
     } catch (loginError) {
       const message = loginError.message || "Login failed.";
-      setError(/failed to fetch|networkerror|load failed/i.test(message) ? "Admin API is not reachable. Check the API server and VITE_API_BASE_URL." : message);
+      setError(/failed to fetch|networkerror|load failed/i.test(message) ? "Admin API is not reachable. The configured API server is offline or blocked." : message);
     } finally {
       setLoading(false);
     }

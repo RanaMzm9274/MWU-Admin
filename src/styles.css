@@ -5469,6 +5469,25 @@ button:disabled {
   box-shadow: 0 10px 24px rgba(8, 25, 51, 0.05);
 }
 
+.site-chrome-mega-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 18, 42, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.site-chrome-mega-modal .site-chrome-mega-editor {
+  width: min(920px, 100%);
+  max-height: min(820px, calc(100vh - 48px));
+  overflow: auto;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(4, 18, 42, 0.34);
+}
+
 .program-editor-card.single-editor {
   grid-template-columns: 210px minmax(0, 1fr);
   gap: 18px;

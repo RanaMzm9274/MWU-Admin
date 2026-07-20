@@ -1523,20 +1523,38 @@ function getImportedBestDescendantImage(node){
   images.sort((a,b)=> b.area - a.area);
   return images[0]?.img || null;
 }
+function isImportedProminentDescendantImage(image, container){
+  if(!image || !container) return false;
+  try{
+    const imageRect = image.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const imageArea = Math.max(0, imageRect.width) * Math.max(0, imageRect.height);
+    const containerArea = Math.max(0, containerRect.width) * Math.max(0, containerRect.height);
+    if(imageArea < 10000) return false;
+    if(!containerArea) return imageArea >= 40000;
+    return imageArea / containerArea >= 0.2;
+  }catch{
+    return false;
+  }
+}
 function getImportedEditableMediaTarget(node){
   if(!node) return null;
   const root = getImportedHtmlRoot();
   let current = node.nodeType===3 ? node.parentElement : node;
-  if(current && String(current.tagName || '').toLowerCase() !== 'img' && !isImportedBackgroundMediaNode(current)){
+  if(current && String(current.tagName || '').toLowerCase() !== 'img'){
     const descendantImage = getImportedBestDescendantImage(current);
-    if(descendantImage) return descendantImage;
+    if(descendantImage && (!isImportedBackgroundMediaNode(current) || isImportedProminentDescendantImage(descendantImage, current))){
+      return descendantImage;
+    }
   }
   while(current && current!==root){
     const tag = String(current.tagName || '').toLowerCase();
     if(tag==='img' && !isImportedDecorativeImageNode(current)) return current;
-    if(isImportedBackgroundMediaNode(current)) return current;
     const descendantImage = getImportedBestDescendantImage(current);
-    if(descendantImage) return descendantImage;
+    if(descendantImage && (!isImportedBackgroundMediaNode(current) || isImportedProminentDescendantImage(descendantImage, current))){
+      return descendantImage;
+    }
+    if(isImportedBackgroundMediaNode(current)) return current;
     current = current.parentElement;
   }
   return null;
@@ -1860,14 +1878,16 @@ function ensureImportedImageObjectFitState(target){
     }
   }
 }
-function setImportedMediaSource(target, src){
+function setImportedMediaSource(target, src, options={}){
   try{
     if(!target || !src){
       reportImportedEditorError('media-source-missing-target-or-src', { src, target: describeImportedDebugTarget(target) });
       return false;
     }
     const before = describeImportedDebugTarget(target);
-    const normalizedSrc = normalizeImportedAssetUrl(src);
+    const normalizedSrc = options.preferLocalAsset && /^\/assets\//i.test(String(src || '').trim())
+      ? String(src).trim()
+      : normalizeImportedAssetUrl(src);
     const tag = String(target.tagName || '').toLowerCase();
     console.info('[MWU imported editor] replacing media source', { src, normalizedSrc, target: before });
     if(tag==='img'){
@@ -2452,8 +2472,9 @@ function renderImportedSettings(node){
   const isContainerElement = details.type === 'container';
   const supportsTypography = isHeadingElement || isTextElement || isButtonElement;
   const backgroundContextTarget = isImageElement ? null : getImportedBackgroundContextTarget(node);
-  const mediaTarget = isImageElement ? node : backgroundContextTarget;
-  const mediaDetails = details.media || (backgroundContextTarget ? describeImportedNode(backgroundContextTarget)?.media : null);
+  const resolvedMediaTarget = isImageElement ? node : getImportedEditableMediaTarget(node);
+  const mediaTarget = resolvedMediaTarget || backgroundContextTarget;
+  const mediaDetails = mediaTarget ? describeImportedNode(mediaTarget)?.media : details.media;
   const hasMediaTarget = !!mediaTarget;
   const mediaIsImage = String(mediaTarget?.tagName || '').toLowerCase() === 'img';
   const progressContext = getImportedProgressContext(node);
@@ -5453,7 +5474,9 @@ window.addEventListener('message',event=>{
         });
         return;
       }
-      const replaced = setImportedMediaSource(target, data.src);
+      const replaced = setImportedMediaSource(target, data.src, {
+        preferLocalAsset: data.preferLocalAsset === true
+      });
       if(!replaced){
         reportImportedEditorError('replace-mutation-returned-false', {
           elementId: data.elementId,

@@ -188,7 +188,8 @@ export default function PageEditor({
         {
           type: "MWU_REPLACE_IMAGE_SOURCE",
           elementId: pendingImageElementId,
-          src: selectedMediaItem.path
+          src: selectedMediaItem.path,
+          preferLocalAsset: /^\/assets\//i.test(String(selectedMediaItem.path || ""))
         },
         "*"
       );

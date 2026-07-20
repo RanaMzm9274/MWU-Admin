@@ -1,6 +1,4 @@
 const MEDIA_LIBRARY_KEY = "mwu-crm-media-library-v1";
-const MEDIA_API_USERNAME_KEY = "mwu_media_api_username";
-const MEDIA_API_PASSWORD_KEY = "mwu_media_api_password";
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
 const DEV_MEDIA_PROXY_PREFIX = "/__live_media";
 const LIVE_ASSET_PROXY_PREFIX = "/__live_asset";
@@ -185,32 +183,6 @@ const mergeMediaLibraries = (...collections) => {
   return merged;
 };
 
-const getStoredMediaApiCredentials = () => ({
-  username: window.sessionStorage.getItem(MEDIA_API_USERNAME_KEY) || "",
-  password: window.sessionStorage.getItem(MEDIA_API_PASSWORD_KEY) || ""
-});
-
-const storeMediaApiCredentials = ({ username = "", password = "" } = {}) => {
-  if (username) {
-    window.sessionStorage.setItem(MEDIA_API_USERNAME_KEY, username);
-  } else {
-    window.sessionStorage.removeItem(MEDIA_API_USERNAME_KEY);
-  }
-  if (password) {
-    window.sessionStorage.setItem(MEDIA_API_PASSWORD_KEY, password);
-  } else {
-    window.sessionStorage.removeItem(MEDIA_API_PASSWORD_KEY);
-  }
-};
-
-const getMediaApiAuthHeaders = (credentials = getStoredMediaApiCredentials()) => {
-  if (!credentials.username || !credentials.password) {
-    return {};
-  }
-  const basicToken = window.btoa(`${credentials.username}:${credentials.password}`);
-  return { Authorization: `Basic ${basicToken}` };
-};
-
 const loadMediaLibrary = () => {
   try {
     const stored = window.localStorage.getItem(MEDIA_LIBRARY_KEY);
@@ -283,9 +255,6 @@ export {
   normalizeMediaItem,
   normalizeMediaApiItem,
   mergeMediaLibraries,
-  getStoredMediaApiCredentials,
-  storeMediaApiCredentials,
-  getMediaApiAuthHeaders,
   loadMediaLibrary,
   readFileAsDataUrl,
   readImageDimensions,

@@ -38,6 +38,30 @@ const getProgramMenuHref = (program = {}) => {
   return `${raw}.html`;
 };
 
+const getProgramsMegaMenuSelection = (html = "", category = {}, programs = []) => {
+  if (typeof DOMParser === "undefined" || !String(html || "").trim()) return null;
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const target = `mwu-${String(category.slug || category.id).replace(/[^a-z0-9-]/gi, "-")}`;
+    const panel = Array.from(doc.querySelectorAll(".mwu-mega-panel")).find(
+      (entry) => entry.getAttribute("data-panel") === target
+    );
+    if (!panel) return null;
+    const links = Array.from(panel.querySelectorAll("a[href]")).map((link) => ({
+      href: String(link.getAttribute("href") || "").replace(/^\/+|\/+$/g, ""),
+      title: cleanMenuText(link.textContent).toLowerCase()
+    }));
+    return programs
+      .filter((program) => {
+        const href = getProgramMenuHref(program).replace(/^\/+|\/+$/g, "");
+        return links.some((link) => link.href === href || link.title === cleanMenuText(program.title).toLowerCase());
+      })
+      .map((program) => String(program.id));
+  } catch {
+    return null;
+  }
+};
+
 export const updateProgramsMegaMenuMarkup = (html = "", categories = [], programs = []) => {
   if (typeof DOMParser === "undefined" || !String(html || "").trim()) return String(html || "");
 
@@ -52,11 +76,21 @@ export const updateProgramsMegaMenuMarkup = (html = "", categories = [], program
         .filter((program) => selectedIds.includes(String(program.id)) && program.status !== "Archived")
         .sort((a, b) => a.title.localeCompare(b.title));
     };
-    const findProgramsItem = (root) =>
-      Array.from(root?.children || []).find((item) => {
+    const findProgramsItem = (root) => {
+      const items = Array.from(root?.children || []);
+      const existingMegaMenuItem = items.find(
+        (item) =>
+          item.classList?.contains("mwu-programs-mega") ||
+          item.classList?.contains("mega-menu-wrap") ||
+          Boolean(item.querySelector(":scope > .mwu-mega-programs, :scope > .mega-menu"))
+      );
+      if (existingMegaMenuItem) return existingMegaMenuItem;
+      return items.find((item) => {
         const anchor = getDirectAnchor(item);
-        return cleanMenuText(anchor?.textContent).toLowerCase() === "programs";
+        const label = cleanMenuText(anchor?.textContent).toLowerCase();
+        return label === "programs" || label === "academics" || label.startsWith("academics ");
       });
+    };
 
     const desktopProgramsItem = findProgramsItem(doc.querySelector(".main-menu > ul"));
     if (desktopProgramsItem) {
@@ -540,6 +574,7 @@ export default function SiteChromeView({
   programCategories = [],
   programs = [],
   updateProgramCategory,
+  saveMegaMenu,
   availableMenuPages = [],
   linkablePages = [],
   previewSourceUrl = "",
@@ -566,6 +601,7 @@ export default function SiteChromeView({
   const [megaMenuCategoryId, setMegaMenuCategoryId] = useState("");
   const [megaMenuProgramIds, setMegaMenuProgramIds] = useState([]);
   const [megaMenuQuery, setMegaMenuQuery] = useState("");
+  const [megaMenuSaving, setMegaMenuSaving] = useState(false);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const [mainMenuItems, setMainMenuItems] = useState([]);
   const [mainMenuParentId, setMainMenuParentId] = useState("");
@@ -595,6 +631,13 @@ export default function SiteChromeView({
         .sort((a, b) => a.title.localeCompare(b.title)),
     [megaMenuQuery, programs]
   );
+  const liveProgramCategories = useMemo(
+    () => programCategories.map((category) => {
+      const programIds = getProgramsMegaMenuSelection(snippetHtml, category, programs);
+      return programIds === null ? category : { ...category, programIds };
+    }),
+    [programCategories, programs, snippetHtml]
+  );
   const filteredMenuPages = useMemo(
     () =>
       availableMenuPages.filter((page) =>
@@ -617,7 +660,7 @@ export default function SiteChromeView({
       });
     }
     if (megaMenuOpen && activeMegaMenuCategory) {
-      const pendingCategories = programCategories.map((category) =>
+      const pendingCategories = liveProgramCategories.map((category) =>
         String(category.id) === String(activeMegaMenuCategory.id)
           ? { ...category, programIds: megaMenuProgramIds }
           : category
@@ -632,7 +675,7 @@ export default function SiteChromeView({
     mainMenuOpen,
     megaMenuOpen,
     megaMenuProgramIds,
-    programCategories,
+    liveProgramCategories,
     programs,
     snippetHtml,
     updateHeaderHtmlFromVisualModel,
@@ -647,8 +690,13 @@ export default function SiteChromeView({
 
   useEffect(() => {
     if (!megaMenuOpen || !activeMegaMenuCategory) return;
-    setMegaMenuProgramIds(getCategoryProgramIds(activeMegaMenuCategory, programs));
-  }, [activeMegaMenuCategory, megaMenuOpen, programs]);
+    const liveSelection = getProgramsMegaMenuSelection(snippetHtml, activeMegaMenuCategory, programs);
+    setMegaMenuProgramIds(
+      liveSelection === null ? getCategoryProgramIds(activeMegaMenuCategory, programs) : liveSelection
+    );
+    // Initialize only when the popup opens or the user changes category.
+    // Header/form updates during Save must not overwrite the pending choices.
+  }, [megaMenuCategoryId, megaMenuOpen]);
 
   const commitVisualHeaderModel = (updater) => {
     if (kind !== "header") {
@@ -904,16 +952,26 @@ export default function SiteChromeView({
     setMainMenuOpen(false);
   };
 
-  const saveProgramsMegaMenu = () => {
-    if (!activeMegaMenuCategory || typeof updateProgramCategory !== "function") return;
-    const nextCategories = programCategories.map((category) =>
+  const saveProgramsMegaMenu = async () => {
+    if (!activeMegaMenuCategory || typeof updateProgramCategory !== "function" || megaMenuSaving) return;
+    setMegaMenuSaving(true);
+    const nextCategories = liveProgramCategories.map((category) =>
       String(category.id) === String(activeMegaMenuCategory.id)
         ? { ...category, programIds: megaMenuProgramIds }
         : category
     );
-    updateProgramCategory(activeMegaMenuCategory.id, "programIds", megaMenuProgramIds);
-    updateHtml("header", updateProgramsMegaMenuMarkup(snippetHtml, nextCategories, programs));
-    setMegaMenuOpen(false);
+    updateProgramCategory(activeMegaMenuCategory.id, megaMenuProgramIds);
+    const nextHtml = updateProgramsMegaMenuMarkup(snippetHtml, nextCategories, programs);
+    updateHtml("header", nextHtml);
+    try {
+      if (typeof saveMegaMenu === "function") {
+        const saved = await saveMegaMenu({ categories: nextCategories, html: nextHtml });
+        if (!saved) return;
+      }
+      setMegaMenuOpen(false);
+    } finally {
+      setMegaMenuSaving(false);
+    }
   };
 
   const commitFooterNavigationGroups = (updater) => {
@@ -1048,40 +1106,6 @@ export default function SiteChromeView({
               <textarea rows="3" value={page.summary} onChange={(event) => updateField("summary", event.target.value)} />
             </Field>
 
-            {kind === "footer" && (
-              <div className="site-chrome-hierarchy">
-                <div className="site-chrome-hierarchy-head">
-                  <div>
-                    <span className="eyebrow">API footer structure</span>
-                    <h3>Footer Menu Hierarchy</h3>
-                  </div>
-                  <span className="site-chrome-hierarchy-count">
-                    <ListTree size={15} />
-                    {hierarchyItemCount} links
-                  </span>
-                </div>
-                <p className="site-chrome-hint">
-                  <Globe2 size={15} />
-                  Parsed from the currently loaded footer API record.
-                </p>
-                <div className="site-chrome-hierarchy-groups">
-                  {websiteMenuGroups.map((group) => (
-                    <section className="site-chrome-hierarchy-group" key={group.id}>
-                      <div className="site-chrome-hierarchy-group-title">
-                        <strong>{group.title}</strong>
-                        <span>{group.items.length} top-level items</span>
-                      </div>
-                      <MenuHierarchyItems items={group.items} />
-                    </section>
-                  ))}
-                  {!websiteMenuGroups.length && (
-                    <div className="site-chrome-empty-note">
-                      No footer hierarchy was found in the API markup.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {kind === "header" && (
               <div className="site-chrome-visual-editor">
@@ -1239,11 +1263,12 @@ export default function SiteChromeView({
                 )}
 
                 {megaMenuOpen && (
-                  <div className="site-chrome-mega-editor">
+                  <div className="site-chrome-mega-modal" role="presentation" onMouseDown={() => setMegaMenuOpen(false)}>
+                  <div className="site-chrome-mega-editor" role="dialog" aria-modal="true" aria-labelledby="mega-menu-editor-title" onMouseDown={(event) => event.stopPropagation()}>
                     <div className="site-chrome-mega-editor-head">
                       <div>
                         <span className="eyebrow">Programs navigation</span>
-                        <h3>Edit Mega Menu</h3>
+                        <h3 id="mega-menu-editor-title">Edit Programs Mega Menu</h3>
                         <p>Select a category, then choose every program that should appear below it.</p>
                       </div>
                       <button className="icon-button" type="button" aria-label="Close mega menu editor" onClick={() => setMegaMenuOpen(false)}>
@@ -1298,12 +1323,13 @@ export default function SiteChromeView({
                     </div>
 
                     <div className="site-chrome-mega-editor-footer">
-                      <span>The preview updates while you select programs. Apply the menu, then save Header to publish it.</span>
-                      <button className="primary-button" type="button" onClick={saveProgramsMegaMenu} disabled={!activeMegaMenuCategory}>
+                      <span>Saving updates the Header database record and publishes the live website header.</span>
+                      <button className="primary-button" type="button" onClick={saveProgramsMegaMenu} disabled={!activeMegaMenuCategory || megaMenuSaving}>
                         <Save size={16} />
-                        <span>Apply Mega Menu</span>
+                        <span>{megaMenuSaving ? "Saving & Publishing..." : "Save & Publish Mega Menu"}</span>
                       </button>
                     </div>
+                  </div>
                   </div>
                 )}
 

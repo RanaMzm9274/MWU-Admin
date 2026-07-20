@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   Download,
-  Eye,
   FileText,
   Filter,
   GraduationCap,
@@ -11,7 +10,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Save,
   Trash2
 } from "lucide-react";
 import { Field, StatusPill, ViewModeToggle } from "../components/Common";
@@ -19,16 +17,12 @@ import { Field, StatusPill, ViewModeToggle } from "../components/Common";
 export default function ProgramsView({
   categories,
   programs,
-  megaMenuPrograms = [],
   programPages,
-  mainPage,
   openPageEditorTab,
   createProgramPage,
   deletePageById,
   addCategory,
   updateCategory,
-  updateMegaMenuCategory,
-  saveMegaMenu,
   deleteCategory,
   addProgram,
   importLivePrograms,
@@ -37,7 +31,6 @@ export default function ProgramsView({
   pageStatusFilters,
   statusOptions,
   mediaItems,
-  logoSrc,
   getThumbnail
 }) {
   const [activeTab, setActiveTab] = useState("pages");
@@ -48,8 +41,6 @@ export default function ProgramsView({
   const [pageQuery, setPageQuery] = useState("");
   const [pageStatusFilter, setPageStatusFilter] = useState("All");
   const [pageViewMode, setPageViewMode] = useState("grid");
-  const [megaMenuDirty, setMegaMenuDirty] = useState(false);
-  const [megaMenuSaving, setMegaMenuSaving] = useState(false);
   const sortedCategories = [...categories].sort((a, b) => Number(a.menuOrder) - Number(b.menuOrder));
   const filteredProgramPages = programPages
     .filter((page) => pageStatusFilter === "All" || (page.status || "").toLowerCase() === pageStatusFilter.toLowerCase())
@@ -66,7 +57,6 @@ export default function ProgramsView({
         .includes(programQuery.toLowerCase())
     )
     .sort((a, b) => a.title.localeCompare(b.title));
-  const featuredPrograms = programs.filter((program) => program.featured && program.status !== "Archived");
   const selectedProgram =
     filteredPrograms.find((program) => String(program.id) === String(selectedProgramId)) ||
     filteredPrograms[0] ||
@@ -78,32 +68,13 @@ export default function ProgramsView({
   const selectedProgramCategoryName = selectedProgram
     ? sortedCategories.find((category) => category.slug === selectedProgram.categorySlug)?.name || "Uncategorized"
     : "";
-  const selectableMegaMenuPrograms = megaMenuPrograms.length ? megaMenuPrograms : programs;
-  const getMegaMenuProgramIds = (category) =>
-    Array.isArray(category.programIds)
-      ? category.programIds.map(String)
-      : selectableMegaMenuPrograms
-          .filter((program) => program.categorySlug === category.slug)
-          .map((program) => String(program.id));
-  const updateMegaMenuPrograms = (category, nextIds) => {
-    const normalizedIds = Array.from(new Set(nextIds.map(String)));
-    setMegaMenuDirty(true);
-    if (typeof updateMegaMenuCategory === "function") {
-      updateMegaMenuCategory(category.id, normalizedIds);
-      return;
-    }
-    updateCategory(category.id, "programIds", normalizedIds);
-  };
-
   return (
     <section className="programs-view">
       <div className="program-tabs" role="tablist" aria-label="Program management tabs">
         {[
           { id: "pages", label: "Program Pages", icon: FileText },
           { id: "programs", label: "Programs", icon: GraduationCap },
-          { id: "categories", label: "Categories", icon: Layers },
-          { id: "mega-menu", label: "Mega Menu", icon: ListTree },
-          { id: "preview", label: "Listing Preview", icon: Eye }
+          { id: "categories", label: "Categories", icon: Layers }
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -474,7 +445,7 @@ export default function ProgramsView({
         </section>
       )}
 
-      {activeTab === "mega-menu" && (
+      {/* Programs mega-menu editing moved to the Header & Footer popup.
         <section className="panel programs-manager programs-mega-manager">
           <div className="panel-head">
             <div>
@@ -567,58 +538,8 @@ export default function ProgramsView({
               })}
           </div>
         </section>
-      )}
+      */}
 
-      {activeTab === "preview" && (
-        <section className="program-listing-preview">
-          <div
-            className="program-listing-hero"
-            style={{ backgroundImage: `linear-gradient(90deg, rgba(8, 25, 51, 0.9), rgba(26, 75, 150, 0.68)), url(${mainPage.heroImage})` }}
-          >
-            <img src={logoSrc} alt="Madda Walabu University" />
-            <span>{mainPage.heroTag}</span>
-            <h2>{mainPage.heroHeadline}</h2>
-            <p>{mainPage.summary}</p>
-          </div>
-          <div className="program-category-preview">
-            {sortedCategories.filter((category) => category.status !== "Archived").map((category) => {
-              const listedPrograms = programs.filter(
-                (program) => program.categorySlug === category.slug && program.status !== "Archived"
-              );
-              return (
-                <section className="program-category-section" key={category.id}>
-                  <div className="panel-head compact">
-                    <div>
-                      <span className="eyebrow">{category.name}</span>
-                      <h2>{category.description}</h2>
-                    </div>
-                    <StatusPill status={category.status} />
-                  </div>
-                  <div className="program-preview-grid">
-                    {listedPrograms.map((program) => (
-                      <article className="program-preview-card" key={program.id}>
-                        <img src={program.heroImage} alt="" />
-                        <div>
-                          <span>{program.level} / {program.duration}</span>
-                          <h3>{program.title}</h3>
-                          <p>{program.summary}</p>
-                          <small>{program.college} / {program.campus}</small>
-                          <StatusPill status={program.applicationOpen ? "Published" : "Review"} />
-                        </div>
-                      </article>
-                    ))}
-                    {!listedPrograms.length && <p className="program-empty">No active programs in this category.</p>}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-          <div className="featured-strip">
-            <strong>{featuredPrograms.length}</strong>
-            <span>featured programs will appear on the main programs page.</span>
-          </div>
-        </section>
-      )}
     </section>
   );
 }

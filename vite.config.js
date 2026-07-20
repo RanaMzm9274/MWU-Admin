@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
-const LIVE_API_ORIGIN = "https://api.maddauni.online";
+const LIVE_API_ORIGIN = "https://admin.maddauni.online";
 
 const liveProxy = {
   target: LIVE_SITE_ORIGIN,
@@ -57,7 +57,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
-    strictPort: false,
+    strictPort: true,
     proxy: {
       // Do NOT proxy /assets.
       // Vite serves /public/assets locally.
