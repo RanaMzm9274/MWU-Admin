@@ -1,11 +1,12 @@
 import { apiUrl, getAuthHeaders, readApiError, editorDebugLog, clearAdminSession, makeId, todayIso } from "../runtime/portalRuntime";
-import { slugify, normalizePageForEditableImport, normalizeSection, normalizePage, toApiPagePayload, readOptionalJson, getPageApiIdentifiers, isLocalDraftPage, withPageDeleteIdentifiers, shouldTryNextMutationRoute, emptyPage, createBlankLocalDraftPage } from "../runtime/pageRuntime";
+import { slugify, normalizeSlugReference, migratePageSlugReferences, normalizePageForEditableImport, normalizeSection, normalizePage, toApiPagePayload, readOptionalJson, getPageApiIdentifiers, isLocalDraftPage, withPageDeleteIdentifiers, shouldTryNextMutationRoute, emptyPage, createBlankLocalDraftPage, isSiteChromePage, isMatchingSiteChromePage } from "../runtime/pageRuntime";
+import { getSiteChromeHtml } from "../runtime/siteChromeRuntime";
 import { isNormalWebsitePage } from "../runtime/programRuntime";
 
 export default function usePageActionsController({
   canCreatePages, requireAnyPortalAccess, pages, setPages, activePageId, setActivePageId, formPage, setFormPage, setEditorTab, setActiveView,
   adminToken, setAdminToken, setNotice, selectedPageIds, setSelectedPageIds, filteredPages, persistPageToApi,
-  requestDangerConfirmation, programs, setPrograms, suppressInAppBuilderReinitRef
+  requestDangerConfirmation, programs, setPrograms, suppressInAppBuilderReinitRef, publishSiteChromeFile
 }) {
   const createNewPage = () => {
     if (!canCreatePages) {  
@@ -87,10 +88,76 @@ export default function usePageActionsController({
     if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "programs", "site-chrome"], "Page saving")) {  
       return null;  
     }  
-    const pageToSave = pageOverride ? { ...formPage, ...pageOverride } : formPage;  
+    const draftPage = pageOverride ? { ...formPage, ...pageOverride } : formPage;
+    const previousPage = pages.find((page) => String(page.id) === String(draftPage.id)) || null;
+    const previousSlug = normalizeSlugReference(previousPage?.slug || "");
+    const titleChanged = Boolean(
+      previousPage && String(previousPage.title || "").trim() !== String(draftPage.title || "").trim()
+    );
+    const requestedSlug = isSiteChromePage(draftPage)
+      ? slugify(draftPage.slug || draftPage.title)
+      : slugify(titleChanged || !previousPage ? draftPage.title : draftPage.slug || draftPage.title);
+    const slugChanged = Boolean(previousPage && previousSlug && previousSlug !== requestedSlug);
+    const migratedDraft = slugChanged
+      ? migratePageSlugReferences(
+          { ...draftPage, slug: requestedSlug },
+          previousSlug,
+          requestedSlug,
+          { updateEmbeddedPageSlug: true }
+        ).page
+      : { ...draftPage, slug: requestedSlug };
+    const pageToSave = migratedDraft;
     
     try {  
-      const { savedPage, pageExistsInDatabase } = await persistPageToApi(pageToSave);  
+      const { savedPage, pageExistsInDatabase } = await persistPageToApi(pageToSave, previousPage);
+
+      const linkedPageUpdates = new Map();
+      let linkedReferenceCount = 0;
+      let linkedReferenceFailures = 0;
+
+      if (slugChanged) {
+        for (const linkedPage of pages) {
+          if (
+            String(linkedPage.id) === String(previousPage.id) ||
+            isLocalDraftPage(linkedPage) ||
+            String(linkedPage.id || "").startsWith("nav-")
+          ) {
+            continue;
+          }
+
+          const migration = migratePageSlugReferences(linkedPage, previousSlug, requestedSlug);
+          if (!migration.changed) continue;
+
+          try {
+            const persistedReference = await persistPageToApi(migration.page, linkedPage);
+            const updatedLinkedPage = persistedReference.savedPage;
+            linkedPageUpdates.set(String(linkedPage.id), updatedLinkedPage);
+            linkedReferenceCount += 1;
+
+            const chromeKind = isMatchingSiteChromePage(updatedLinkedPage, "header")
+              ? "header"
+              : isMatchingSiteChromePage(updatedLinkedPage, "footer")
+                ? "footer"
+                : "";
+            if (chromeKind && publishSiteChromeFile) {
+              const chromeHtml = getSiteChromeHtml(updatedLinkedPage);
+              if (chromeHtml) {
+                await publishSiteChromeFile(chromeKind, chromeHtml);
+              }
+            }
+          } catch {
+            linkedReferenceFailures += 1;
+          }
+        }
+
+        setPrograms((current) =>
+          current.map((program) =>
+            normalizeSlugReference(program.pageSlug || program.page_slug || "") === previousSlug
+              ? { ...program, pageSlug: requestedSlug, page_slug: requestedSlug, updatedAt: todayIso() }
+              : program
+          )
+        );
+      }
     
       const replacementIds = new Set(getPageApiIdentifiers(pageToSave).concat(savedPage.id).map(String));  
       setPages((current) => {  
@@ -100,7 +167,7 @@ export default function usePageActionsController({
             replaced = true;  
             return savedPage;  
           }  
-          return page;  
+          return linkedPageUpdates.get(String(page.id)) || page;
         });  
     
         return replaced ? nextPages : [savedPage, ...nextPages];  
@@ -113,7 +180,17 @@ export default function usePageActionsController({
       }  
       setActivePageId(savedPage.id);  
       setFormPage(savedPage);  
-      setNotice(pageExistsInDatabase ? "Page updated in database." : "New page added to database.");  
+      if (slugChanged) {
+        const migrationSummary = linkedReferenceCount
+          ? ` Updated ${linkedReferenceCount} linked page${linkedReferenceCount === 1 ? "" : "s"}.`
+          : " No stored links required changes.";
+        const failureSummary = linkedReferenceFailures
+          ? ` ${linkedReferenceFailures} linked record${linkedReferenceFailures === 1 ? "" : "s"} could not be updated.`
+          : "";
+        setNotice(`Page renamed to /${requestedSlug}.${migrationSummary}${failureSummary}`);
+      } else {
+        setNotice(pageExistsInDatabase ? "Page updated in database." : "New page added to database.");
+      }
       return savedPage;  
     } catch (error) {  
       if (String(error.message || "").includes("HTTP 401")) {  

@@ -476,8 +476,8 @@ export default function StandalonePageEditor({
   };
 
   async function persistHtmlBuilderState(event, builderState, saveMode = "draft") {
-    const snapshot = builderState?.snapshot || {};
-    const snapshotPageSettings = snapshot.pageSettings || {};
+    const sourceSnapshot = builderState?.snapshot || {};
+    const snapshotPageSettings = sourceSnapshot.pageSettings || {};
     const publishedHtml = String(builderState?.publishedHtml || "").trim();
 
     if (!publishedHtml) {
@@ -485,10 +485,15 @@ export default function StandalonePageEditor({
       return;
     }
 
+    const nextTitle = snapshotPageSettings.title || safePage.title;
+    const titleChanged = String(nextTitle || "").trim() !== String(safePage.title || "").trim();
+    const nextSlug = slugify(titleChanged ? nextTitle : snapshotPageSettings.slug || safePage.slug || nextTitle);
+    const snapshot = {
+      ...sourceSnapshot,
+      pageSettings: { ...snapshotPageSettings, title: nextTitle, slug: nextSlug }
+    };
     const persistedBodyHtml = `${serializeHtmlVisualBuilderSnapshot(snapshot)}${extractBodyHtml(publishedHtml)}`;
     const extractedCustomCss = extractInlineStylesFromHtmlDocument(publishedHtml);
-    const nextTitle = snapshotPageSettings.title || safePage.title;
-    const nextSlug = slugify(snapshotPageSettings.slug || safePage.slug || nextTitle);
     const requestedStatus = saveMode === "publish"
       ? "Published"
       : titleCaseStatus(snapshotPageSettings.status || "Draft");
@@ -703,7 +708,7 @@ export default function StandalonePageEditor({
               <input value={safePage.title} onChange={(event) => updateField("title", event.target.value)} />
             </Field>
             <Field label="URL Slug">
-              <input value={safePage.slug} onChange={(event) => updateField("slug", event.target.value)} />
+              <input value={safePage.slug} readOnly title="Automatically generated from the page title" />
             </Field>
             <Field label="Source URL">
               <input value={safePage.sourceUrl || safePage.source_url || livePageUrl} onChange={(event) => updateField("sourceUrl", event.target.value)} />

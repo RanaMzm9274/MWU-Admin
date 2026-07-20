@@ -9,6 +9,82 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
   .replace(/^-+|-+$/g, "") || "new-page";
 
+const normalizeSlugReference = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split(/[?#]/)[0]
+    .replace(/^\/+/, "")
+    .replace(/^legacy\//i, "")
+    .replace(/\.html$/i, "")
+    .replace(/\/+$/, "");
+
+const rewriteSlugUrlReference = (value = "", previousSlug = "", nextSlug = "") => {
+  const source = String(value || "");
+  const oldSlug = normalizeSlugReference(previousSlug);
+  const newSlug = normalizeSlugReference(nextSlug);
+  if (!source || !oldSlug || !newSlug || oldSlug === newSlug) return source;
+
+  const escapedSlug = escapeForRegExp(oldSlug);
+  return source.replace(
+    new RegExp(`(^|[\\/])${escapedSlug}(?=(?:\\.html)?(?:[\\/?#]|$))`, "gi"),
+    (match, prefix) => `${prefix}${newSlug}`
+  );
+};
+
+const rewriteSlugReferencesInMarkup = (markup = "", previousSlug = "", nextSlug = "") =>
+  String(markup || "").replace(
+    /(\b(?:href|action|formaction|data-href|data-url|data-link)\s*=\s*)(["'])([^"']*)(\2)/gi,
+    (match, prefix, quote, url, closingQuote) =>
+      `${prefix}${quote}${rewriteSlugUrlReference(url, previousSlug, nextSlug)}${closingQuote}`
+  );
+
+const migratePageSlugReferences = (page = {}, previousSlug = "", nextSlug = "", options = {}) => {
+  const oldSlug = normalizeSlugReference(previousSlug);
+  const newSlug = normalizeSlugReference(nextSlug);
+  if (!oldSlug || !newSlug || oldSlug === newSlug) {
+    return { page, changed: false };
+  }
+
+  let changed = false;
+  const visit = (value, key = "", parentKey = "") => {
+    if (Array.isArray(value)) {
+      return value.map((item) => visit(item, "", key));
+    }
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).map(([childKey, childValue]) => [childKey, visit(childValue, childKey, key)])
+      );
+    }
+    if (typeof value !== "string") return value;
+
+    const normalizedKey = String(key || "").replace(/[^a-z]/gi, "").toLowerCase();
+    const normalizedParentKey = String(parentKey || "").replace(/[^a-z]/gi, "").toLowerCase();
+    let nextValue = value;
+
+    if (
+      ["bodyhtml", "rawhtml", "html", "markup", "code", "content", "body"].includes(normalizedKey) &&
+      /<\w[\s>]/.test(value)
+    ) {
+      nextValue = rewriteSlugReferencesInMarkup(value, oldSlug, newSlug);
+    } else if (normalizedKey === "parentslug" || normalizedKey === "pageslug") {
+      nextValue = normalizeSlugReference(value) === oldSlug ? newSlug : rewriteSlugUrlReference(value, oldSlug, newSlug);
+    } else if (
+      normalizedKey !== "sourceurl" &&
+      (normalizedKey.includes("href") || normalizedKey.endsWith("url") || normalizedKey.includes("link") || normalizedKey === "action")
+    ) {
+      nextValue = rewriteSlugUrlReference(value, oldSlug, newSlug);
+    } else if (options.updateEmbeddedPageSlug && normalizedKey === "slug" && normalizedParentKey === "pagesettings") {
+      nextValue = normalizeSlugReference(value) === oldSlug ? newSlug : value;
+    }
+
+    if (nextValue !== value) changed = true;
+    return nextValue;
+  };
+
+  return { page: visit(page), changed };
+};
+
 const normalizeIncomingPageType = (value = "") => {
   const raw = String(value || "").trim();
   if (!raw) return "Static Page";
@@ -3875,6 +3951,10 @@ const isMatchingSiteChromePage = (page = {}, kind = "header") => {
 
 export {
   slugify,
+  normalizeSlugReference,
+  rewriteSlugUrlReference,
+  rewriteSlugReferencesInMarkup,
+  migratePageSlugReferences,
   normalizeIncomingPageType,
   getApiPageType,
   defaultPageStyles,

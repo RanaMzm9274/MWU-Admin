@@ -104,6 +104,7 @@ import {
   hasEmbeddedImageData,
   readOptionalJson,
   isLocalDraftPage,
+  isSiteChromePage,
   emptyPage,
   createBlankLocalDraftPage,
   getSiteChromeConfig
@@ -535,8 +536,8 @@ function App() {
     if (!requireAnyPortalAccess(["page-editor"], "Page editor saving")) {
       return;
     }
-    const snapshot = builderState?.snapshot || {};
-    const snapshotPageSettings = snapshot.pageSettings || {};
+    const sourceSnapshot = builderState?.snapshot || {};
+    const snapshotPageSettings = sourceSnapshot.pageSettings || {};
     const publishedHtml = String(builderState?.publishedHtml || "").trim();
 
     if (!publishedHtml) {
@@ -544,10 +545,15 @@ function App() {
       return;
     }
 
+    const nextTitle = snapshotPageSettings.title || formPage.title;
+    const titleChanged = String(nextTitle || "").trim() !== String(formPage.title || "").trim();
+    const nextSlug = slugify(titleChanged ? nextTitle : snapshotPageSettings.slug || formPage.slug || nextTitle);
+    const snapshot = {
+      ...sourceSnapshot,
+      pageSettings: { ...snapshotPageSettings, title: nextTitle, slug: nextSlug }
+    };
     const persistedBodyHtml = `${serializeHtmlVisualBuilderSnapshot(snapshot)}${extractBodyHtml(publishedHtml)}`;
     const extractedCustomCss = extractInlineStylesFromHtmlDocument(publishedHtml);
-    const nextTitle = snapshotPageSettings.title || formPage.title;
-    const nextSlug = slugify(snapshotPageSettings.slug || formPage.slug || nextTitle);
     const requestedStatus = saveMode === "publish"
       ? "Published"
       : titleCaseStatus(snapshotPageSettings.status || "Draft");
@@ -970,11 +976,10 @@ function App() {
   const updateField = (field, value) => {
     setFormPage((current) => {
       if (field === "title") {
-        const currentSlug = slugify(current.title);
         return {
           ...current,
           title: value,
-          slug: current.slug === currentSlug ? slugify(value) : current.slug
+          slug: isSiteChromePage(current) ? current.slug : slugify(value)
         };
       }
 
@@ -1131,7 +1136,8 @@ function App() {
     requestDangerConfirmation,
     programs,
     setPrograms,
-    suppressInAppBuilderReinitRef
+    suppressInAppBuilderReinitRef,
+    publishSiteChromeFile
   });
 
   const {

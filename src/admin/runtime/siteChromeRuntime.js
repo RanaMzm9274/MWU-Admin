@@ -167,6 +167,17 @@ const normalizeNavigationHrefToSlug = (href = "") => {
   return slugify(normalized);
 };
 
+const getLinkedNavigationSlug = (item = {}) => {
+  const candidate = String(
+    item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || item?.href || "") || ""
+  ).trim();
+
+  // `slugify("")` intentionally returns `new-page` for authored page forms.
+  // Navigation headings such as "Admission" use href="#" and are not pages,
+  // so they must stay empty here instead of becoming a synthetic nav record.
+  return candidate ? slugify(candidate) : "";
+};
+
 const parseStaticHeaderNavigation = (html = "") => {
   if (typeof DOMParser === "undefined" || !String(html || "").trim()) {
     return [];
@@ -436,7 +447,7 @@ const applyNavigationSnapshotToPages = (pages = [], menu = []) => {
 
   menu.forEach((item, menuIndex) => {
     const itemTitle = String(item?.title || item?.page_title || "").trim();
-    const itemSlug = slugify(item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || ""));
+    const itemSlug = getLinkedNavigationSlug(item);
     const children = Array.isArray(item?.children) ? item.children : [];
 
     if (itemSlug) {
@@ -454,7 +465,7 @@ const applyNavigationSnapshotToPages = (pages = [], menu = []) => {
     }
 
     children.forEach((child, childIndex) => {
-      const childSlug = slugify(child?.slug || normalizeNavigationHrefToSlug(child?.custom_url || ""));
+      const childSlug = getLinkedNavigationSlug(child);
       if (!childSlug) return;
       const applied = applyToPage(childSlug, (page) => ({
         ...page,

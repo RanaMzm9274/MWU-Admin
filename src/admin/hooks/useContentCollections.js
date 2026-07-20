@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { findSiteChromePage, createSiteChromePage } from "../runtime/siteChromeRuntime";
-import { isSiteChromePage } from "../runtime/pageRuntime";
+import { isMatchingSiteChromePage, isSiteChromePage } from "../runtime/pageRuntime";
 import { getSeoScore, isProgramPage, isBlogPage, isEventPage, isNormalWebsitePage } from "../runtime/programRuntime";
 
 export default function useContentCollections({
