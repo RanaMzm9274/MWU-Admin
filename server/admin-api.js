@@ -907,11 +907,14 @@ app.delete(`${API_PREFIX}/admin/users/:id`, requireAuth, requireModule("users"),
   }
 });
 
-const publicSmtpSettings = (config = {}) => ({
-  enabled: Boolean(config.enabled), host: config.host || "", port: String(config.port || "587"),
-  encryption: config.encryption || "tls", username: config.username || "", hasPassword: Boolean(config.passwordEncrypted),
-  fromEmail: config.fromEmail || "", fromName: config.fromName || "", verified: Boolean(config.verified)
-});
+const publicSmtpSettings = (config) => {
+  const safeConfig = config && typeof config === "object" ? config : {};
+  return {
+    enabled: Boolean(safeConfig.enabled), host: safeConfig.host || "", port: String(safeConfig.port || "587"),
+    encryption: safeConfig.encryption || "tls", username: safeConfig.username || "", hasPassword: Boolean(safeConfig.passwordEncrypted),
+    fromEmail: safeConfig.fromEmail || "", fromName: safeConfig.fromName || "", verified: Boolean(safeConfig.verified)
+  };
+};
 
 app.get(`${API_PREFIX}/admin/settings`, requireAuth, requireModule("settings"), async (_request, response, next) => {
   try {
