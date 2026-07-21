@@ -223,7 +223,7 @@ export default function PagesView({
           </button>
         </div>
 
-        <div className="table-panel panel">
+        <div className="table-panel">
           {viewMode === "list" ? (
             <div className="pages-table" role="table" aria-label="All website pages">
               <div className="pages-row table-head" role="row">

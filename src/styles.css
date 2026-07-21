@@ -1021,7 +1021,7 @@ button:disabled {
 
 .recent-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   padding: 18px;
 }
@@ -2037,6 +2037,38 @@ button:disabled {
 .pages-toolbar {
   grid-template-columns: minmax(220px, 1.4fr) repeat(5, minmax(150px, 0.7fr)) auto;
   align-items: center;
+  gap: 6px;
+  padding: 0;
+}
+
+.pages-toolbar.filter-bar .search-field,
+.pages-toolbar.filter-bar .select-field {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.pages-toolbar .search-field input,
+.pages-toolbar .select-field select {
+  min-height: 0;
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.pages-toolbar .search-field > svg,
+.pages-toolbar .select-field > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pages-toolbar .view-mode-toggle {
+  padding: 2px;
+}
+
+.pages-toolbar .view-mode-toggle button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.8125rem;
 }
 
 .manager-toolbar .search-field,
@@ -2424,7 +2456,7 @@ button:disabled {
   min-height: 0;
   overflow: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   padding: 18px;
 }
@@ -2694,9 +2726,9 @@ button:disabled {
 
 .pages-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  padding: 18px;
+  padding: 0;
 }
 
 .page-grid-card {
@@ -2791,6 +2823,26 @@ button:disabled {
   flex-wrap: nowrap;
 }
 
+.page-grid-card-actions .icon-button svg,
+.content-page-actions .icon-button svg,
+.program-page-actions .icon-button svg,
+.table-actions .icon-button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+
+.page-grid-card-actions .icon-button,
+.content-page-actions .icon-button,
+.program-page-actions .icon-button,
+.table-actions .icon-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+}
+
 .pages-table {
   padding: 0;
 }
@@ -2844,8 +2896,8 @@ button:disabled {
 }
 
 .pagination-bar {
-  padding: 14px 16px;
-  border-top: 1px solid #edeff3;
+  padding: 18px 0 0;
+  border-top: 0;
 }
 
 .pagination-bar span {
@@ -5030,7 +5082,7 @@ button:disabled {
 
 .content-pages-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -5367,7 +5419,7 @@ button:disabled {
 }
 
 .program-pages-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .program-pages-grid.list-mode {
@@ -5867,7 +5919,7 @@ button:disabled {
 
 .media-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   padding: 18px;
 }
@@ -8068,6 +8120,568 @@ button:disabled {
   }
 }
 
+/* Unified popup system */
+.danger-dialog-backdrop,
+.page-editor-media-modal,
+.site-chrome-mega-modal {
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.standalone-media-picker-backdrop {
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.danger-dialog,
+.page-editor-media-panel,
+.standalone-media-picker-panel,
+.site-chrome-mega-modal .site-chrome-mega-editor {
+  overflow: hidden;
+  border: 1px solid #e6ebf2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.2);
+}
+
+.danger-dialog-head,
+.page-editor-media-head,
+.standalone-media-picker-head,
+.site-chrome-mega-editor-head {
+  border-bottom: 1px solid #e6ebf2;
+  background: #ffffff;
+}
+
+.danger-dialog-actions,
+.page-editor-media-actions,
+.standalone-media-picker-actions,
+.site-chrome-mega-editor-footer {
+  border-top: 1px solid #e6ebf2;
+  background: #f8fafc;
+}
+
+.danger-dialog-head .icon-button,
+.page-editor-media-close,
+.standalone-media-picker-close,
+.site-chrome-mega-editor-head .icon-button {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.danger-dialog-head .icon-button:hover,
+.page-editor-media-close:hover,
+.standalone-media-picker-close:hover,
+.site-chrome-mega-editor-head .icon-button:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.danger-dialog {
+  width: min(500px, 100%);
+  border-color: #e6ebf2;
+}
+
+.danger-dialog-head {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 36px;
+  gap: 16px;
+  align-items: start;
+  padding: 24px 20px;
+}
+
+.danger-dialog-symbol {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff3f2;
+  color: #dc2626;
+}
+
+.danger-dialog-heading {
+  min-width: 0;
+}
+
+.danger-dialog-head h2 {
+  margin: 5px 0 8px;
+  color: #0f172a;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.danger-dialog-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.danger-dialog-body {
+  display: grid;
+  gap: 0;
+  padding: 0 20px;
+}
+
+.danger-dialog-section {
+  display: grid;
+  gap: 12px;
+  padding: 22px 0;
+  border-bottom: 1px solid #e6ebf2;
+}
+
+.danger-dialog-section:last-child {
+  border-bottom: 0;
+}
+
+.danger-dialog-section-label,
+.danger-dialog-input > span {
+  color: #718096;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.danger-dialog-details {
+  gap: 8px;
+}
+
+.danger-dialog-detail-row {
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 22px 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.danger-dialog-detail-row svg {
+  color: #6675ff;
+}
+
+.danger-dialog-detail-row span {
+  color: #7c8aa0;
+}
+
+.danger-dialog-detail-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.danger-dialog-input {
+  gap: 10px;
+}
+
+.danger-dialog-input > div {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #f2a5a5;
+  border-radius: 6px;
+  background: #fffafa;
+  overflow: hidden;
+}
+
+.danger-dialog-input > div:focus-within {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.danger-dialog-input > div small {
+  padding-left: 12px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.danger-dialog-input input {
+  min-height: 40px;
+  flex: 1;
+  padding: 8px 12px 8px 4px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.danger-dialog-input input::placeholder {
+  color: #dc2626;
+  opacity: 0.9;
+}
+
+.danger-dialog-actions {
+  padding: 18px 20px;
+}
+
+.danger-dialog-actions .ghost-button,
+.danger-dialog-actions .danger-button {
+  min-height: 38px;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.danger-dialog-actions .ghost-button {
+  border: 1px solid #cfd9e7;
+  background: #ffffff;
+  color: #334155;
+}
+
+.danger-dialog-actions .danger-button {
+  background: #c51616;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(197, 22, 22, 0.2);
+}
+
+.danger-dialog-actions .danger-button:hover:not(:disabled) {
+  background: #a91212;
+}
+
+.danger-dialog-actions .danger-button:disabled {
+  background: #e5a3a3;
+}
+
+.page-editor-media-head,
+.standalone-media-picker-head,
+.site-chrome-mega-editor-head {
+  padding: 20px 22px;
+}
+
+.page-editor-media-toolbar,
+.standalone-media-picker-toolbar,
+.site-chrome-mega-editor .field-grid {
+  background: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .danger-dialog-backdrop,
+  .page-editor-media-modal,
+  .site-chrome-mega-modal {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .danger-dialog,
+  .page-editor-media-panel,
+  .standalone-media-picker-panel,
+  .site-chrome-mega-modal .site-chrome-mega-editor {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    border-radius: 14px;
+  }
+
+  .danger-dialog-head {
+    grid-template-columns: 46px minmax(0, 1fr) 36px;
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .danger-dialog-symbol {
+    width: 44px;
+    height: 44px;
+  }
+
+  .danger-dialog-body {
+    padding-inline: 16px;
+  }
+
+  .danger-dialog-detail-row {
+    grid-template-columns: 22px 60px minmax(0, 1fr);
+  }
+
+  .danger-dialog-actions {
+    padding: 14px 16px;
+  }
+}
+
+/* Shared admin UI scale
+   One type, spacing, and control system for every portal screen. */
+:root {
+  --ui-text-xs: 0.75rem;
+  --ui-text-sm: 0.875rem;
+  --ui-text-md: 1rem;
+  --ui-text-lg: 1.125rem;
+  --ui-text-xl: 1.25rem;
+  --ui-text-2xl: 1.5rem;
+  --ui-text-3xl: 2rem;
+  --ui-leading-tight: 1.25;
+  --ui-leading-normal: 1.5;
+  --ui-space-1: 0.25rem;
+  --ui-space-2: 0.5rem;
+  --ui-space-3: 0.75rem;
+  --ui-space-4: 1rem;
+  --ui-space-5: 1.25rem;
+  --ui-space-6: 1.5rem;
+  --ui-space-8: 2rem;
+  --ui-control-height: 2.75rem;
+  --ui-section-inline: clamp(1rem, 2vw, 2rem);
+  --ui-section-block: clamp(1.25rem, 2vw, 2rem);
+}
+
+html {
+  font-size: 16px;
+}
+
+.crm-app {
+  font-size: var(--ui-text-md);
+  line-height: var(--ui-leading-normal);
+}
+
+.crm-app h1,
+.crm-app h2,
+.crm-app h3,
+.crm-app h4,
+.crm-app p {
+  margin-block-start: 0;
+}
+
+.crm-app h1 {
+  font-size: var(--ui-text-3xl);
+  line-height: var(--ui-leading-tight);
+}
+
+.crm-app h2 {
+  font-size: var(--ui-text-2xl);
+  line-height: var(--ui-leading-tight);
+}
+
+.crm-app h3 {
+  font-size: var(--ui-text-xl);
+  line-height: 1.3;
+}
+
+.crm-app h4 {
+  font-size: var(--ui-text-lg);
+  line-height: 1.35;
+}
+
+.crm-app p,
+.crm-app li,
+.crm-app td,
+.crm-app th,
+.crm-app label,
+.crm-app input,
+.crm-app textarea,
+.crm-app select,
+.crm-app button {
+  font-size: var(--ui-text-sm);
+}
+
+.crm-app small,
+.crm-app .eyebrow,
+.crm-app [class*="kicker"],
+.crm-app [class*="meta"] {
+  font-size: var(--ui-text-xs);
+  line-height: var(--ui-leading-normal);
+}
+
+.topbar {
+  min-height: 4.5rem;
+  padding: var(--ui-space-3) var(--ui-section-inline);
+}
+
+.topbar h1 {
+  font-size: var(--ui-text-xl);
+}
+
+.view-header,
+.content-pages-header {
+  gap: var(--ui-space-5);
+  padding: var(--ui-section-block) var(--ui-section-inline);
+}
+
+.view-header h2,
+.content-pages-copy h1,
+.settings-heading h1 {
+  margin: 0;
+  font-size: var(--ui-text-2xl);
+  line-height: var(--ui-leading-tight);
+}
+
+.view-header p,
+.content-pages-copy p,
+.settings-heading p {
+  margin: var(--ui-space-2) 0 0;
+  font-size: var(--ui-text-sm);
+  line-height: var(--ui-leading-normal);
+}
+
+.admin-view,
+.content-pages-view,
+.settings-page {
+  gap: var(--ui-space-6);
+  padding: var(--ui-section-block) var(--ui-section-inline);
+}
+
+.view-content,
+.content-pages-shell,
+.menu-builder-view,
+.form-stack {
+  gap: var(--ui-space-4);
+}
+
+.panel-head {
+  gap: var(--ui-space-4);
+  padding: var(--ui-space-4) var(--ui-space-5);
+}
+
+.panel-head h2,
+.content-pages-head h2,
+.page-editor-html-toolbar h2 {
+  margin: 0;
+  font-size: var(--ui-text-xl);
+}
+
+.main-nav button,
+.primary-button,
+.ghost-button,
+.danger-button,
+.icon-button,
+.view-mode-toggle button,
+.mode-switcher button,
+.device-switcher button {
+  min-height: var(--ui-control-height);
+  font-size: var(--ui-text-sm);
+  line-height: 1.25;
+}
+
+.crm-app input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.crm-app select {
+  min-height: var(--ui-control-height);
+  padding: var(--ui-space-2) var(--ui-space-3);
+}
+
+.crm-app textarea {
+  min-height: 7.5rem;
+  padding: var(--ui-space-3);
+  line-height: var(--ui-leading-normal);
+}
+
+.content-pages-search,
+.content-pages-filter {
+  min-height: var(--ui-control-height);
+  padding: var(--ui-space-2) var(--ui-space-3);
+}
+
+.content-pages-search input,
+.content-pages-filter select {
+  min-height: 0;
+  padding: 0;
+  font-size: var(--ui-text-sm);
+}
+
+.dashboard-grid {
+  gap: var(--ui-space-5);
+  padding: var(--ui-section-block) var(--ui-section-inline);
+}
+
+.metric-grid,
+.content-pages-grid,
+.pages-grid,
+.program-pages-grid {
+  gap: var(--ui-space-4);
+}
+
+.content-page-card-body,
+.page-grid-card-body {
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-4);
+}
+
+.content-page-card-body h3,
+.page-grid-card-body strong {
+  font-size: var(--ui-text-lg);
+  line-height: 1.35;
+}
+
+.content-page-card-body p,
+.page-grid-card-body p {
+  font-size: var(--ui-text-sm);
+  line-height: var(--ui-leading-normal);
+}
+
+.content-page-card-body small,
+.page-grid-card-body small,
+.page-title-cell small {
+  font-size: var(--ui-text-xs);
+}
+
+.notice {
+  margin-inline: var(--ui-section-inline);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  font-size: var(--ui-text-sm);
+  line-height: var(--ui-leading-normal);
+}
+
+@media (max-width: 860px) {
+  :root {
+    --ui-section-inline: 1rem;
+    --ui-section-block: 1.25rem;
+  }
+
+  .topbar {
+    min-height: 4rem;
+  }
+
+  .dashboard-grid,
+  .admin-view,
+  .content-pages-view,
+  .settings-page {
+    padding-inline: var(--ui-section-inline);
+  }
+}
+
+@media (max-width: 560px) {
+  .crm-app h1,
+  .view-header h2,
+  .content-pages-copy h1,
+  .settings-heading h1 {
+    font-size: var(--ui-text-2xl);
+  }
+
+  .view-header,
+  .content-pages-header,
+  .content-pages-toolbar,
+  .header-actions,
+  .topbar-actions {
+    align-items: stretch;
+  }
+
+  .content-pages-search,
+  .content-pages-filter,
+  .header-actions > button,
+  .topbar-actions > button {
+    width: 100%;
+  }
+}
+
 @media (max-width: 860px) {
   .settings-page {
     padding: 6px 12px 0;
@@ -8291,6 +8905,30 @@ iframe {
   .hero-panel h2 {
     font-size: clamp(1.45rem, 7vw, 1.8rem);
   }
+}
+
+/* Compact page filters override the shared 44px form-control scale. */
+.crm-app .pages-toolbar {
+  grid-template-columns: minmax(180px, 1.4fr) repeat(5, minmax(110px, 0.7fr)) auto;
+  gap: 6px;
+  padding: 0;
+}
+
+.crm-app .pages-toolbar.filter-bar .search-field,
+.crm-app .pages-toolbar.filter-bar .select-field {
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.crm-app .pages-toolbar .search-field input,
+.crm-app .pages-toolbar .select-field select {
+  min-height: 0;
+  padding: 0;
+}
+
+.crm-app .pages-toolbar .view-mode-toggle button {
+  min-height: 34px;
+  padding: 0 10px;
 }
 
 /* Exact live website canvas added to prevent the editor from rebuilding pages with a different React layout. */

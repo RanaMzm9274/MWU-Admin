@@ -82,7 +82,7 @@ export default function Dashboard({
           <span>16320+</span>
           <strong>Students signal from the public site</strong>
           <i />
-          <span>79</span>
+          <span>94</span>
           <strong>Programs and departments managed</strong>
         </div>
       </div>
