@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { apiUrl, getAuthHeaders, readApiError, editorDebugLog, clearAdminSession, makeId, todayIso } from "../runtime/portalRuntime";
-import { slugify, normalizeSlugReference, migratePageSlugReferences, normalizePageForEditableImport, normalizeSection, normalizePage, toApiPagePayload, readOptionalJson, getPageApiIdentifiers, isLocalDraftPage, withPageDeleteIdentifiers, shouldTryNextMutationRoute, emptyPage, createBlankLocalDraftPage, isSiteChromePage, isMatchingSiteChromePage } from "../runtime/pageRuntime";
+import { slugify, normalizeSlugReference, migratePageSlugReferences, normalizePageForEditableImport, normalizeSection, normalizePage, toApiPagePayload, readOptionalJson, getPageApiIdentifiers, isLocalDraftPage, withPageDeleteIdentifiers, shouldTryNextMutationRoute, emptyPage, createBlankLocalDraftPage, isSiteChromePage, isMatchingSiteChromePage, extractBodyHtml } from "../runtime/pageRuntime";
 import { getSiteChromeHtml } from "../runtime/siteChromeRuntime";
 import { isNormalWebsitePage } from "../runtime/programRuntime";
 
@@ -31,43 +31,55 @@ export default function usePageActionsController({
     setNotice("Draft page created.");  
   };  
     
-  const createContentPage = (kind = "news") => {
+  const createContentPage = async (kind = "news") => {
     const isResearch = kind === "research";
     const requiredModule = isResearch ? "research" : "blogs";
     if (!requireAnyPortalAccess([requiredModule, "page-editor"], `${isResearch ? "Research" : "News"} creation`)) return;
     const count = pages.filter((page) => String(page.type || "").toLowerCase().includes(isResearch ? "research" : "news")).length;
     const title = isResearch ? "New Research Publication" : "New News Article";
+    const templateUrl = isResearch ? "/templates/research-details.html" : "/templates/news-details.html";
+    setNotice(`Loading the ${isResearch ? "Research" : "News"} website template...`);
+    let templateHtml = "";
+    try {
+      const response = await fetch(templateUrl, { headers: { Accept: "text/html" }, cache: "no-store" });
+      if (!response.ok) throw new Error(`Template request failed (${response.status}).`);
+      templateHtml = await response.text();
+      if (!/<body[\s>]/i.test(templateHtml)) throw new Error("The template is not a complete HTML document.");
+    } catch (error) {
+      setNotice(`Could not load the ${isResearch ? "Research" : "News"} template: ${error.message}`);
+      return;
+    }
     const draft = createBlankLocalDraftPage({
       title,
       slug: `${isResearch ? "research" : "news"}-new-${count + 1}`,
       type: isResearch ? "Research Publication" : "News Article",
       menu: isResearch ? "Research" : "News",
-      template: isResearch ? "Research Detail" : "News Detail",
+      template: isResearch ? "Research Details" : "News Details",
       parentSlug: isResearch ? "research" : "news",
       heroHeadline: title,
       heroTag: isResearch ? "Research & Innovation" : "University News",
       owner: isResearch ? "Research Directorate" : "MWU Communications",
       ctaLabel: "Read More",
-      ctaUrl: isResearch ? "/research-details" : "/blog-details",
-      sections: (isResearch
-        ? [
-            { title: "Abstract", body: "Add a concise summary of the research, its purpose, and scope." },
-            { title: "Research Content", body: "Add the methodology, analysis, and complete publication content here." },
-            { title: "Findings and Conclusion", body: "Summarize the main findings, recommendations, and conclusion." }
-          ]
-        : [
-            { title: "Introduction", body: "Add a short introduction to the news story." },
-            { title: "News Content", body: "Add the complete news article here." },
-            { title: "Highlights", body: "Add important facts, outcomes, or quotations from the story." }
-          ]
-      ).map((section) => normalizeSection({ id: makeId(), type: "Text Block", ...section, visible: true }))
+      ctaUrl: isResearch ? "/research-details" : "/news-details",
+      builderKind: "html",
+      rawHtml: templateHtml,
+      bodyHtml: extractBodyHtml(templateHtml),
+      sections: [normalizeSection({
+        id: makeId(),
+        type: "Raw HTML",
+        title: isResearch ? "Research Detail Template" : "News Detail Template",
+        html: extractBodyHtml(templateHtml),
+        body: extractBodyHtml(templateHtml),
+        layout: "Legacy HTML",
+        visible: true
+      })]
     });
     setPages((current) => [draft, ...current]);
     setActivePageId(draft.id);
     setFormPage(draft);
     setEditorTab("content");
     setActiveView("page-editor");
-    setNotice(`${isResearch ? "Research publication" : "News article"} draft created from the default template.`);
+    setNotice(`${isResearch ? "Research publication" : "News article"} draft created from the website detail template.`);
   };
 
   const createProgramPage = (program = null) => {
