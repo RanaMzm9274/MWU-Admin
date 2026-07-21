@@ -37,7 +37,11 @@ export default function usePageActionsController({
     if (!requireAnyPortalAccess([requiredModule, "page-editor"], `${isResearch ? "Research" : "News"} creation`)) return;
     const count = pages.filter((page) => String(page.type || "").toLowerCase().includes(isResearch ? "research" : "news")).length;
     const title = isResearch ? "New Research Publication" : "New News Article";
-    const templateUrl = isResearch ? "/templates/research-details.html" : "/templates/news-details.html";
+    // Keep the content-type templates explicit. The version marker also prevents
+    // an older cached blog template from being reused after navigating in the SPA.
+    const templateUrl = isResearch
+      ? "/templates/research-details.html?v=research-details-1"
+      : "/templates/news-details.html?v=news-details-1";
     setNotice(`Loading the ${isResearch ? "Research" : "News"} website template...`);
     let templateHtml = "";
     try {
@@ -45,6 +49,9 @@ export default function usePageActionsController({
       if (!response.ok) throw new Error(`Template request failed (${response.status}).`);
       templateHtml = await response.text();
       if (!/<body[\s>]/i.test(templateHtml)) throw new Error("The template is not a complete HTML document.");
+      if (!isResearch && !/<title>[^<]*News Details[^<]*<\/title>/i.test(templateHtml)) {
+        throw new Error("The News Details template could not be verified.");
+      }
     } catch (error) {
       setNotice(`Could not load the ${isResearch ? "Research" : "News"} template: ${error.message}`);
       return;
@@ -307,7 +314,9 @@ export default function usePageActionsController({
     const { silentSuccess = false } = options;  
     try {  
       const identifiers = getPageApiIdentifiers(targetPage);  
-      if (isLocalDraftPage(targetPage)) {  
+      // nav-* entries are virtual pages generated from the live header. They do
+      // not exist in admin_pages, so deleting one is a local UI operation.
+      if (isLocalDraftPage(targetPage) || String(targetPage.id || "").startsWith("nav-")) {
         const removalIds = new Set(identifiers.map(String));  
         setPages((current) => {  
           const remaining = current.filter(  
@@ -352,7 +361,10 @@ export default function usePageActionsController({
       let finalError = "";  
       const failedAttempts = [];  
     
-      for (const attempt of attempts) {  
+      // Only use the canonical DELETE /admin/pages/:id route. The remaining
+      // entries are legacy compatibility definitions and must not be sprayed at
+      // the API after a missing record response.
+      for (const attempt of attempts.slice(0, 1)) {
         const response = await fetch(apiUrl(attempt.path), {  
           method: attempt.method,  
           headers: {  

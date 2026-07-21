@@ -231,18 +231,33 @@ const getNavigationPageType = (title = "", parentTitle = "") => {
   if (value.includes("program")) return "Academic Program";
   if (value.includes("admission")) return "Admission Page";
   if (value.includes("event")) return "Event";
-  if (value.includes("blog") || value.includes("news") || value.includes("research")) return "News Article";
+  if (value.includes("research")) return "Research Page";
+  if (value.includes("blog") || value.includes("news")) return "News Article";
   if (value.includes("contact") || value.includes("about") || value.includes("campus")) return "Campus Page";
   if (value.includes("home")) return "Home Section";
   return "Static Page";
 };
 
+const canonicalizeNewsSlug = (value = "") => {
+  const slug = slugify(value);
+  if (slug === "blog") return "news";
+  return slug.replace(/^blog-details(?=-|$)/i, "news-details");
+};
+
+const canonicalizeNewsUrl = (value = "", fallbackSlug = "") => {
+  const raw = String(value || `/${fallbackSlug}`).trim();
+  return raw
+    .replace(/(^|\/)blog-details(?=-|(?:\.html)?(?:[?#]|$))/i, "$1news-details")
+    .replace(/(^|\/)blog(?=(?:\.html)?(?:[?#]|$))/i, "$1news");
+};
+
 const createPageFromNavigationItem = (item = {}, options = {}) => {
   const title = String(item?.title || item?.page_title || "Imported Page").trim() || "Imported Page";
-  const slug = slugify(item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || item?.href || "") || title);
+  const slug = canonicalizeNewsSlug(item?.slug || normalizeNavigationHrefToSlug(item?.custom_url || item?.href || "") || title);
   const parentTitle = String(options.parentTitle || "").trim();
-  const parentSlug = String(options.parentSlug || "").trim();
+  const parentSlug = canonicalizeNewsSlug(options.parentSlug || "");
   const menuTitle = parentTitle || title;
+  const canonicalUrl = canonicalizeNewsUrl(item?.custom_url || item?.href, slug);
 
   return normalizePageForEditableImport({
     id: `nav-${slug}`,
@@ -262,10 +277,10 @@ const createPageFromNavigationItem = (item = {}, options = {}) => {
     summary: `Live website page imported from the ${options.sourceLabel || "header navigation"}.`,
     heroImage: assets.hero,
     ctaLabel: "Learn More",
-    ctaUrl: item?.custom_url || item?.href || `/${slug}`,
+    ctaUrl: canonicalUrl,
     seoTitle: `${title} | Madda Walabu University`,
     seoDescription: `Madda Walabu University ${title} page.`,
-    sourceUrl: item?.custom_url || item?.href || `/${slug}`,
+    sourceUrl: canonicalUrl,
     owner: "Content Office",
     priority: "Medium",
     updatedBy: "Header Navigation Import",

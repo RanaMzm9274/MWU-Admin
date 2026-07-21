@@ -3,6 +3,21 @@ import { findSiteChromePage, createSiteChromePage } from "../runtime/siteChromeR
 import { isMatchingSiteChromePage, isSiteChromePage } from "../runtime/pageRuntime";
 import { getSeoScore, isProgramPage, isBlogPage, isResearchPage, isEventPage, isNormalWebsitePage } from "../runtime/programRuntime";
 
+const presentNewsPage = (page) => {
+  const slug = String(page.slug || "").replace(/^blog-details(?=-|$)/i, "news-details").replace(/^blog$/i, "news");
+  const newsUrl = (value = "") => String(value || "")
+    .replace(/\/blog-details/gi, "/news-details")
+    .replace(/^\/blog(?:$|[?#])/i, (match) => match.replace(/blog/i, "news"));
+  return {
+    ...page,
+    slug,
+    menu: /^(blog|blogs)$/i.test(String(page.menu || "")) ? "News" : page.menu,
+    template: String(page.template || "").replace(/\bblogs?\b/gi, "News"),
+    ctaUrl: newsUrl(page.ctaUrl || page.cta_url),
+    sourceUrl: newsUrl(page.sourceUrl || page.source_url)
+  };
+};
+
 export default function useContentCollections({
   pages, siteChromeTab, formPage, programs, programCategories, query, statusFilter, typeFilter, menuFilter, sortKey
 }) {
@@ -81,9 +96,10 @@ export default function useContentCollections({
     () =>  
       contentManagedPages  
         .filter((page) => isBlogPage(page) && !isResearchPage(page))
+        .map(presentNewsPage)
         .sort((a, b) => {  
-          if (a.slug === "blog") return -1;  
-          if (b.slug === "blog") return 1;  
+          if (a.slug === "news") return -1;
+          if (b.slug === "news") return 1;
           return new Date(b.updatedAt) - new Date(a.updatedAt);  
         }),  
     [contentManagedPages]  

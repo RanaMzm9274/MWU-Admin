@@ -50,7 +50,7 @@ export default function ContentPagesView({
       <section className="content-pages-shell">
         <div className="content-pages-head">
           <div><span className="eyebrow">Review Queue</span><h2>{filteredPages.length} Pages</h2></div>
-          {onCreate && <button className="primary-button" type="button" onClick={onCreate}><Plus size={17} /><span>{createLabel}</span></button>}
+          {onCreate && <button className="primary-button content-pages-create" type="button" onClick={onCreate}><Plus size={17} /><span>{createLabel}</span></button>}
         </div>
 
         <div className="content-pages-toolbar">

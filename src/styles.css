@@ -4980,6 +4980,10 @@ button:disabled {
   margin: 3px 0 0;
 }
 
+.content-pages-create {
+  margin-top: 10px;
+}
+
 .content-pages-toolbar {
   display: flex;
   gap: 10px;

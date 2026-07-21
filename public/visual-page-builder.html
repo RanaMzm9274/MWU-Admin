@@ -688,6 +688,7 @@ let importedSelectionNode = null;
 let importedSelectionId = '';
 let importedEditorIdCounter = 1;
 let hostImportStyleRequestId = 0;
+let hostSnapshotRequestId = 0;
 
 function responsiveSectionDefaults(section){
   if(section === 'box') return defaultBox();
@@ -1435,6 +1436,7 @@ function rewriteImportedCssAssetUrls(cssText='', stylesheetUrl=''){
 async function syncHostStylesheets(urls=[], inlineCss=''){
   const requestId = ++hostImportStyleRequestId;
   document.querySelectorAll('style[data-host-import="true"]').forEach((node)=>node.remove());
+  document.querySelectorAll('link[data-host-import="true"]').forEach((node)=>node.remove());
   const importedCssChunks = [];
   for(const href of (urls || []).filter(Boolean)){
     try{
@@ -1444,7 +1446,18 @@ async function syncHostStylesheets(urls=[], inlineCss=''){
       const rewrittenCss = rewriteImportedCssAssetUrls(rawCss, href);
       importedCssChunks.push(scopeImportedCssText(rewrittenCss));
     }catch{
-      // Ignore stylesheet fetch failures and continue with the rest.
+      // Cross-origin website CSS may be valid for a stylesheet element even
+      // when browser CORS prevents reading it with fetch(). Load it natively.
+      await new Promise((resolve)=>{
+        const link=document.createElement('link');
+        link.rel='stylesheet';
+        link.href=href;
+        link.setAttribute('data-host-import','true');
+        link.addEventListener('load',resolve,{once:true});
+        link.addEventListener('error',resolve,{once:true});
+        document.head.appendChild(link);
+        setTimeout(resolve,5000);
+      });
     }
   }
   if(String(inlineCss || '').trim()){
@@ -1458,6 +1471,8 @@ async function syncHostStylesheets(urls=[], inlineCss=''){
     document.head.appendChild(style);
   }
   ensureBuilderChromeStyles();
+  const chromeProtect=document.getElementById('builderChromeProtect');
+  if(chromeProtect) document.head.appendChild(chromeProtect);
 }
 function importedNodeBackgroundSource(node){
   if(!node || node.nodeType!==1) return '';
@@ -5409,7 +5424,8 @@ function ensureBuilderChromeStyles(){
     body > .app > .workspace > .canvas-area{ flex:1 !important; overflow-y:auto !important; overflow-x:hidden !important; background:#ffffff !important; padding:34px 30px 100px !important; display:flex !important; justify-content:center !important; position:relative !important; }
   `;
 }
-function loadHostSnapshot(data={}){
+async function loadHostSnapshot(data={}){
+  const snapshotRequestId=++hostSnapshotRequestId;
   const nextPageSettings=data.pageSettings&&typeof data.pageSettings==='object'?data.pageSettings:{};
   pageSettings={...pageSettings,...nextPageSettings};
   hostImportCssLinks = Array.isArray(data.importCssLinks)?data.importCssLinks:[];
@@ -5424,7 +5440,8 @@ function loadHostSnapshot(data={}){
     importInlineCssLength: hostImportInlineCss.length,
     htmlBytes: data.elements && data.elements[0] && data.elements[0].content ? String(data.elements[0].content.code || '').length : 0
   });
-  syncHostStylesheets(hostImportCssLinks, hostImportInlineCss);
+  await syncHostStylesheets(hostImportCssLinks, hostImportInlineCss);
+  if(snapshotRequestId!==hostSnapshotRequestId) return;
   if(Array.isArray(data.elements)) elements=migrateLegacyColumns(data.elements);
   if(data.device) currentDevice=data.device;
   document.body.classList.toggle('imported-page-mode', !!pageSettings.exactImport);

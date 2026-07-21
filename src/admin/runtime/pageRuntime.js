@@ -3028,6 +3028,10 @@ const getLegacyRouteCandidates = (routePath = "", page = {}) => {
   const fileName = normalizedPath.split("/").filter(Boolean).pop() || "";
   const slug = String(page?.slug || "").trim().replace(/^\/+/, "").replace(/\/$/, "");
   const routeSlug = normalizedPath.replace(/^legacy\//i, "").replace(/\.html$/i, "");
+  // Historical News articles are still stored as legacy blog-details HTML
+  // files. The Admin-facing slug is canonicalized to news-details, but the
+  // editor must load the existing article document until it is saved to DB.
+  const legacyNewsDetailSlug = (routeSlug || slug).replace(/^news-details(?=-|$)/i, "blog-details");
   const isAcademicProgram = String(page?.type || page?.page_type || "").toLowerCase().includes("program");
   const programPrefix = /^phd(?:-|\s)/i.test(slug)
     ? "program-phd-"
@@ -3039,6 +3043,7 @@ const getLegacyRouteCandidates = (routePath = "", page = {}) => {
     LEGACY_ROUTE_ALIASES[routeSlug],
     LEGACY_ROUTE_ALIASES[fileName.replace(/\.html$/i, "")],
     isAcademicProgram && slug ? `${programPrefix}${slug}` : "",
+    legacyNewsDetailSlug !== routeSlug && legacyNewsDetailSlug !== slug ? legacyNewsDetailSlug : "",
     fileName,
     routeSlug,
     slug
@@ -3713,7 +3718,7 @@ const initialPages = [
   createPage({
     title: "Madda Walabu University Celebrates Graduation Ceremony",
     type: "News Article",
-    menu: "Blogs",
+    menu: "News",
     status: "Review",
     heroHeadline: "Madda Walabu University Celebrates Its 18th Graduation Ceremony",
     summary:
@@ -3832,7 +3837,7 @@ const initialPages = [
   createPage({
     title: "Research, Innovation, and Community Impact",
     type: "Research Page",
-    menu: "Blogs",
+    menu: "Research",
     status: "Published",
     heroHeadline: "MWU Research, Innovation, and Community Impact",
     summary:

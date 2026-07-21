@@ -284,7 +284,7 @@ const menuGroups = [
   "Programs",
   "Admissions",
   "Events",
-  "Blogs",
+  "News",
   "Contact Us",
   "Layout"
 ];

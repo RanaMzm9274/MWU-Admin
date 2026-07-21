@@ -436,6 +436,51 @@ const updatePage = async (identifier, payload, actorName = "Content Editor") => 
   return serializePage(await findPageByIdentifier(existing.id));
 };
 
+const migrateLegacyBlogPagesToNews = async () => {
+  const [rows] = await pool.query(
+    `SELECT * FROM admin_pages
+     WHERE LOWER(slug) = 'blog'
+        OR LOWER(slug) LIKE 'blog-details%'
+        OR LOWER(type) LIKE '%blog%'
+        OR LOWER(page_type) LIKE '%blog%'
+        OR LOWER(menu_group) IN ('blog', 'blogs')`
+  );
+
+  for (const row of rows) {
+    const page = serializePage(row);
+    const oldSlug = String(page.slug || "");
+    const nextSlug = oldSlug === "blog"
+      ? "news"
+      : oldSlug.replace(/^blog-details/i, "news-details");
+    if (nextSlug !== oldSlug) {
+      const [collision] = await pool.execute("SELECT id FROM admin_pages WHERE slug = ? AND id <> ? LIMIT 1", [nextSlug, row.id]);
+      if (collision.length) continue;
+    }
+
+    const replaceBlogLabel = (value = "") => String(value)
+      .replace(/news\s*(?:&|and)\s*blog/gi, "News")
+      .replace(/\bblogs?\b/gi, "News");
+    const replaceBlogRoute = (value = "") => String(value)
+      .replace(/\/blog-details/gi, "/news-details")
+      .replace(/^\/blog(?:$|[?#])/i, (match) => match.replace(/blog/i, "news"));
+    await updatePage(row.id, {
+      ...page,
+      title: replaceBlogLabel(page.title),
+      slug: nextSlug,
+      type: replaceBlogLabel(page.type || "News Article"),
+      page_type: replaceBlogLabel(page.page_type || page.type || "News Article"),
+      menu: /^(blog|blogs)$/i.test(String(page.menu || page.menu_group || "")) ? "News" : page.menu,
+      menu_group: /^(blog|blogs)$/i.test(String(page.menu_group || page.menu || "")) ? "News" : page.menu_group,
+      template: replaceBlogLabel(page.template),
+      heroHeadline: replaceBlogLabel(page.heroHeadline),
+      sourceUrl: replaceBlogRoute(page.sourceUrl || page.source_url),
+      source_url: replaceBlogRoute(page.source_url || page.sourceUrl),
+      ctaUrl: replaceBlogRoute(page.ctaUrl || page.cta_url),
+      cta_url: replaceBlogRoute(page.cta_url || page.ctaUrl)
+    }, "System Migration");
+  }
+};
+
 const ensureSchema = async () => {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS admin_users (
@@ -648,18 +693,14 @@ app.get(`${API_PREFIX}/admin/me`, requireAuth, (request, response) => {
 // drafts, review content, users, and all mutation routes remain protected.
 app.get(`${API_PREFIX}/pages`, async (request, response, next) => {
   try {
-    const limit = Math.max(1, Math.min(Number(request.query.limit || 12), 50));
+    const limit = Math.max(1, Math.min(Number(request.query.limit || 50), 200));
     const kind = String(request.query.kind || "").trim().toLowerCase();
-    const terms = kind === "research"
-      ? ["research", "publication", "journal"]
-      : kind === "news"
-        ? ["news", "blog", "article"]
-        : [];
     const values = ["Published"];
     let where = "LOWER(status) = LOWER(?)";
-    if (terms.length) {
-      where += ` AND (${terms.map(() => "LOWER(CONCAT_WS(' ', title, slug, type, menu_group)) LIKE ?").join(" OR ")})`;
-      values.push(...terms.map((term) => `%${term}%`));
+    if (kind === "research") {
+      where += " AND (LOWER(type) LIKE '%research%' OR LOWER(page_type) LIKE '%research%' OR LOWER(menu_group) = 'research')";
+    } else if (kind === "news") {
+      where += " AND (LOWER(type) LIKE '%news%' OR LOWER(type) LIKE '%blog%' OR LOWER(page_type) LIKE '%news%' OR LOWER(page_type) LIKE '%blog%' OR LOWER(menu_group) IN ('news','blog','blogs'))";
     }
     values.push(limit);
     const [rows] = await pool.query(
@@ -1271,6 +1312,7 @@ app.use((error, _request, response, _next) => {
 });
 
 await ensureSchema();
+await migrateLegacyBlogPagesToNews();
 await bootstrapAdmin();
 
 app.listen(PORT, () => {

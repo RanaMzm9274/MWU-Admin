@@ -50,7 +50,7 @@ export default function Dashboard({
   const moduleActions = [
     { icon: GraduationCap, label: "Programs", value: "Undergraduate, graduate, PhD", onClick: onOpenPrograms },
     { icon: BookOpen, label: "Admissions", value: "Requirements, forms, scholarships", onClick: onOpenPages },
-    { icon: MessageSquare, label: "Blog and Events", value: "Announcements and research updates", onClick: onOpenBlogs },
+    { icon: MessageSquare, label: "News and Events", value: "Announcements and research updates", onClick: onOpenBlogs },
     { icon: ShieldCheck, label: "Approvals", value: "Draft, review, scheduled, publish", onClick: onOpenPages }
   ].filter((item) => typeof item.onClick === "function");
 

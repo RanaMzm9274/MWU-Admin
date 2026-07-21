@@ -205,6 +205,12 @@ function App() {
   const suppressInAppBuilderReinitRef = useRef(false);
   const pageEditorHydrationKeyRef = useRef("");
   const pageEditorRequestRef = useRef(0);
+  const activePageIdRef = useRef(activePageId);
+  const activeViewRef = useRef(activeView);
+  const formPageRef = useRef(formPage);
+  activePageIdRef.current = activePageId;
+  activeViewRef.current = activeView;
+  formPageRef.current = formPage;
   const liveMenuGroupChoices = useMemo(() => getMenuGroupChoices(pages), [pages]);
   const accessibleNavItems = useMemo(
     () => navItems.filter((item) => hasPortalAccess(adminProfile, item.id)),
@@ -781,13 +787,18 @@ function App() {
           return;
         }
 
-        const requestedPageId = String(activePageId || storedUiState.activePageId || "");
+        const liveDraft = isLocalDraftPage(formPageRef.current) ? formPageRef.current : null;
+        const requestedPageId = String(liveDraft?.id || activePageIdRef.current || storedUiState.activePageId || "");
         const shouldRestoreBlankEditorDraft =
           !isStandaloneEditor &&
-          String(activeView || storedUiState.activeView || "") === "page-editor" &&
+          String(activeViewRef.current || storedUiState.activeView || "") === "page-editor" &&
           (!requestedPageId || !apiPages.some((page) => String(page.id) === requestedPageId));
         const blankDraft = shouldRestoreBlankEditorDraft ? createBlankLocalDraftPage() : null;
-        const nextPages = blankDraft ? [blankDraft, ...apiPages] : apiPages;
+        const nextPages = liveDraft
+          ? [liveDraft, ...apiPages.filter((page) => String(page.id) !== String(liveDraft.id))]
+          : blankDraft
+            ? [blankDraft, ...apiPages]
+            : apiPages;
         const firstNormalPage = nextPages.find(isNormalWebsitePage) || nextPages[0] || emptyPage();
         const requestedPage =
           requestedPageId
@@ -796,8 +807,8 @@ function App() {
 
         setPages(nextPages);
         setNavigationSource(resolvedNavigationSource);
-        setActivePageId(requestedPage?.id || blankDraft?.id || firstNormalPage.id || "");
-        setFormPage(requestedPage || blankDraft || firstNormalPage);
+        setActivePageId(liveDraft?.id || requestedPage?.id || blankDraft?.id || firstNormalPage.id || "");
+        setFormPage(liveDraft || requestedPage || blankDraft || firstNormalPage);
         if (window.sessionStorage.getItem(ADMIN_PAGES_LOADED_NOTICE_KEY) !== "1") {
           const sourceLabel =
             resolvedNavigationSource === "api"
@@ -1143,6 +1154,12 @@ function App() {
     suppressInAppBuilderReinitRef,
     publishSiteChromeFile
   });
+
+  const createTypedContentPage = (kind) => {
+    pageEditorRequestRef.current += 1;
+    pageEditorHydrationKeyRef.current = "";
+    return createContentPage(kind);
+  };
 
   const {
     addProgramCategory,
@@ -1490,7 +1507,7 @@ function App() {
           <BlogPagesView
             pages={blogPages}
             createLabel="Add News"
-            onCreate={() => createContentPage("news")}
+            onCreate={() => createTypedContentPage("news")}
             pageStatusFilters={pageStatusFilters}
             getThumbnail={getAutoThumbnailForPage}
             isLocalDraftPage={isLocalDraftPage}
@@ -1514,7 +1531,7 @@ function App() {
             setEditorTab={setEditorTab}
             deletePageById={deletePageById}
             createLabel="Add Research"
-            onCreate={() => createContentPage("research")}
+            onCreate={() => createTypedContentPage("research")}
           />
         )}
 
