@@ -2,10 +2,15 @@
   "use strict";
   var listMount = document.querySelector("[data-content-list]");
   var detailMount = document.querySelector("[data-content-detail]");
-  var kind = (listMount || detailMount)?.getAttribute(listMount ? "data-content-list" : "data-content-detail") === "research" ? "research" : "news";
+  var requestedKind = (listMount || detailMount)?.getAttribute(listMount ? "data-content-list" : "data-content-detail");
+  var kind = requestedKind === "research" ? "research" : requestedKind === "events" || requestedKind === "event" ? "events" : "news";
   var esc = function (value) { var node = document.createElement("div"); node.textContent = String(value || ""); return node.innerHTML; };
   var date = function (page) { return new Date(page.updatedAt || page.updated_at || page.createdAt || Date.now()).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }); };
-  var detailUrl = function (page) { return "/legacy/" + (kind === "research" ? "research-details.html" : "blog-details.html") + "?slug=" + encodeURIComponent(page.slug); };
+  var detailUrl = function (page) {
+    var source = page.sourceUrl || page.source_url || "";
+    if (kind === "events" && source && !/^https?:\/\//i.test(source)) return source;
+    return "/legacy/" + (kind === "research" ? "research-details.html" : kind === "events" ? "event-details.html" : "blog-details.html") + "?slug=" + encodeURIComponent(page.slug);
+  };
   var apiBases = window.MWU_CONTENT_API_URL ? [String(window.MWU_CONTENT_API_URL).replace(/\/$/, "")] : ["/api", "https://admin.maddauni.online/api"];
   function apiFetch(path) {
     var index = 0;

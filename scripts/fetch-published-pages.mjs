@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 
 const SITE_ORIGIN = "https://maddauni.online";
 const OUTPUT_PATH = "public/data/live-published-pages.json";
@@ -77,7 +77,12 @@ const absolutePath = (value) => {
 };
 
 const fetchText = async (url) => {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "User-Agent": "Mozilla/5.0 (compatible; MWUContentSync/1.0; +https://maddauni.online)"
+    }
+  });
   if (!response.ok) {
     throw new Error(`Unable to fetch ${url}: ${response.status}`);
   }
@@ -85,10 +90,23 @@ const fetchText = async (url) => {
 };
 
 const getBundleRouteSlugs = async () => {
-  const html = await fetchText(SITE_ORIGIN);
+  let html = "";
+  try {
+    html = await fetchText(SITE_ORIGIN);
+  } catch {
+    const localFiles = await readdir("public/legacy");
+    return localFiles
+      .filter((file) => file.endsWith(".html"))
+      .map((file) => file.replace(/\.html$/i, ""))
+      .filter((slug) => !excludedSlugs.has(slug));
+  }
   const bundlePath = extractAttribute(html, /<script[^>]+type=["']module["'][^>]+src=["']([^"']+\.js)["']/i);
   if (!bundlePath) {
-    throw new Error("Could not find deployed JS bundle on homepage.");
+    const localFiles = await readdir("public/legacy");
+    return localFiles
+      .filter((file) => file.endsWith(".html"))
+      .map((file) => file.replace(/\.html$/i, ""))
+      .filter((slug) => !excludedSlugs.has(slug));
   }
 
   const bundle = await fetchText(new URL(bundlePath, SITE_ORIGIN).toString());
@@ -166,7 +184,15 @@ const extractSections = (bodyHtml, title, summary, firstImage, slug) => {
 
 const extractPage = async (slug, index) => {
   const legacyUrl = `${SITE_ORIGIN}/legacy/${slug}.html`;
-  const html = await fetchText(legacyUrl);
+  let html = "";
+  let source = "live-website";
+  try {
+    html = await fetchText(legacyUrl);
+  } catch (error) {
+    html = await readFile(`public/legacy/${slug}.html`, "utf8");
+    source = "local-published-mirror";
+    process.stderr.write(`Used local mirror for ${slug}: ${error.message}\n`);
+  }
   const bodyHtml = extractAttribute(html, /<body[^>]*>([\s\S]*?)<\/body>/i);
   const title =
     cleanText(extractAttribute(html, /<title[^>]*>([\s\S]*?)<\/title>/i)) ||
@@ -181,7 +207,7 @@ const extractPage = async (slug, index) => {
   const summary = cleanText(metaDescription || bodyText).slice(0, 220) || `Published page for ${title}.`;
 
   return {
-    source: "live-website",
+    source,
     sourceUrl: slug === "index" ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/${slug}`,
     title,
     slug: slug === "index" ? "home" : slug,

@@ -9,7 +9,7 @@
     "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "fetch:pages": "node fetch-published-pages.mjs"
+    "fetch:pages": "node scripts/fetch-published-pages.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.3",

@@ -16,7 +16,8 @@ const API_PREFIX = process.env.ADMIN_API_PREFIX || "/api";
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || "";
 const JWT_EXPIRES_IN = process.env.ADMIN_JWT_EXPIRES_IN || "8h";
 const APP_ORIGIN = process.env.ADMIN_APP_ORIGIN || "http://localhost:5173";
-const PUBLIC_SITE_ORIGINS = process.env.PUBLIC_SITE_ORIGINS || "https://maddauni.online,https://www.maddauni.online";
+const REQUIRED_PUBLIC_SITE_ORIGINS = ["https://maddauni.online", "https://www.maddauni.online"];
+const PUBLIC_SITE_ORIGINS = process.env.PUBLIC_SITE_ORIGINS || REQUIRED_PUBLIC_SITE_ORIGINS.join(",");
 const NODE_ENV = process.env.NODE_ENV || "development";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BACKUP_STORAGE_DIR = path.resolve(process.env.BACKUP_STORAGE_DIR || path.join(PROJECT_ROOT, "backups"));
@@ -98,8 +99,14 @@ const pool = mysql.createPool({
 });
 
 const app = express();
+const allowedOrigins = Array.from(new Set(
+  [...APP_ORIGIN.split(","), ...PUBLIC_SITE_ORIGINS.split(","), ...REQUIRED_PUBLIC_SITE_ORIGINS]
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean)
+));
+
 app.use(cors({
-  origin: [...APP_ORIGIN.split(","), ...PUBLIC_SITE_ORIGINS.split(",")].map((origin) => origin.trim()).filter(Boolean),
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json({ limit: "25mb" }));
@@ -795,6 +802,8 @@ app.get(`${API_PREFIX}/pages`, async (request, response, next) => {
       where += " AND (LOWER(type) LIKE '%research%' OR LOWER(page_type) LIKE '%research%' OR (LOWER(menu_group) = 'research' AND LOWER(type) NOT LIKE '%program%' AND LOWER(page_type) NOT LIKE '%program%'))";
     } else if (kind === "news") {
       where += " AND (LOWER(type) LIKE '%news%' OR LOWER(type) LIKE '%blog%' OR LOWER(page_type) LIKE '%news%' OR LOWER(page_type) LIKE '%blog%' OR LOWER(menu_group) IN ('news','blog','blogs'))";
+    } else if (kind === "event" || kind === "events") {
+      where += " AND (LOWER(type) LIKE '%event%' OR LOWER(page_type) LIKE '%event%' OR LOWER(menu_group) IN ('event','events'))";
     }
     values.push(limit);
     const [rows] = await pool.query(
