@@ -45,14 +45,7 @@ export default function AdminSidebar({
       </nav>
 
       <div className="sidebar-bottom">
-        {/* <div className="sidebar-panel">
-          <span>Website Status</span>
-          <strong>Live content sync</strong>
-          <p>{stats.published} published pages, {stats.review} in review.</p>
-          <div className="mini-meter">
-            <i style={{ width: `${Math.min(stats.averageSeo, 100)}%` }} />
-          </div>
-        </div> */}
+
         <button className="sidebar-logout" type="button" onClick={onLogout} title="Logout" aria-label="Logout">
           <LogOut size={18} />
           <span>Logout</span>

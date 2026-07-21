@@ -1,4 +1,4 @@
-import { CalendarDays, FileText, FlaskConical, GraduationCap, Image, LayoutDashboard, LayoutTemplate, MessageSquare, Pencil, Plus, Settings, Upload, UserPlus, Users } from "lucide-react";
+import { CalendarDays, FileText, FlaskConical, GraduationCap, Image, LayoutDashboard, LayoutTemplate, MessageSquare, Pencil, Plus, Settings, Upload, UserPlus } from "lucide-react";
 import { LIVE_SITE_ORIGIN } from "../modules/mediaLibrary";
 
 const PROGRAM_CATEGORIES_KEY = "mwu-crm-program-categories-v1";
@@ -408,7 +408,6 @@ const navItems = [
   { id: "research", label: "Research", icon: FlaskConical },
   { id: "events", label: "Events", icon: CalendarDays },
   { id: "media", label: "Media", icon: Image },
-  { id: "crm", label: "CRM Leads", icon: Users },
   { id: "users", label: "Users", icon: UserPlus },
   { id: "settings", label: "Settings", icon: Settings }
 ];
