@@ -104,6 +104,31 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "25mb" }));
 
+// Same-origin proxy used only by the visual editor for public website styles,
+// images, and fonts. It avoids browser CORS restrictions while keeping the
+// requested path strictly inside the public site's /assets directory.
+app.use(`${API_PREFIX}/public-assets`, async (request, response) => {
+  try {
+    const assetPath = String(request.path || "").replace(/^\/+/, "");
+    if (!assetPath.startsWith("assets/") || assetPath.includes("..")) {
+      response.status(400).json({ error: "Invalid public asset path." });
+      return;
+    }
+    const upstreamUrl = new URL(`/${assetPath}`, "https://maddauni.online");
+    const upstream = await fetch(upstreamUrl, { headers: { Accept: request.headers.accept || "*/*" } });
+    if (!upstream.ok) {
+      response.status(upstream.status).end();
+      return;
+    }
+    const contentType = upstream.headers.get("content-type");
+    if (contentType) response.setHeader("Content-Type", contentType);
+    response.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    response.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (error) {
+    response.status(502).json({ error: "Public website asset could not be loaded." });
+  }
+});
+
 const normalizeEmail = (email = "") => String(email || "").trim().toLowerCase();
 
 const normalizeAccess = (access = {}, role = "content-manager") => {

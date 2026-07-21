@@ -1,7 +1,9 @@
 const MEDIA_LIBRARY_KEY = "mwu-crm-media-library-v1";
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
 const DEV_MEDIA_PROXY_PREFIX = "/__live_media";
-const LIVE_ASSET_PROXY_PREFIX = "/__live_asset";
+// Vite supplies the development proxy. Production uses the Admin API's
+// same-origin read-only asset proxy so the builder can fetch and scope CSS.
+const LIVE_ASSET_PROXY_PREFIX = import.meta.env.DEV ? "/__live_asset" : "/api/public-assets";
 const MEDIA_API_PATH = "/admin/media";
 
 const normalizeDevProxyBaseUrl = (value, devPrefix) => {

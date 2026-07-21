@@ -692,7 +692,7 @@ const createHtmlBuilderImportedPageElement = (page = {}) => {
     "";
 
   return createHtmlBuilderElement("html", {
-    content: { code: importedBodyHtml },
+    content: { code: rewriteHtmlForLocalEditing(importedBodyHtml) },
     style: {},
     box: defaultHtmlBuilderBox({
       displayMode: "fullwidth",
@@ -880,6 +880,17 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
   const storedSnapshot = Array.isArray(directSnapshot?.elements) ? directSnapshot : embeddedSnapshot;
   const storedPageSettings = storedSnapshot?.pageSettings || {};
   const storedElements = Array.isArray(storedSnapshot?.elements) ? storedSnapshot.elements : [];
+  const editableStoredElements = storedElements.map((element) =>
+    String(element?.type || "").toLowerCase() === "html"
+      ? {
+          ...element,
+          content: {
+            ...(element.content || {}),
+            code: rewriteHtmlForLocalEditing(element?.content?.code || "")
+          }
+        }
+      : element
+  );
   const hasImportedHtml = hasPersistedEditableMarkup(page);
   const shouldStartBlank =
     !hasImportedHtml &&
@@ -925,8 +936,8 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
     importInlineCss,
     liveAssetProxyPrefix: LIVE_ASSET_PROXY_PREFIX,
     liveSiteOrigin: LIVE_SITE_ORIGIN,
-    elements: storedElements.length
-      ? storedElements
+    elements: editableStoredElements.length
+      ? editableStoredElements
       : hasImportedHtml
         ? [createHtmlBuilderImportedPageElement(page)]
         : shouldStartBlank
