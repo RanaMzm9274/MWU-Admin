@@ -1086,7 +1086,7 @@ app.post(`${API_PREFIX}/admin/backups/:id/restore`, requireAuth, requireModule("
 });
 
 app.delete(`${API_PREFIX}/admin/backups/:id`, requireAuth, requireModule("settings"), async (request, response, next) => {
-  try { const user = await findUserById(request.adminUser.id); const passwordOk = await bcrypt.compare(String(request.body.password || ""), user.password_hash); if (!passwordOk) return response.status(403).json({ error: "Password verification failed." }); if (request.body.confirmation !== `DELETE ${request.params.id}`) return response.status(400).json({ error: `Type DELETE ${request.params.id} to confirm.` }); const [result] = await pool.execute("DELETE FROM portal_backups WHERE id=?", [request.params.id]); if (!result.affectedRows) return response.status(404).json({ error: "Backup not found." }); await audit({ actorId: request.adminUser.id, action: "database_backup_deleted", details: { backupId: request.params.id, dualVerification: true } }); response.json({ ok: true }); } catch (error) { next(error); }
+  try { if (request.body.confirmation !== `DELETE ${request.params.id}`) return response.status(400).json({ error: `Type DELETE ${request.params.id} to confirm.` }); const [result] = await pool.execute("DELETE FROM portal_backups WHERE id=?", [request.params.id]); if (!result.affectedRows) return response.status(404).json({ error: "Backup not found." }); await audit({ actorId: request.adminUser.id, action: "database_backup_deleted", details: { backupId: request.params.id, sessionAuthenticated: true, typedConfirmation: true } }); response.json({ ok: true }); } catch (error) { next(error); }
 });
 
 app.use((error, _request, response, _next) => {

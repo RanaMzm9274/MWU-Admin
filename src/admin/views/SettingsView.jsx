@@ -46,7 +46,7 @@ function loadSettings() {
   };
 }
 
-export default function SettingsView({ logoSrc, adminToken }) {
+export default function SettingsView({ logoSrc, adminToken, requestDangerConfirmation }) {
   const [settings, setSettings] = useState(loadSettings);
   const [backups, setBackups] = useState([]);
   const [forms, setForms] = useState([]);
@@ -115,7 +115,19 @@ export default function SettingsView({ logoSrc, adminToken }) {
   };
 
   const restoreBackup = async (backup) => {
-    if (!window.confirm("Restore this backup? Current local portal settings and drafts will be replaced.")) return;
+    const confirmed = await requestDangerConfirmation({
+      title: "Restore this backup?",
+      message: "The selected version will replace the current portal database, settings, styles, and managed website files.",
+      details: [
+        `Backup: ${backup.name}`,
+        `Created: ${new Date(backup.created_at).toLocaleString()}`,
+        `Version: ${backup.backup_version || 1}`
+      ],
+      verificationText: backup.name,
+      continueLabel: "Review Restore",
+      finalLabel: "Restore Backup"
+    });
+    if (!confirmed) return;
     updateProgress("Validating backup…", 10);
     try {
       const responsePromise = fetch(apiUrl(`/admin/backups/${backup.id}/restore`), { method: "POST", headers: authHeaders(true), body: "{}" });
@@ -152,11 +164,21 @@ export default function SettingsView({ logoSrc, adminToken }) {
   };
 
   const deleteBackup = async (backup) => {
-    const password = window.prompt("Verification 1 of 2: enter your account password.");
-    if (!password) return;
-    const confirmation = window.prompt(`Verification 2 of 2: type DELETE ${backup.id}`);
-    if (!confirmation) return;
-    const response = await fetch(apiUrl(`/admin/backups/${backup.id}`), { method: "DELETE", headers: authHeaders(true), body: JSON.stringify({ password, confirmation }) });
+    const verificationText = `DELETE ${backup.id}`;
+    const confirmed = await requestDangerConfirmation({
+      title: "Delete this backup permanently?",
+      message: "This removes the selected recovery point from the database. It cannot be restored after deletion.",
+      details: [
+        `Backup: ${backup.name}`,
+        `Created: ${new Date(backup.created_at).toLocaleString()}`,
+        `Size: ${Math.max(1, Math.round(Number(backup.size_bytes || 0) / 1024))} KB`
+      ],
+      verificationText,
+      continueLabel: "Review Deletion",
+      finalLabel: "Delete Backup"
+    });
+    if (!confirmed) return;
+    const response = await fetch(apiUrl(`/admin/backups/${backup.id}`), { method: "DELETE", headers: authHeaders(true), body: JSON.stringify({ confirmation: verificationText }) });
     if (!response.ok) return setNotice(await readApiError(response, "Backup deletion failed."));
     setBackups((current) => current.filter((item) => item.id !== backup.id));
     setNotice("Backup permanently deleted from the database.");
@@ -255,7 +277,7 @@ export default function SettingsView({ logoSrc, adminToken }) {
               </div>
             ))}
           </div>
-          <p className="backup-security-note">Deleting a backup requires dual verification: your password and the exact backup confirmation phrase.</p>
+          <p className="backup-security-note">Deletion is protected by your authenticated session and a two-step typed confirmation.</p>
         </div>
 
         <div className="panel settings-card settings-summary-card">
