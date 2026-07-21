@@ -18,6 +18,19 @@ const presentNewsPage = (page) => {
   };
 };
 
+// Listing and detail-template routes support the public News experience, but
+// they are not individual articles and may come from the bundled site snapshot
+// instead of admin_pages. Keep them out of the article manager so the UI never
+// offers a database delete action for a record that does not exist.
+const isNewsSystemRoute = (page = {}) => {
+  const slug = String(page.slug || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\.html$/, "");
+  return ["news", "blog", "news-details", "blog-details", "blog-details-sidebar"].includes(slug);
+};
+
 export default function useContentCollections({
   pages, siteChromeTab, formPage, programs, programCategories, query, statusFilter, typeFilter, menuFilter, sortKey
 }) {
@@ -95,7 +108,7 @@ export default function useContentCollections({
   const blogPages = useMemo(  
     () =>  
       contentManagedPages  
-        .filter((page) => isBlogPage(page) && !isResearchPage(page))
+        .filter((page) => isBlogPage(page) && !isResearchPage(page) && !isNewsSystemRoute(page))
         .map(presentNewsPage)
         .sort((a, b) => {  
           if (a.slug === "news") return -1;
