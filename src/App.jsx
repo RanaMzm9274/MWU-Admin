@@ -124,6 +124,8 @@ import {
   loadPrograms,
   getSeoScore,
   isProgramPage,
+  isBlogPage,
+  isEventPage,
   isNormalWebsitePage
 } from "./admin/runtime/programRuntime";
 import {
@@ -708,6 +710,31 @@ function App() {
 
         const payload = await response.json();
         let apiPages = (payload.data || payload.pages || []).map(normalizePage);
+        let restoredContentCount = 0;
+
+        // The deployed API may temporarily contain only newly authored records.
+        // Keep the bundled published-site snapshot as a read-through source for
+        // missing News and Event pages so production matches the local portal.
+        try {
+          const snapshotResponse = await fetch("/data/live-published-pages.json", {
+            headers: { Accept: "application/json" },
+            cache: "no-store"
+          });
+          if (snapshotResponse.ok) {
+            const snapshotPayload = await snapshotResponse.json();
+            const snapshotPages = (snapshotPayload.pages || snapshotPayload.data || [])
+              .map((page) => normalizePage({ ...page, id: page.id || page.slug }))
+              .filter((page) => isBlogPage(page) || isEventPage(page));
+            const existingSlugs = new Set(apiPages.map((page) => String(page.slug || "").toLowerCase()));
+            const missingContentPages = snapshotPages.filter(
+              (page) => page.slug && !existingSlugs.has(String(page.slug).toLowerCase())
+            );
+            apiPages = [...apiPages, ...missingContentPages];
+            restoredContentCount = missingContentPages.length;
+          }
+        } catch {
+          restoredContentCount = 0;
+        }
 
         let resolvedNavigationSource = "";
         try {
@@ -818,7 +845,10 @@ function App() {
                 : resolvedNavigationSource === "static-header"
                   ? " Header navigation was inferred from the live header file because the API menu was empty."
                   : "";
-          setNotice(`Loaded ${apiPages.length} pages from Admin API.${sourceLabel}`);
+          const contentSourceLabel = restoredContentCount
+            ? ` Restored ${restoredContentCount} missing News/Event pages from the published-site snapshot.`
+            : "";
+          setNotice(`Loaded ${apiPages.length} pages.${contentSourceLabel}${sourceLabel}`);
         }
       } catch (error) {
         if (!cancelled) {
