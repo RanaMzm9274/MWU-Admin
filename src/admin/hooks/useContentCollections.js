@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { findSiteChromePage, createSiteChromePage } from "../runtime/siteChromeRuntime";
 import { isMatchingSiteChromePage, isSiteChromePage } from "../runtime/pageRuntime";
-import { getSeoScore, isProgramPage, isBlogPage, isEventPage, isNormalWebsitePage } from "../runtime/programRuntime";
+import { getSeoScore, isProgramPage, isBlogPage, isResearchPage, isEventPage, isNormalWebsitePage } from "../runtime/programRuntime";
 
 export default function useContentCollections({
   pages, siteChromeTab, formPage, programs, programCategories, query, statusFilter, typeFilter, menuFilter, sortKey
@@ -80,14 +80,25 @@ export default function useContentCollections({
   const blogPages = useMemo(  
     () =>  
       contentManagedPages  
-        .filter(isBlogPage)  
+        .filter((page) => isBlogPage(page) && !isResearchPage(page))
         .sort((a, b) => {  
           if (a.slug === "blog") return -1;  
           if (b.slug === "blog") return 1;  
           return new Date(b.updatedAt) - new Date(a.updatedAt);  
         }),  
     [contentManagedPages]  
-  );  
+  );
+
+  const researchPages = useMemo(
+    () => contentManagedPages
+      .filter(isResearchPage)
+      .sort((a, b) => {
+        if (a.slug === "research") return -1;
+        if (b.slug === "research") return 1;
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+      }),
+    [contentManagedPages]
+  );
     
   const eventPages = useMemo(  
     () =>  
@@ -143,5 +154,5 @@ export default function useContentCollections({
   }, [contentManagedPages]);  
     
 
-  return { contentManagedPages, activeSiteChromePage, programPages, megaMenuPrograms, blogPages, eventPages, standardPages, filteredPages, stats };
+  return { contentManagedPages, activeSiteChromePage, programPages, megaMenuPrograms, blogPages, researchPages, eventPages, standardPages, filteredPages, stats };
 }

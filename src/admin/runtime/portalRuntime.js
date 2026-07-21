@@ -1,4 +1,4 @@
-import { CalendarDays, FileText, GraduationCap, Image, LayoutDashboard, LayoutTemplate, MessageSquare, Pencil, Plus, Settings, Upload, UserPlus, Users } from "lucide-react";
+import { CalendarDays, FileText, FlaskConical, GraduationCap, Image, LayoutDashboard, LayoutTemplate, MessageSquare, Pencil, Plus, Settings, Upload, UserPlus, Users } from "lucide-react";
 import { LIVE_SITE_ORIGIN } from "../modules/mediaLibrary";
 
 const PROGRAM_CATEGORIES_KEY = "mwu-crm-program-categories-v1";
@@ -404,7 +404,8 @@ const navItems = [
   { id: "page-editor", label: "Page Editor", icon: Pencil },
   { id: "site-chrome", label: "Header & Footer", icon: LayoutTemplate },
   { id: "programs", label: "Programs", icon: GraduationCap },
-  { id: "blogs", label: "Blogs", icon: MessageSquare },
+  { id: "blogs", label: "News", icon: MessageSquare },
+  { id: "research", label: "Research", icon: FlaskConical },
   { id: "events", label: "Events", icon: CalendarDays },
   { id: "media", label: "Media", icon: Image },
   { id: "crm", label: "CRM Leads", icon: Users },
@@ -418,7 +419,8 @@ const accessModules = [
   { id: "page-editor", label: "Page Editor", description: "Open the visual page editor and save page content." },
   { id: "site-chrome", label: "Header & Footer", description: "Edit global header and footer markup." },
   { id: "programs", label: "Programs", description: "Manage program categories, details, and programs mega menu." },
-  { id: "blogs", label: "Blogs", description: "Manage blog listing and article pages." },
+  { id: "blogs", label: "News", description: "Manage news listing and article pages." },
+  { id: "research", label: "Research", description: "Manage research listing and publication pages." },
   { id: "events", label: "Events", description: "Manage event listing and event detail pages." },
   { id: "media", label: "Media", description: "Upload, select, copy, and remove media assets." },
   { id: "crm", label: "CRM Leads", description: "Review and manage admission or inquiry leads." },
@@ -443,6 +445,7 @@ const rolePresets = [
       "site-chrome": true,
       programs: true,
       blogs: true,
+      research: true,
       events: true,
       media: true
     }
@@ -475,6 +478,7 @@ const rolePresets = [
       dashboard: true,
       pages: true,
       blogs: true,
+      research: true,
       events: true,
       programs: true
     }

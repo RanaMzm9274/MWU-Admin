@@ -15,6 +15,7 @@ import MediaView from "./admin/views/MediaView";
 import PageEditor from "./admin/views/PageEditor";
 import PagesView from "./admin/views/PagesView";
 import BlogPagesView from "./admin/views/BlogPagesView";
+import ResearchPagesView from "./admin/views/ResearchPagesView";
 import BuilderView from "./admin/views/BuilderView";
 import ProgramsManagementView from "./admin/views/ProgramsView";
 import StandalonePageEditor from "./admin/views/StandalonePageEditor";
@@ -956,6 +957,7 @@ function App() {
     programPages,
     megaMenuPrograms,
     blogPages,
+    researchPages,
     eventPages,
     standardPages,
     filteredPages,
@@ -1486,6 +1488,20 @@ function App() {
         {activeView === "blogs" && hasPortalAccess(adminProfile, "blogs") && (
           <BlogPagesView
             pages={blogPages}
+            pageStatusFilters={pageStatusFilters}
+            getThumbnail={getAutoThumbnailForPage}
+            isLocalDraftPage={isLocalDraftPage}
+            openPageEditorTab={openPageEditorTab}
+            setActivePageId={setActivePageId}
+            setActiveView={setActiveView}
+            setEditorTab={setEditorTab}
+            deletePageById={deletePageById}
+          />
+        )}
+
+        {activeView === "research" && hasPortalAccess(adminProfile, "research") && (
+          <ResearchPagesView
+            pages={researchPages}
             pageStatusFilters={pageStatusFilters}
             getThumbnail={getAutoThumbnailForPage}
             isLocalDraftPage={isLocalDraftPage}

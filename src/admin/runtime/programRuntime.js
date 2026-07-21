@@ -310,13 +310,19 @@ const isBlogPage = (page) =>
     .toLowerCase()
     .match(/\b(blog|blogs|news|article)\b/);
 
+const isResearchPage = (page) =>
+  [page?.title, page?.slug, page?.type, page?.menu]
+    .join(" ")
+    .toLowerCase()
+    .match(/\b(research|publication|publications|journal|journals)\b/);
+
 const isEventPage = (page) =>
   [page?.title, page?.slug, page?.type, page?.menu]
     .join(" ")
     .toLowerCase()
     .match(/\b(event|events)\b/);
 
-const isDedicatedPage = (page) => isProgramPage(page) || isBlogPage(page) || isEventPage(page);
+const isDedicatedPage = (page) => isProgramPage(page) || isResearchPage(page) || isBlogPage(page) || isEventPage(page);
 
 const isNormalWebsitePage = (page) => {
   if (isSiteChromePage(page)) {
@@ -362,6 +368,7 @@ export {
   getSeoScore,
   isProgramPage,
   isBlogPage,
+  isResearchPage,
   isEventPage,
   isDedicatedPage,
   isNormalWebsitePage

@@ -33,6 +33,7 @@ const accessModules = [
   "site-chrome",
   "programs",
   "blogs",
+  "research",
   "events",
   "media",
   "crm",
@@ -56,6 +57,7 @@ const rolePresets = {
     "site-chrome": true,
     programs: true,
     blogs: true,
+    research: true,
     events: true,
     media: true
   },
@@ -76,6 +78,7 @@ const rolePresets = {
     dashboard: true,
     pages: true,
     blogs: true,
+    research: true,
     events: true,
     programs: true
   }
@@ -614,6 +617,34 @@ app.get(`${API_PREFIX}/admin/me`, requireAuth, (request, response) => {
 
 // Public website content feed. Only explicitly published pages are exposed;
 // drafts, review content, users, and all mutation routes remain protected.
+app.get(`${API_PREFIX}/pages`, async (request, response, next) => {
+  try {
+    const limit = Math.max(1, Math.min(Number(request.query.limit || 12), 50));
+    const kind = String(request.query.kind || "").trim().toLowerCase();
+    const terms = kind === "research"
+      ? ["research", "publication", "journal"]
+      : kind === "news"
+        ? ["news", "blog", "article"]
+        : [];
+    const values = ["Published"];
+    let where = "LOWER(status) = LOWER(?)";
+    if (terms.length) {
+      where += ` AND (${terms.map(() => "LOWER(CONCAT_WS(' ', title, slug, type, menu_group)) LIKE ?").join(" OR ")})`;
+      values.push(...terms.map((term) => `%${term}%`));
+    }
+    values.push(limit);
+    const [rows] = await pool.query(
+      `SELECT * FROM admin_pages WHERE ${where} ORDER BY updated_at DESC, created_at DESC LIMIT ?`,
+      values
+    );
+    const pages = rows.map(serializePage);
+    response.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    response.json({ ok: true, pages, data: pages });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get(`${API_PREFIX}/pages/:identifier`, async (request, response, next) => {
   try {
     const row = await findPageByIdentifier(request.params.identifier);
