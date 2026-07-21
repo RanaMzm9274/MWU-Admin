@@ -14,9 +14,10 @@ export default function useSiteChromeController({
     
     const sourcePath = currentPage.sourceUrl || getSiteChromeConfig(kind).sourceUrl;  
     const liveSourceUrl = getFetchableLiveAssetUrl(sourcePath);  
-    const sourceCandidates = import.meta.env.DEV  
-      ? Array.from(new Set([sourcePath, liveSourceUrl].filter(Boolean)))  
-      : [liveSourceUrl].filter(Boolean);  
+    // The admin deployment includes the partials under /assets/partials. Always
+    // try that same-origin copy first; the public-site URL is only a fallback and
+    // may intentionally reject cross-origin browser requests.
+    const sourceCandidates = Array.from(new Set([sourcePath, liveSourceUrl].filter(Boolean)));
     if (!sourceCandidates.length) {  
       return currentPage;  
     }  

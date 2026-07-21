@@ -386,9 +386,10 @@ function App() {
     setNotice(`Editor check: opening ${nextPage?.title || pageId}...`);
 
     const isNavigationOnlyPage = String(pageId || "").startsWith("nav-");
+    const isSnapshotFallbackPage = Boolean(listPage?.isSnapshotFallback);
     try {
-      if (isNavigationOnlyPage) {
-        throw new Error("Navigation-only page uses its legacy source instead of an Admin API detail record.");
+      if (isNavigationOnlyPage || isSnapshotFallbackPage) {
+        throw new Error("Fallback page uses its bundled source instead of an Admin API detail record.");
       }
       const detailResponse = await fetch(apiUrl(`/admin/pages/${encodeURIComponent(pageId)}`), {
         headers: getAuthHeaders(adminToken)
@@ -723,7 +724,11 @@ function App() {
           if (snapshotResponse.ok) {
             const snapshotPayload = await snapshotResponse.json();
             const snapshotPages = (snapshotPayload.pages || snapshotPayload.data || [])
-              .map((page) => normalizePage({ ...page, id: page.id || page.slug }))
+              .map((page) => normalizePage({
+                ...page,
+                id: page.id || page.slug,
+                isSnapshotFallback: true
+              }))
               .filter((page) => isBlogPage(page) || isEventPage(page));
             const existingSlugs = new Set(apiPages.map((page) => String(page.slug || "").toLowerCase()));
             const missingContentPages = snapshotPages.filter(
@@ -740,8 +745,11 @@ function App() {
         try {
           let menu = [];
 
-          if (import.meta.env.DEV) {
-            const staticHeaderResponse = await fetch(getFetchableLiveAssetUrl(SITE_CHROME_CONFIGS.header.sourceUrl), {
+          // The header partial ships with the admin bundle. Prefer that same-origin
+          // copy in every environment so production does not depend on undeployed
+          // navigation endpoints or cross-origin access to the public website.
+          {
+            const staticHeaderResponse = await fetch(SITE_CHROME_CONFIGS.header.sourceUrl, {
               headers: { Accept: "text/html" },
               cache: "no-store"
             });
@@ -790,7 +798,7 @@ function App() {
           }
 
           if (!menu.length) {
-            const staticHeaderResponse = await fetch(getFetchableLiveAssetUrl(SITE_CHROME_CONFIGS.header.sourceUrl), {
+            const staticHeaderResponse = await fetch(SITE_CHROME_CONFIGS.header.sourceUrl, {
               headers: { Accept: "text/html" },
               cache: "no-store"
             });
