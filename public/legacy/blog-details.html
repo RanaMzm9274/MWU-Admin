@@ -54,6 +54,7 @@
     <link rel="stylesheet" href="assets/css/style.css">
 
     <link rel="stylesheet" href="/assets/latest-content.css">
+    <link rel="stylesheet" href="/assets/content-types.css">
 </head>
 
 <body>
@@ -99,7 +100,8 @@
         <div class="container th-container2">
             <div class="row justify-content-center">
                 <div class="col-xl-9">
-                    <div class="th-blog blog-single">
+                    <div data-content-detail="news"></div>
+                    <div class="th-blog blog-single" data-detail-fallback>
                         <div class="blog-img">
                             <img src="assets/img/blog/blog-s-1-5.jpg" alt="Blog Image">
                         </div>
@@ -368,6 +370,7 @@ Marquee Area
     </div>
     <section class="mwu-latest" data-latest-content="news" aria-label="Latest news"></section>
 <script src="/assets/latest-content.js" defer></script>
+<script src="/assets/content-types.js" defer></script>
     <div id="mwu-universal-footer"></div>
 <script src="assets/js/universal-footer.js"></script>
 

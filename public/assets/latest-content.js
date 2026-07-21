@@ -41,7 +41,8 @@
     mount.querySelector("[data-next]").onclick = function () { track.scrollBy({ left: track.clientWidth * 0.8, behavior: "smooth" }); };
   }
 
-  fetch("/api/pages?kind=" + kind + "&limit=6", { headers: { Accept: "application/json" } })
+  var apiBase = window.MWU_CONTENT_API_URL || "https://admin.maddauni.online/api";
+  fetch(String(apiBase).replace(/\/$/, "") + "/pages?kind=" + kind + "&limit=6", { headers: { Accept: "application/json" } })
     .then(function (response) { if (!response.ok) throw new Error("feed"); return response.json(); })
     .then(function (payload) { render(payload.pages || payload.data || []); })
     .catch(function () { mount.hidden = true; });

@@ -31,7 +31,35 @@ export default function usePageActionsController({
     setNotice("Draft page created.");  
   };  
     
-  const createProgramPage = (program = null) => {  
+  const createContentPage = (kind = "news") => {
+    const isResearch = kind === "research";
+    const requiredModule = isResearch ? "research" : "blogs";
+    if (!requireAnyPortalAccess([requiredModule, "page-editor"], `${isResearch ? "Research" : "News"} creation`)) return;
+    const count = pages.filter((page) => String(page.type || "").toLowerCase().includes(isResearch ? "research" : "news")).length;
+    const title = isResearch ? "New Research Publication" : "New News Article";
+    const draft = createBlankLocalDraftPage({
+      title,
+      slug: `${isResearch ? "research" : "news"}-new-${count + 1}`,
+      type: isResearch ? "Research Publication" : "News Article",
+      menu: isResearch ? "Research" : "News",
+      template: isResearch ? "Research Detail" : "News Detail",
+      parentSlug: isResearch ? "research" : "news",
+      heroHeadline: title,
+      heroTag: isResearch ? "Research & Innovation" : "University News",
+      owner: isResearch ? "Research Directorate" : "MWU Communications",
+      ctaLabel: "Read More",
+      ctaUrl: isResearch ? "/legacy/research-details.html" : "/legacy/blog-details.html",
+      sections: [normalizeSection({ id: makeId(), type: "Text Block", title: "Article content", body: "Add the full article or publication content here.", visible: true })]
+    });
+    setPages((current) => [draft, ...current]);
+    setActivePageId(draft.id);
+    setFormPage(draft);
+    setEditorTab("content");
+    setActiveView("page-editor");
+    setNotice(`${isResearch ? "Research publication" : "News article"} draft created from the default template.`);
+  };
+
+  const createProgramPage = (program = null) => {
     if (!requireAnyPortalAccess(["programs"], "Program page creation")) {  
       return;  
     }  
@@ -723,7 +751,7 @@ export default function usePageActionsController({
     
 
   return {
-    createNewPage, createProgramPage, savePage, updateActiveStatus, deletePageById, bulkDeletePages, deletePage,
+    createNewPage, createContentPage, createProgramPage, savePage, updateActiveStatus, deletePageById, bulkDeletePages, deletePage,
     toggleSelectedPage, toggleAllFiltered, bulkUpdateStatus, bulkDuplicate, exportAllPages, importPages, importLivePublishedPages,
     pageImportProgress
   };

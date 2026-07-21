@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Filter, ListTree, Pencil, Search, Trash2 } from "lucide-react";
+import { Filter, ListTree, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { StatusPill, ViewModeToggle } from "../components/Common";
 
 export default function ContentPagesView({
@@ -12,7 +12,9 @@ export default function ContentPagesView({
   pageStatusFilters,
   getThumbnail,
   openPageEditorTab,
-  deletePageById
+  deletePageById,
+  createLabel,
+  onCreate
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -47,8 +49,8 @@ export default function ContentPagesView({
 
       <section className="content-pages-shell">
         <div className="content-pages-head">
-          <span className="eyebrow">Review Queue</span>
-          <h2>{filteredPages.length} Pages</h2>
+          <div><span className="eyebrow">Review Queue</span><h2>{filteredPages.length} Pages</h2></div>
+          {onCreate && <button className="primary-button" type="button" onClick={onCreate}><Plus size={17} /><span>{createLabel}</span></button>}
         </div>
 
         <div className="content-pages-toolbar">

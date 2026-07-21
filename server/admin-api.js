@@ -16,6 +16,7 @@ const API_PREFIX = process.env.ADMIN_API_PREFIX || "/api";
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || "";
 const JWT_EXPIRES_IN = process.env.ADMIN_JWT_EXPIRES_IN || "8h";
 const APP_ORIGIN = process.env.ADMIN_APP_ORIGIN || "http://localhost:5173";
+const PUBLIC_SITE_ORIGINS = process.env.PUBLIC_SITE_ORIGINS || "https://maddauni.online,https://www.maddauni.online";
 const NODE_ENV = process.env.NODE_ENV || "development";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BACKUP_STORAGE_DIR = path.resolve(process.env.BACKUP_STORAGE_DIR || path.join(PROJECT_ROOT, "backups"));
@@ -97,7 +98,10 @@ const pool = mysql.createPool({
 });
 
 const app = express();
-app.use(cors({ origin: APP_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean), credentials: true }));
+app.use(cors({
+  origin: [...APP_ORIGIN.split(","), ...PUBLIC_SITE_ORIGINS.split(",")].map((origin) => origin.trim()).filter(Boolean),
+  credentials: true
+}));
 app.use(express.json({ limit: "25mb" }));
 
 const normalizeEmail = (email = "") => String(email || "").trim().toLowerCase();

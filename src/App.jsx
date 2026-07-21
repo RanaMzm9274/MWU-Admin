@@ -1104,6 +1104,7 @@ function App() {
 
   const {
     createNewPage,
+    createContentPage,
     createProgramPage,
     savePage,
     updateActiveStatus,
@@ -1510,6 +1511,8 @@ function App() {
             setActiveView={setActiveView}
             setEditorTab={setEditorTab}
             deletePageById={deletePageById}
+            createLabel="Add News"
+            onCreate={() => createContentPage("news")}
           />
         )}
 
@@ -1524,6 +1527,8 @@ function App() {
             setActiveView={setActiveView}
             setEditorTab={setEditorTab}
             deletePageById={deletePageById}
+            createLabel="Add Research"
+            onCreate={() => createContentPage("research")}
           />
         )}
 
