@@ -3758,9 +3758,16 @@ function renderBoxStyleFields(el){
     ${colorFieldGeneric('Shadow color', 'boxShadowColor', b.shadowColor||'#0f172a')}
   `;
 }
+function validColorInputValue(value, fallback='#000000'){
+  const raw=String(value||'').trim();
+  if(/^#[0-9A-Fa-f]{6}$/.test(raw)) return raw;
+  if(/^#[0-9A-Fa-f]{3}$/.test(raw)) return '#'+raw.slice(1).split('').map((part)=>part+part).join('');
+  return fallback;
+}
 function colorFieldGeneric(label, id, value){
+  const swatch=validColorInputValue(value);
   return `<div class="field-group"><div class="field-group-label">${label}</div>
-    <div class="color-field-row"><input type="color" id="f_${id}" value="${value}"><input type="text" class="field-input" id="t_${id}" value="${value}"></div></div>`;
+    <div class="color-field-row"><input type="color" id="f_${id}" value="${swatch}"><input type="text" class="field-input" id="t_${id}" value="${value}"></div></div>`;
 }
 function selectFieldGeneric(label, id, options, value){
   return `<div class="field-group"><div class="field-group-label">${label}</div>
@@ -4007,8 +4014,9 @@ function stepperField(label, id, value, min=-999, max=999, step=1){
   return `<div class="field-group"><div class="field-group-label">${label}</div><div class="stepper-field"><input class="field-input" id="f_${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><div class="stepper-buttons"><button type="button" data-step-target="f_${id}" data-step-delta="1">+</button><button type="button" data-step-target="f_${id}" data-step-delta="-1">-</button></div></div></div>`;
 }
 function colorField(label, id, value){
+  const swatch=validColorInputValue(value);
   return `<div class="field-group"><div class="field-group-label">${label}</div>
-    <div class="color-field-row"><input type="color" id="f_${id}" value="${value}"><input type="text" class="field-input" id="t_${id}" value="${value}"></div></div>`;
+    <div class="color-field-row"><input type="color" id="f_${id}" value="${swatch}"><input type="text" class="field-input" id="t_${id}" value="${value}"></div></div>`;
 }
 function selectField(label, id, options, value){
   return `<div class="field-group"><div class="field-group-label">${label}</div>
@@ -4628,7 +4636,7 @@ function replaceAreaHtml(label,id,value,rows=5,hint=''){
   return `<div class="field-group"><div class="field-group-label">${label}</div><textarea class="field-textarea" id="x_${id}" rows="${rows}">${escapeHtml(String(value??''))}</textarea>${hint?`<div class="field-hint">${hint}</div>`:''}</div>`;
 }
 function xSelect(label,id,options,value){return `<div class="field-group"><div class="field-group-label">${label}</div><select class="field-select" id="x_${id}">${options.map(([v,l])=>`<option value="${v}" ${String(v)===String(value)?'selected':''}>${l}</option>`).join('')}</select></div>`;}
-function xColor(label,id,value){return `<div class="field-group"><div class="field-group-label">${label}</div><div class="color-field-row"><input type="color" id="x_${id}" value="${value}"><input class="field-input" id="xt_${id}" value="${value}"></div></div>`;}
+function xColor(label,id,value){const swatch=validColorInputValue(value);return `<div class="field-group"><div class="field-group-label">${label}</div><div class="color-field-row"><input type="color" id="x_${id}" value="${swatch}"><input class="field-input" id="xt_${id}" value="${value}"></div></div>`;}
 function xRange(label,id,min,max,value,unit='px',step=1){return `<div class="field-group"><div class="field-group-label">${label}<span class="val" id="xv_${id}">${value}${unit}</span></div><input type="range" id="x_${id}" min="${min}" max="${max}" value="${value}" step="${step}"></div>`;}
 function xAlign(id,horizontal='left',vertical='top'){
   return alignField(`x_${id}`,horizontal,vertical)

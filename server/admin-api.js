@@ -410,9 +410,33 @@ const findPageByIdentifier = async (identifier) => {
   return rows[0] || null;
 };
 
+const withNameBasedContentSlug = (payload = {}, fallback = {}) => {
+  const title = String(payload.title || payload.page_title || payload.name || fallback.title || "Untitled Page").trim();
+  const marker = [
+    payload.type, payload.page_type, payload.menu, payload.menu_group, payload.template,
+    fallback.type, fallback.page_type, fallback.menu, fallback.menu_group, fallback.template
+  ].filter(Boolean).join(" ").toLowerCase();
+  return /\b(news|blog|research)\b/.test(marker)
+    ? { ...payload, slug: slugify(title) }
+    : payload;
+};
+
+const assertPageSlugAvailable = async (slug, excludedId = "") => {
+  const [rows] = await pool.execute(
+    "SELECT id FROM admin_pages WHERE slug = ? AND (? = '' OR id <> ?) LIMIT 1",
+    [slug, excludedId, excludedId]
+  );
+  if (rows.length) {
+    const error = new Error(`Page already exists with slug \"${slug}\".`);
+    error.code = "ER_DUP_ENTRY";
+    throw error;
+  }
+};
+
 const insertPage = async (payload, actorName = "Content Editor") => {
   const id = crypto.randomUUID();
-  const page = normalizePagePayload({ ...payload, id, page_id: id, updatedBy: actorName, updated_by: actorName });
+  const page = normalizePagePayload({ ...withNameBasedContentSlug(payload), id, page_id: id, updatedBy: actorName, updated_by: actorName });
+  await assertPageSlugAvailable(page.slug);
   await pool.execute(
     `INSERT INTO admin_pages
       (id, title, slug, type, page_type, menu_group, status, updated_by, payload_json)
@@ -426,7 +450,8 @@ const updatePage = async (identifier, payload, actorName = "Content Editor") => 
   const existing = await findPageByIdentifier(identifier);
   if (!existing) return null;
   const existingPage = serializePage(existing);
-  const page = normalizePagePayload({ ...payload, id: existing.id, page_id: existing.id, updatedBy: actorName, updated_by: actorName }, existingPage);
+  const page = normalizePagePayload({ ...withNameBasedContentSlug(payload, existingPage), id: existing.id, page_id: existing.id, updatedBy: actorName, updated_by: actorName }, existingPage);
+  await assertPageSlugAvailable(page.slug, existing.id);
   await pool.execute(
     `UPDATE admin_pages
      SET title = ?, slug = ?, type = ?, page_type = ?, menu_group = ?, status = ?, updated_by = ?, payload_json = ?
@@ -481,6 +506,22 @@ const migrateLegacyBlogPagesToNews = async () => {
   }
 };
 
+const migrateAuthoredContentSlugs = async () => {
+  const [rows] = await pool.query(
+    `SELECT * FROM admin_pages
+     WHERE LOWER(type) IN ('news article', 'blog article', 'research article', 'research publication')
+        OR LOWER(page_type) IN ('news article', 'blog article', 'research article', 'research publication')`
+  );
+  for (const row of rows) {
+    const page = serializePage(row);
+    const expectedSlug = slugify(page.title);
+    if (!expectedSlug || expectedSlug === page.slug) continue;
+    const [collision] = await pool.execute("SELECT id FROM admin_pages WHERE slug = ? AND id <> ? LIMIT 1", [expectedSlug, row.id]);
+    if (collision.length) continue;
+    await updatePage(row.id, { ...page, slug: expectedSlug }, "System Migration");
+  }
+};
+
 const ensureSchema = async () => {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS admin_users (
@@ -532,6 +573,20 @@ const ensureSchema = async () => {
       INDEX idx_admin_pages_type (type),
       INDEX idx_admin_pages_menu_group (menu_group),
       INDEX idx_admin_pages_updated_at (updated_at)
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS page_comments (
+      id CHAR(36) PRIMARY KEY,
+      page_id CHAR(36) NOT NULL,
+      page_slug VARCHAR(220) NOT NULL,
+      author_name VARCHAR(160) NOT NULL,
+      author_email VARCHAR(190) NOT NULL,
+      comment_text TEXT NOT NULL,
+      status ENUM('Approved', 'Pending', 'Spam') NOT NULL DEFAULT 'Approved',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_page_comments_slug_status (page_slug, status),
+      INDEX idx_page_comments_page_id (page_id)
     )
   `);
   await pool.execute(`CREATE TABLE IF NOT EXISTS portal_settings (
@@ -689,6 +744,45 @@ app.get(`${API_PREFIX}/admin/me`, requireAuth, (request, response) => {
   response.json({ user: request.adminUser });
 });
 
+app.get(`${API_PREFIX}/comments`, async (request, response, next) => {
+  try {
+    const requestedSlug = String(request.query.slug || "").trim();
+    if (!requestedSlug) return response.status(400).json({ error: "Page slug is required." });
+    const slug = slugify(requestedSlug);
+    const [rows] = await pool.execute(
+      `SELECT id, page_slug AS pageSlug, author_name AS authorName, comment_text AS comment, created_at AS createdAt
+       FROM page_comments WHERE page_slug = ? AND status = 'Approved' ORDER BY created_at ASC`,
+      [slug]
+    );
+    response.setHeader("Cache-Control", "no-store");
+    response.json({ ok: true, comments: rows });
+  } catch (error) { next(error); }
+});
+
+app.post(`${API_PREFIX}/comments`, async (request, response, next) => {
+  try {
+    const requestedSlug = String(request.body?.slug || "").trim();
+    const slug = requestedSlug ? slugify(requestedSlug) : "";
+    const authorName = String(request.body?.authorName || "").trim().slice(0, 160);
+    const authorEmail = normalizeEmail(request.body?.authorEmail).slice(0, 190);
+    const comment = String(request.body?.comment || "").trim().slice(0, 5000);
+    if (!slug || !authorName || !authorEmail || !comment) {
+      return response.status(400).json({ error: "Name, email, comment, and page slug are required." });
+    }
+    const pageRow = await findPageByIdentifier(slug);
+    if (!pageRow || String(pageRow.status || "").toLowerCase() !== "published") {
+      return response.status(404).json({ error: "Published page not found." });
+    }
+    const id = crypto.randomUUID();
+    await pool.execute(
+      `INSERT INTO page_comments (id, page_id, page_slug, author_name, author_email, comment_text, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'Approved')`,
+      [id, pageRow.id, slug, authorName, authorEmail, comment]
+    );
+    response.status(201).json({ ok: true, comment: { id, pageSlug: slug, authorName, comment, createdAt: new Date().toISOString() } });
+  } catch (error) { next(error); }
+});
+
 // Public website content feed. Only explicitly published pages are exposed;
 // drafts, review content, users, and all mutation routes remain protected.
 app.get(`${API_PREFIX}/pages`, async (request, response, next) => {
@@ -698,7 +792,7 @@ app.get(`${API_PREFIX}/pages`, async (request, response, next) => {
     const values = ["Published"];
     let where = "LOWER(status) = LOWER(?)";
     if (kind === "research") {
-      where += " AND (LOWER(type) LIKE '%research%' OR LOWER(page_type) LIKE '%research%' OR LOWER(menu_group) = 'research')";
+      where += " AND (LOWER(type) LIKE '%research%' OR LOWER(page_type) LIKE '%research%' OR (LOWER(menu_group) = 'research' AND LOWER(type) NOT LIKE '%program%' AND LOWER(page_type) NOT LIKE '%program%'))";
     } else if (kind === "news") {
       where += " AND (LOWER(type) LIKE '%news%' OR LOWER(type) LIKE '%blog%' OR LOWER(page_type) LIKE '%news%' OR LOWER(page_type) LIKE '%blog%' OR LOWER(menu_group) IN ('news','blog','blogs'))";
     }
@@ -794,7 +888,7 @@ app.post(`${API_PREFIX}/admin/pages`, requireAuth, requireModule("page-editor"),
     response.status(existing ? 200 : 201).json({ page, data: page });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
-      response.status(409).json({ error: "A page with this slug already exists." });
+      response.status(409).json({ error: error.message || "Page already exists. Choose a different name." });
       return;
     }
     next(error);
@@ -808,7 +902,7 @@ app.put(`${API_PREFIX}/admin/pages`, requireAuth, requireModule("page-editor"), 
     response.status(201).json({ page, data: page });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
-      response.status(409).json({ error: "A page with this slug already exists." });
+      response.status(409).json({ error: error.message || "Page already exists. Choose a different name." });
       return;
     }
     next(error);
@@ -826,7 +920,7 @@ app.put(`${API_PREFIX}/admin/pages/:identifier`, requireAuth, requireModule("pag
     response.json({ page, data: page });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
-      response.status(409).json({ error: "A page with this slug already exists." });
+      response.status(409).json({ error: error.message || "Page already exists. Choose a different name." });
       return;
     }
     next(error);
@@ -844,7 +938,7 @@ app.patch(`${API_PREFIX}/admin/pages/:identifier`, requireAuth, requireModule("p
     response.json({ page, data: page });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
-      response.status(409).json({ error: "A page with this slug already exists." });
+      response.status(409).json({ error: error.message || "Page already exists. Choose a different name." });
       return;
     }
     next(error);
@@ -1111,7 +1205,7 @@ app.post(`${API_PREFIX}/forms/:shortcode/submit`, async (request, response, next
   } catch (error) { next(error); }
 });
 
-const BACKUP_TABLES = ["admin_users", "admin_user_audit", "admin_pages", "portal_settings", "portal_email_templates", "portal_forms", "portal_form_submissions"];
+const BACKUP_TABLES = ["admin_users", "admin_user_audit", "admin_pages", "page_comments", "portal_settings", "portal_email_templates", "portal_forms", "portal_form_submissions"];
 const BACKUP_FILE_ROOTS = ["dist", "public/assets/partials", "public/assets/img", "public/data"];
 const BACKUP_SINGLE_FILES = ["src/styles.css", "public/assets/madda-logo.png", "public/visual-page-builder.html", "package.json", "package-lock.json"];
 const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
@@ -1313,6 +1407,7 @@ app.use((error, _request, response, _next) => {
 
 await ensureSchema();
 await migrateLegacyBlogPagesToNews();
+await migrateAuthoredContentSlugs();
 await bootstrapAdmin();
 
 app.listen(PORT, () => {

@@ -270,7 +270,9 @@ export default function PageEditor({
           <div className="page-editor-html-toolbar-actions">
             <button
               type="button"
-              onClick={() => builderFrameRef.current?.contentWindow?.location.reload()}
+              onClick={() => {
+                if (builderFrameRef.current) builderFrameRef.current.src = builderUrl;
+              }}
             >
               <RefreshCw size={16} />
               <span>Reload</span>
@@ -283,7 +285,6 @@ export default function PageEditor({
           title={`${safePage.title || "Page"} visual builder`}
           src={builderUrl}
           className="page-editor-html-frame"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox"
         />
       </div>
 

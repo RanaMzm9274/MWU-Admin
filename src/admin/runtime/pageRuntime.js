@@ -3620,7 +3620,7 @@ const withoutLocalPageMarkers = (page = {}) => {
   return cleanPage;
 };
 
-const shouldTryNextMutationRoute = (status) => [400, 404, 405, 409, 415, 422].includes(Number(status));
+const shouldTryNextMutationRoute = (status) => [400, 404, 405, 415, 422].includes(Number(status));
 
 const createPage = ({
   title,

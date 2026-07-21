@@ -161,9 +161,14 @@ export default function usePageActionsController({
     const titleChanged = Boolean(
       previousPage && String(previousPage.title || "").trim() !== String(draftPage.title || "").trim()
     );
+    const contentTypeMarker = [draftPage.type, draftPage.page_type, draftPage.menu, draftPage.menu_group, draftPage.template]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const usesNameBasedSlug = /\b(news|blog|research)\b/.test(contentTypeMarker);
     const requestedSlug = isSiteChromePage(draftPage)
       ? slugify(draftPage.slug || draftPage.title)
-      : slugify(titleChanged || !previousPage ? draftPage.title : draftPage.slug || draftPage.title);
+      : slugify(usesNameBasedSlug || titleChanged || !previousPage ? draftPage.title : draftPage.slug || draftPage.title);
     const slugChanged = Boolean(previousPage && previousSlug && previousSlug !== requestedSlug);
     const migratedDraft = slugChanged
       ? migratePageSlugReferences(
