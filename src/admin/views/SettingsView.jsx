@@ -145,7 +145,7 @@ export default function SettingsView({ logoSrc, adminToken, requestDangerConfirm
     const response = await fetch(apiUrl(`/admin/backups/${backup.id}/export`), { headers: authHeaders() });
     if (!response.ok) return setNotice(await readApiError(response, "Export failed."));
     const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a");
-    link.href = url; link.download = `${backup.name || "mwu-backup"}.json`; link.click(); URL.revokeObjectURL(url);
+    link.href = url; link.download = `${backup.name || "mwu-backup"}.${backup.backup_format === "zip" ? "zip" : "json"}`; link.click(); URL.revokeObjectURL(url);
   };
 
   const importBackup = async (event) => {
@@ -153,9 +153,11 @@ export default function SettingsView({ logoSrc, adminToken, requestDangerConfirm
     if (!file) return;
     try {
       updateProgress("Reading backup file…", 12);
-      const backup = JSON.parse(await file.text());
       updateProgress("Uploading backup to database…", 42);
-      const response = await fetch(apiUrl("/admin/backups/import"), { method: "POST", headers: authHeaders(true), body: JSON.stringify({ name: file.name.replace(/\.json$/i, ""), backup }) });
+      const isZip = file.type === "application/zip" || file.name.toLowerCase().endsWith(".zip");
+      const response = isZip
+        ? await fetch(apiUrl("/admin/backups/import"), { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/zip", "X-Backup-Name": file.name.replace(/\.zip$/i, "") }, body: file })
+        : await fetch(apiUrl("/admin/backups/import"), { method: "POST", headers: authHeaders(true), body: JSON.stringify({ name: file.name.replace(/\.json$/i, ""), backup: JSON.parse(await file.text()) }) });
       if (!response.ok) throw new Error(await readApiError(response, "Import failed."));
       updateProgress("Indexing imported backup…", 82);
       await loadServerSettings(); setNotice("Backup imported into the database. It is now available to restore.");
@@ -265,14 +267,14 @@ export default function SettingsView({ logoSrc, adminToken, requestDangerConfirm
           <div className="backup-toolbar">
             <button className="primary-button" type="button" onClick={createBackup}><Download size={16} /><span>Take Backup</span></button>
             <button className="ghost-button" type="button" onClick={() => importRef.current?.click()}><Upload size={16} /><span>Import to Database</span></button>
-            <input ref={importRef} hidden type="file" accept="application/json,.json" onChange={importBackup} />
+            <input ref={importRef} hidden type="file" accept="application/zip,.zip,application/json,.json" onChange={importBackup} />
             <span className="backup-storage-label">Stored securely in the database</span>
           </div>
           <div className="backup-list">
             {backups.length === 0 && <div className="backup-empty"><ArchiveRestore size={25} /><strong>No saved backups yet</strong><span>Take a backup before major website changes.</span></div>}
             {backups.map((backup, index) => (
               <div className="backup-row" key={backup.id || index}>
-                <div><strong>{backup.name}</strong><span>{new Date(backup.created_at).toLocaleString()} · {Math.max(1, Math.round(Number(backup.size_bytes || 0) / 1024))} KB · Version {backup.backup_version || 1} · {Number(backup.file_count || 0)} files</span></div>
+                <div><strong>{backup.name}</strong><span>{new Date(backup.created_at).toLocaleString()} · {Math.max(1, Math.round(Number(backup.size_bytes || 0) / 1024))} KB · {String(backup.backup_format || "json").toUpperCase()} · Version {backup.backup_version || 1} · {Number(backup.file_count || 0)} files</span></div>
                 <div className="backup-row-actions"><button className="ghost-button" type="button" title="Export backup" onClick={() => exportBackup(backup)}><FileDown size={16} /><span>Export</span></button><button className="ghost-button" type="button" onClick={() => restoreBackup(backup)}><ArchiveRestore size={16} /><span>Restore</span></button><button className="danger-button" type="button" onClick={() => deleteBackup(backup)}><Trash2 size={16} /><span>Delete</span></button></div>
               </div>
             ))}
