@@ -3,8 +3,11 @@ import "dotenv/config";
 
 const isWindows = process.platform === "win32";
 const npmCommand = isWindows ? "npm.cmd" : "npm";
-const apiBaseUrl = process.env.VITE_API_BASE_URL || "";
-const shouldStartLocalApi = (() => {
+const useLocalApi = String(process.env.VITE_USE_LOCAL_API || "").toLowerCase() === "true";
+const apiBaseUrl = useLocalApi
+  ? (process.env.VITE_LOCAL_API_BASE_URL || "http://localhost:4000/api")
+  : (process.env.VITE_API_BASE_URL || "");
+const shouldStartLocalApi = useLocalApi && (() => {
   try {
     const url = new URL(apiBaseUrl);
     return ["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname);

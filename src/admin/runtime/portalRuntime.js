@@ -29,7 +29,11 @@ const normalizeDevProxyBaseUrl = (value, devPrefix) => {
     return raw;
   }
 };
-const API_BASE_URL = normalizeDevProxyBaseUrl(import.meta.env.VITE_API_BASE_URL || "", DEV_API_PROXY_PREFIX);
+const useLocalApi = import.meta.env.DEV && String(import.meta.env.VITE_USE_LOCAL_API || "").toLowerCase() === "true";
+const configuredApiBaseUrl = useLocalApi
+  ? (import.meta.env.VITE_LOCAL_API_BASE_URL || "http://localhost:4000/api")
+  : (import.meta.env.VITE_API_BASE_URL || "");
+const API_BASE_URL = normalizeDevProxyBaseUrl(configuredApiBaseUrl, DEV_API_PROXY_PREFIX);
 const apiUrl = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 const DEFAULT_SITE_CHROME_PUBLISH_URL = import.meta.env.DEV
   ? "/__live_site_chrome"

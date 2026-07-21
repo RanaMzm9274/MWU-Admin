@@ -89,7 +89,7 @@ const pool = mysql.createPool({
 
 const app = express();
 app.use(cors({ origin: APP_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean), credentials: true }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "25mb" }));
 
 const normalizeEmail = (email = "") => String(email || "").trim().toLowerCase();
 
@@ -140,29 +140,56 @@ const createToken = (user) =>
     { expiresIn: JWT_EXPIRES_IN }
   );
 
-const getTransporter = () => {
-  if (!process.env.SMTP_HOST) return null;
+const decryptSecret = (payload = "") => {
+  if (!payload) return "";
+  try {
+    const [ivHex, tagHex, encryptedHex] = payload.split(":");
+    const key = crypto.createHash("sha256").update(JWT_SECRET).digest();
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return Buffer.concat([decipher.update(Buffer.from(encryptedHex, "hex")), decipher.final()]).toString("utf8");
+  } catch { return ""; }
+};
+
+const encryptSecret = (value = "") => {
+  if (!value) return "";
+  const iv = crypto.randomBytes(12);
+  const key = crypto.createHash("sha256").update(JWT_SECRET).digest();
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]);
+  return `${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${encrypted.toString("hex")}`;
+};
+
+const getMailSettings = async () => {
+  const [rows] = await pool.execute("SELECT settings_json FROM portal_settings WHERE setting_key = 'smtp' LIMIT 1");
+  if (rows[0]) return pageJson(rows[0].settings_json, {});
+  return process.env.SMTP_HOST ? {
+    enabled: true, host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587),
+    encryption: String(process.env.SMTP_SECURE).toLowerCase() === "true" ? "ssl" : "tls",
+    username: process.env.SMTP_USER || "", passwordEncrypted: encryptSecret(process.env.SMTP_PASSWORD || ""),
+    fromEmail: process.env.SMTP_FROM || process.env.SMTP_USER || "", fromName: "Madda Walabu University", verified: true
+  } : null;
+};
+
+const getTransporter = async () => {
+  const config = await getMailSettings();
+  if (!config?.enabled || !config?.verified || !config.host) return null;
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
-    auth: process.env.SMTP_USER
-      ? {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD
-        }
-      : undefined
+    host: config.host, port: Number(config.port || 587), secure: config.encryption === "ssl",
+    requireTLS: config.encryption === "tls",
+    auth: config.username ? { user: config.username, pass: decryptSecret(config.passwordEncrypted) } : undefined
   });
 };
 
 const sendInviteEmail = async ({ user, temporaryPassword, actor }) => {
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   if (!transporter) {
     return { sent: false, reason: "SMTP is not configured." };
   }
 
   const loginUrl = process.env.ADMIN_LOGIN_URL || APP_ORIGIN;
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const mailSettings = await getMailSettings();
+  const from = mailSettings?.fromEmail || process.env.SMTP_FROM || process.env.SMTP_USER;
   if (!from) {
     return { sent: false, reason: "SMTP_FROM or SMTP_USER is required." };
   }
@@ -424,6 +451,31 @@ const ensureSchema = async () => {
       INDEX idx_admin_pages_updated_at (updated_at)
     )
   `);
+  await pool.execute(`CREATE TABLE IF NOT EXISTS portal_settings (
+    setting_key VARCHAR(80) PRIMARY KEY, settings_json JSON NOT NULL,
+    updated_by CHAR(36) NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`);
+  await pool.execute(`CREATE TABLE IF NOT EXISTS portal_email_templates (
+    id CHAR(36) PRIMARY KEY, name VARCHAR(160) NOT NULL, subject VARCHAR(255) NOT NULL,
+    html_body LONGTEXT NOT NULL, text_body LONGTEXT NULL, created_by CHAR(36) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`);
+  await pool.execute(`CREATE TABLE IF NOT EXISTS portal_forms (
+    id CHAR(36) PRIMARY KEY, name VARCHAR(160) NOT NULL, shortcode VARCHAR(120) NOT NULL UNIQUE,
+    recipient_email VARCHAR(190) NOT NULL, fields_json JSON NOT NULL, template_id CHAR(36) NULL,
+    success_message VARCHAR(500) NULL, active TINYINT(1) NOT NULL DEFAULT 0, created_by CHAR(36) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`);
+  await pool.execute(`CREATE TABLE IF NOT EXISTS portal_form_submissions (
+    id CHAR(36) PRIMARY KEY, form_id CHAR(36) NOT NULL, payload_json JSON NOT NULL,
+    email_status VARCHAR(40) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_form_submissions_form (form_id)
+  )`);
+  await pool.execute(`CREATE TABLE IF NOT EXISTS portal_backups (
+    id CHAR(36) PRIMARY KEY, name VARCHAR(190) NOT NULL, backup_json LONGTEXT NOT NULL,
+    created_by CHAR(36) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_portal_backups_created (created_at)
+  )`);
 };
 
 const bootstrapAdmin = async () => {
@@ -507,7 +559,12 @@ const getUserPayload = (body = {}) => {
 };
 
 app.get(`${API_PREFIX}/health`, (_request, response) => {
-  response.json({ ok: true, service: "mwu-admin-api" });
+  response.json({
+    ok: true,
+    service: "mwu-admin-api",
+    apiVersion: 2,
+    features: ["database-backups", "backup-import-export", "backup-restore", "smtp-settings", "shortcode-forms"]
+  });
 });
 
 app.post(`${API_PREFIX}/admin/login`, async (request, response, next) => {
@@ -848,6 +905,133 @@ app.delete(`${API_PREFIX}/admin/users/:id`, requireAuth, requireModule("users"),
   } catch (error) {
     next(error);
   }
+});
+
+const publicSmtpSettings = (config = {}) => ({
+  enabled: Boolean(config.enabled), host: config.host || "", port: String(config.port || "587"),
+  encryption: config.encryption || "tls", username: config.username || "", hasPassword: Boolean(config.passwordEncrypted),
+  fromEmail: config.fromEmail || "", fromName: config.fromName || "", verified: Boolean(config.verified)
+});
+
+app.get(`${API_PREFIX}/admin/settings`, requireAuth, requireModule("settings"), async (_request, response, next) => {
+  try {
+    const smtp = await getMailSettings();
+    const [formRows] = await pool.execute("SELECT settings_json FROM portal_settings WHERE setting_key = 'forms' LIMIT 1");
+    response.json({ smtp: publicSmtpSettings(smtp), forms: pageJson(formRows[0]?.settings_json, {}) });
+  } catch (error) { next(error); }
+});
+
+app.put(`${API_PREFIX}/admin/settings/forms`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try {
+    await pool.execute("INSERT INTO portal_settings (setting_key, settings_json, updated_by) VALUES ('forms', ?, ?) ON DUPLICATE KEY UPDATE settings_json=VALUES(settings_json), updated_by=VALUES(updated_by)", [JSON.stringify(request.body || {}), request.adminUser.id]);
+    response.json({ ok: true, forms: request.body || {} });
+  } catch (error) { next(error); }
+});
+
+app.put(`${API_PREFIX}/admin/settings/smtp`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try {
+    const previous = await getMailSettings();
+    const config = {
+      enabled: Boolean(request.body.enabled), host: String(request.body.host || "").trim(),
+      port: Number(request.body.port || 587), encryption: ["tls", "ssl", "none"].includes(request.body.encryption) ? request.body.encryption : "tls",
+      username: String(request.body.username || "").trim(), fromEmail: normalizeEmail(request.body.fromEmail),
+      fromName: String(request.body.fromName || "Madda Walabu University").trim(),
+      passwordEncrypted: request.body.password ? encryptSecret(request.body.password) : previous?.passwordEncrypted || "",
+      verified: false
+    };
+    if (config.enabled) {
+      if (!config.host || !config.port || !config.fromEmail) return response.status(400).json({ error: "SMTP host, port, and from email are required." });
+      const transporter = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.encryption === "ssl", requireTLS: config.encryption === "tls", auth: config.username ? { user: config.username, pass: request.body.password || decryptSecret(config.passwordEncrypted) } : undefined });
+      await transporter.verify();
+      config.verified = true;
+    }
+    await pool.execute("INSERT INTO portal_settings (setting_key, settings_json, updated_by) VALUES ('smtp', ?, ?) ON DUPLICATE KEY UPDATE settings_json=VALUES(settings_json), updated_by=VALUES(updated_by)", [JSON.stringify(config), request.adminUser.id]);
+    await audit({ actorId: request.adminUser.id, action: "smtp_settings_updated", details: { enabled: config.enabled, verified: config.verified, host: config.host } });
+    response.json({ ok: true, smtp: publicSmtpSettings(config), message: config.enabled ? "SMTP verified and email delivery activated." : "SMTP disabled." });
+  } catch (error) { response.status(400).json({ error: `SMTP verification failed: ${error.message}` }); }
+});
+
+app.get(`${API_PREFIX}/admin/forms`, requireAuth, requireModule("settings"), async (_request, response, next) => {
+  try {
+    const [rows] = await pool.execute("SELECT f.*, t.name template_name FROM portal_forms f LEFT JOIN portal_email_templates t ON t.id=f.template_id ORDER BY f.updated_at DESC");
+    response.json({ forms: rows.map((row) => ({ ...row, fields: pageJson(row.fields_json, []), active: Boolean(row.active) })) });
+  } catch (error) { next(error); }
+});
+
+app.post(`${API_PREFIX}/admin/forms`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try {
+    const smtp = await getMailSettings();
+    if (request.body.active && (!smtp?.enabled || !smtp?.verified)) return response.status(409).json({ error: "SMTP not configured. Save and verify SMTP settings before activating forms." });
+    const id = crypto.randomUUID();
+    const shortcode = slugify(request.body.shortcode || request.body.name);
+    const templateId = crypto.randomUUID();
+    await pool.execute("INSERT INTO portal_email_templates (id,name,subject,html_body,text_body,created_by) VALUES (?,?,?,?,?,?)", [templateId, `${request.body.name} notification`, request.body.subject || "New {{form_name}} submission", request.body.htmlBody || "<h2>New submission</h2><p>{{all_fields}}</p>", request.body.textBody || "{{all_fields}}", request.adminUser.id]);
+    await pool.execute("INSERT INTO portal_forms (id,name,shortcode,recipient_email,fields_json,template_id,success_message,active,created_by) VALUES (?,?,?,?,?,?,?,?,?)", [id, String(request.body.name || "New Form").trim(), shortcode, normalizeEmail(request.body.recipientEmail), JSON.stringify(request.body.fields || []), templateId, request.body.successMessage || "Thank you. Your submission has been received.", request.body.active ? 1 : 0, request.adminUser.id]);
+    response.status(201).json({ id, shortcode: `[mwu_form id="${shortcode}"]`, active: Boolean(request.body.active) });
+  } catch (error) { next(error); }
+});
+
+const renderTemplate = (template, values) => String(template || "").replace(/{{\s*([\w-]+)\s*}}/g, (_match, key) => escapeHtml(values[key] ?? ""));
+
+app.post(`${API_PREFIX}/forms/:shortcode/submit`, async (request, response, next) => {
+  try {
+    const [rows] = await pool.execute("SELECT f.*, t.subject, t.html_body, t.text_body FROM portal_forms f LEFT JOIN portal_email_templates t ON t.id=f.template_id WHERE f.shortcode=? AND f.active=1 LIMIT 1", [request.params.shortcode]);
+    const form = rows[0];
+    if (!form) return response.status(404).json({ error: "Form not found or inactive." });
+    const smtp = await getMailSettings();
+    const transporter = await getTransporter();
+    if (!smtp?.verified || !transporter) return response.status(503).json({ error: "SMTP not configured. This form cannot send email." });
+    const allFields = Object.entries(request.body || {}).map(([key, value]) => `${key}: ${value}`).join("\n");
+    const values = { ...request.body, form_name: form.name, all_fields: allFields };
+    let emailStatus = "sent";
+    try { await transporter.sendMail({ from: { name: smtp.fromName, address: smtp.fromEmail }, to: form.recipient_email, replyTo: request.body.email || undefined, subject: renderTemplate(form.subject, values), html: renderTemplate(form.html_body, values).replace(/\n/g, "<br>"), text: renderTemplate(form.text_body || allFields, values) }); }
+    catch (error) { emailStatus = "failed"; throw error; }
+    finally { await pool.execute("INSERT INTO portal_form_submissions (id,form_id,payload_json,email_status) VALUES (?,?,?,?)", [crypto.randomUUID(), form.id, JSON.stringify(request.body || {}), emailStatus]); }
+    response.json({ ok: true, message: form.success_message });
+  } catch (error) { next(error); }
+});
+
+const BACKUP_TABLES = ["admin_pages", "portal_settings", "portal_email_templates", "portal_forms", "portal_form_submissions"];
+const restoreRow = (row = {}) => Object.fromEntries(
+  Object.entries(row).map(([key, value]) => [key, value && typeof value === "object" && !(value instanceof Date) ? JSON.stringify(value) : value])
+);
+const createDatabaseSnapshot = async () => {
+  const tables = {};
+  for (const table of BACKUP_TABLES) { const [rows] = await pool.query(`SELECT * FROM \`${table}\``); tables[table] = rows; }
+  return { format: "mwu-database-backup", version: 1, createdAt: new Date().toISOString(), tables };
+};
+
+app.get(`${API_PREFIX}/admin/backups`, requireAuth, requireModule("settings"), async (_request, response, next) => {
+  try { const [rows] = await pool.execute("SELECT id,name,created_by,created_at,OCTET_LENGTH(backup_json) size_bytes FROM portal_backups ORDER BY created_at DESC"); response.json({ backups: rows }); } catch (error) { next(error); }
+});
+
+app.post(`${API_PREFIX}/admin/backups`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try { const id = crypto.randomUUID(); const backup = await createDatabaseSnapshot(); const name = String(request.body.name || `MWU Backup ${new Date().toLocaleString()}`).slice(0, 190); await pool.execute("INSERT INTO portal_backups (id,name,backup_json,created_by) VALUES (?,?,?,?)", [id, name, JSON.stringify(backup), request.adminUser.id]); await audit({ actorId: request.adminUser.id, action: "database_backup_created", details: { backupId: id } }); response.status(201).json({ id, name, created_at: backup.createdAt }); } catch (error) { next(error); }
+});
+
+app.post(`${API_PREFIX}/admin/backups/import`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try {
+    const snapshot = request.body?.backup;
+    if (snapshot?.format !== "mwu-database-backup" || snapshot?.version !== 1 || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported MWU database backup." });
+    const id = crypto.randomUUID();
+    const name = String(request.body.name || `Imported Backup ${new Date().toLocaleString()}`).slice(0, 190);
+    await pool.execute("INSERT INTO portal_backups (id,name,backup_json,created_by) VALUES (?,?,?,?)", [id, name, JSON.stringify(snapshot), request.adminUser.id]);
+    await audit({ actorId: request.adminUser.id, action: "database_backup_imported", details: { backupId: id } });
+    response.status(201).json({ id, name });
+  } catch (error) { next(error); }
+});
+
+app.get(`${API_PREFIX}/admin/backups/:id/export`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try { const [rows] = await pool.execute("SELECT name,backup_json FROM portal_backups WHERE id=?", [request.params.id]); if (!rows[0]) return response.status(404).json({ error: "Backup not found." }); response.setHeader("Content-Disposition", `attachment; filename="${slugify(rows[0].name)}.json"`); response.type("json").send(rows[0].backup_json); } catch (error) { next(error); }
+});
+
+app.post(`${API_PREFIX}/admin/backups/:id/restore`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  const connection = await pool.getConnection();
+  try { const [rows] = await connection.execute("SELECT backup_json FROM portal_backups WHERE id=?", [request.params.id]); if (!rows[0]) return response.status(404).json({ error: "Backup not found." }); const snapshot = pageJson(rows[0].backup_json, null); if (snapshot?.format !== "mwu-database-backup" || snapshot?.version !== 1 || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported backup." }); await connection.beginTransaction(); for (const table of BACKUP_TABLES) { await connection.query(`DELETE FROM \`${table}\``); for (const row of snapshot.tables[table] || []) { await connection.query(`INSERT INTO \`${table}\` SET ?`, restoreRow(row)); } } await connection.commit(); await audit({ actorId: request.adminUser.id, action: "database_backup_restored", details: { backupId: request.params.id } }); response.json({ ok: true, message: "Database backup restored successfully." }); } catch (error) { await connection.rollback(); next(error); } finally { connection.release(); }
+});
+
+app.delete(`${API_PREFIX}/admin/backups/:id`, requireAuth, requireModule("settings"), async (request, response, next) => {
+  try { const user = await findUserById(request.adminUser.id); const passwordOk = await bcrypt.compare(String(request.body.password || ""), user.password_hash); if (!passwordOk) return response.status(403).json({ error: "Password verification failed." }); if (request.body.confirmation !== `DELETE ${request.params.id}`) return response.status(400).json({ error: `Type DELETE ${request.params.id} to confirm.` }); const [result] = await pool.execute("DELETE FROM portal_backups WHERE id=?", [request.params.id]); if (!result.affectedRows) return response.status(404).json({ error: "Backup not found." }); await audit({ actorId: request.adminUser.id, action: "database_backup_deleted", details: { backupId: request.params.id, dualVerification: true } }); response.json({ ok: true }); } catch (error) { next(error); }
 });
 
 app.use((error, _request, response, _next) => {

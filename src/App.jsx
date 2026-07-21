@@ -1575,7 +1575,7 @@ function App() {
           />
         )}
 
-        {activeView === "settings" && hasPortalAccess(adminProfile, "settings") && <SettingsView logoSrc={assets.logoOfficial} />}
+        {activeView === "settings" && hasPortalAccess(adminProfile, "settings") && <SettingsView logoSrc={assets.logoOfficial} adminToken={adminToken} />}
 
         {activeView === "site-chrome" && hasPortalAccess(adminProfile, "site-chrome") && (
           <SiteChromeView
