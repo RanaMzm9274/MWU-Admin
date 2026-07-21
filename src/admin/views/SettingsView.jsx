@@ -65,14 +65,16 @@ export default function SettingsView({ logoSrc, adminToken }) {
     try {
       const [settingsResponse, backupsResponse, formsResponse] = await Promise.all([
         fetch(apiUrl("/admin/settings"), { headers: authHeaders() }),
-        fetch(apiUrl("/admin/backups"), { headers: authHeaders() }),
+        fetch(apiUrl(`/admin/backups?refresh=${Date.now()}`), { headers: authHeaders(), cache: "no-store" }),
         fetch(apiUrl("/admin/forms"), { headers: authHeaders() })
       ]);
       if (!settingsResponse.ok) throw new Error(await readApiError(settingsResponse, "Could not load settings."));
+      if (!backupsResponse.ok) throw new Error(await readApiError(backupsResponse, "Could not load saved backups."));
+      if (!formsResponse.ok) throw new Error(await readApiError(formsResponse, "Could not load forms."));
       const remote = await settingsResponse.json();
       setSettings((current) => ({ forms: { ...current.forms, ...(remote.forms || {}) }, smtp: { ...current.smtp, ...(remote.smtp || {}), password: "" } }));
-      if (backupsResponse.ok) setBackups((await backupsResponse.json()).backups || []);
-      if (formsResponse.ok) setForms((await formsResponse.json()).forms || []);
+      setBackups((await backupsResponse.json()).backups || []);
+      setForms((await formsResponse.json()).forms || []);
     } catch (error) { setNotice(error.message); }
   };
 
@@ -103,6 +105,8 @@ export default function SettingsView({ logoSrc, adminToken }) {
       window.setTimeout(() => setOperation((current) => current?.progress < 45 ? { label: "Collecting database records…", progress: 45 } : current), 350);
       const response = await responsePromise;
       if (!response.ok) throw new Error(await readApiError(response, "Backup failed."));
+      const createdBackup = await response.json();
+      setBackups((current) => [createdBackup, ...current.filter((backup) => backup.id !== createdBackup.id)]);
       updateProgress("Saving backup record…", 82);
       await loadServerSettings();
       setNotice("Database backup created successfully.");
@@ -234,8 +238,8 @@ export default function SettingsView({ logoSrc, adminToken }) {
           </div>
         </div>
 
-        <div className="panel settings-card settings-backup-card">
-          <div className="panel-head compact"><div><span className="eyebrow">Recovery</span><h2>Backup & Restore</h2><p>Create portable JSON backups of portal configuration, drafts, programs, and media metadata.</p></div><ArchiveRestore size={22} /></div>
+        <div className="panel settings-card settings-backup-card database-backups-card">
+          <div className="panel-head compact"><div><span className="eyebrow">Recovery</span><h2>Full Backup & Restore</h2><p>Versioned snapshots include database content, users, settings, styles, generated pages, navigation partials, forms, and site data files.</p></div><ArchiveRestore size={22} /></div>
           <div className="backup-toolbar">
             <button className="primary-button" type="button" onClick={createBackup}><Download size={16} /><span>Take Backup</span></button>
             <button className="ghost-button" type="button" onClick={() => importRef.current?.click()}><Upload size={16} /><span>Import to Database</span></button>
@@ -246,8 +250,8 @@ export default function SettingsView({ logoSrc, adminToken }) {
             {backups.length === 0 && <div className="backup-empty"><ArchiveRestore size={25} /><strong>No saved backups yet</strong><span>Take a backup before major website changes.</span></div>}
             {backups.map((backup, index) => (
               <div className="backup-row" key={backup.id || index}>
-                <div><strong>{backup.name}</strong><span>{new Date(backup.created_at).toLocaleString()} · {Math.max(1, Math.round(Number(backup.size_bytes || 0) / 1024))} KB</span></div>
-                <div className="backup-row-actions"><button className="icon-button" type="button" title="Export backup" onClick={() => exportBackup(backup)}><FileDown size={16} /></button><button className="ghost-button" type="button" onClick={() => restoreBackup(backup)}><ArchiveRestore size={16} /><span>Restore</span></button><button className="danger-button" type="button" onClick={() => deleteBackup(backup)}><Trash2 size={16} /><span>Delete</span></button></div>
+                <div><strong>{backup.name}</strong><span>{new Date(backup.created_at).toLocaleString()} · {Math.max(1, Math.round(Number(backup.size_bytes || 0) / 1024))} KB · Version {backup.backup_version || 1} · {Number(backup.file_count || 0)} files</span></div>
+                <div className="backup-row-actions"><button className="ghost-button" type="button" title="Export backup" onClick={() => exportBackup(backup)}><FileDown size={16} /><span>Export</span></button><button className="ghost-button" type="button" onClick={() => restoreBackup(backup)}><ArchiveRestore size={16} /><span>Restore</span></button><button className="danger-button" type="button" onClick={() => deleteBackup(backup)}><Trash2 size={16} /><span>Delete</span></button></div>
               </div>
             ))}
           </div>

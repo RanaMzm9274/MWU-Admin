@@ -7958,6 +7958,10 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.database-backups-card {
+  order: -1;
+}
+
 .backup-toolbar {
   padding: 18px;
   border-bottom: 1px solid var(--mwu-line-soft);

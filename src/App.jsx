@@ -1114,7 +1114,8 @@ function App() {
     bulkDuplicate,
     exportAllPages,
     importPages,
-    importLivePublishedPages
+    importLivePublishedPages,
+    pageImportProgress
   } = usePageActionsController({
     canCreatePages,
     requireAnyPortalAccess,
@@ -1406,6 +1407,7 @@ function App() {
             importLivePublishedPages={importLivePublishedPages}
             importInputRef={importInputRef}
             importPages={importPages}
+            pageImportProgress={pageImportProgress}
             createNewPage={createNewPage}
             deletePageById={deletePageById}
             openPageEditorView={openPageEditorView}

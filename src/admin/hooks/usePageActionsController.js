@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { apiUrl, getAuthHeaders, readApiError, editorDebugLog, clearAdminSession, makeId, todayIso } from "../runtime/portalRuntime";
 import { slugify, normalizeSlugReference, migratePageSlugReferences, normalizePageForEditableImport, normalizeSection, normalizePage, toApiPagePayload, readOptionalJson, getPageApiIdentifiers, isLocalDraftPage, withPageDeleteIdentifiers, shouldTryNextMutationRoute, emptyPage, createBlankLocalDraftPage, isSiteChromePage, isMatchingSiteChromePage } from "../runtime/pageRuntime";
 import { getSiteChromeHtml } from "../runtime/siteChromeRuntime";
@@ -8,6 +9,14 @@ export default function usePageActionsController({
   adminToken, setAdminToken, setNotice, selectedPageIds, setSelectedPageIds, filteredPages, persistPageToApi,
   requestDangerConfirmation, programs, setPrograms, suppressInAppBuilderReinitRef, publishSiteChromeFile
 }) {
+  const [pageImportProgress, setPageImportProgress] = useState(null);
+  const updateImportProgress = (label, progress, current = 0, total = 0) => {
+    setPageImportProgress({ label, progress: Math.max(0, Math.min(100, Math.round(progress))), current, total });
+  };
+  const completeImportProgress = (label) => {
+    setPageImportProgress((current) => ({ ...(current || {}), label, progress: 100 }));
+    window.setTimeout(() => setPageImportProgress(null), 1400);
+  };
   const createNewPage = () => {
     if (!canCreatePages) {  
       setNotice("Page editor access is not enabled for this account.");  
@@ -561,7 +570,7 @@ export default function usePageActionsController({
     setNotice("All pages exported.");  
   };  
     
-  const importPages = async (event) => {  
+  const importPages = async (event) => {
     if (!requireAnyPortalAccess(["pages"], "Page import")) {  
       if (event?.target) {  
         event.target.value = "";  
@@ -573,11 +582,14 @@ export default function usePageActionsController({
       return;  
     }  
     
-    try {  
-      const text = await file.text();  
-      const parsed = JSON.parse(text);  
-      const sourcePages = Array.isArray(parsed?.pages) ? parsed.pages : Array.isArray(parsed) ? parsed : [parsed];  
-      const imported = sourcePages.map((page) =>  
+    try {
+      updateImportProgress("Reading page export…", 12);
+      const text = await file.text();
+      updateImportProgress("Validating imported pages…", 35);
+      const parsed = JSON.parse(text);
+      const sourcePages = Array.isArray(parsed?.pages) ? parsed.pages : Array.isArray(parsed) ? parsed : [parsed];
+      updateImportProgress("Preparing page records…", 58, 0, sourcePages.length);
+      const imported = sourcePages.map((page) =>
         normalizePage({  
           ...page,  
           id: page.id || page.page_id || makeId(),  
@@ -586,7 +598,8 @@ export default function usePageActionsController({
           updatedAt: todayIso(),  
           createdAt: page.createdAt || page.created_at || todayIso()  
         })  
-      );  
+      );
+      updateImportProgress("Adding pages to the workspace…", 86, imported.length, imported.length);
     
       setPages((current) => {  
         const nextPages = [...current];  
@@ -602,28 +615,33 @@ export default function usePageActionsController({
       });  
       setActivePageId(imported[0].id);  
       setFormPage(imported[0]);  
-      setNotice(`Imported or updated ${imported.length} page${imported.length === 1 ? "" : "s"}.`);  
-    } catch {  
-      setNotice("Import failed. Use a valid page JSON export.");  
+      setNotice(`Imported or updated ${imported.length} page${imported.length === 1 ? "" : "s"}.`);
+      completeImportProgress(`Imported ${imported.length} page${imported.length === 1 ? "" : "s"}`);
+    } catch {
+      setPageImportProgress(null);
+      setNotice("Import failed. Use a valid page JSON export.");
     } finally {  
       event.target.value = "";  
     }  
   };  
     
-  const importLivePublishedPages = async () => {  
+  const importLivePublishedPages = async () => {
     if (!requireAnyPortalAccess(["pages"], "Admin page sync")) {  
       return;  
-    }  
-    try {  
-      const response = await fetch(apiUrl("/admin/pages?limit=200"), {  
+    }
+    try {
+      updateImportProgress("Connecting to the Admin API…", 8);
+      const response = await fetch(apiUrl("/admin/pages?limit=200"), {
         headers: getAuthHeaders(adminToken)  
       });  
       if (!response.ok) {  
         throw new Error(await readApiError(response, "Admin pages API is not available."));  
-      }  
-    
-      const payload = await response.json();  
-      const incomingPages = (payload.data || payload.pages || []).map((page, index) =>  
+      }
+
+      updateImportProgress("Downloading published page data…", 20);
+      const payload = await response.json();
+      updateImportProgress("Preparing editable pages…", 30);
+      const incomingPages = (payload.data || payload.pages || []).map((page, index) =>
         normalizePageForEditableImport({  
           ...page,  
           id: page.id || makeId(),  
@@ -643,14 +661,22 @@ export default function usePageActionsController({
         }))  
       });  
     
-      if (!incomingPages.length) {  
-        setNotice("No pages found in Admin API.");  
-        return;  
-      }  
-    
-      const savedPages = [];  
-      for (const page of incomingPages) {  
-        try {  
+      if (!incomingPages.length) {
+        setPageImportProgress(null);
+        setNotice("No pages found in Admin API.");
+        return;
+      }
+
+      const savedPages = [];
+      for (let pageIndex = 0; pageIndex < incomingPages.length; pageIndex += 1) {
+        const page = incomingPages[pageIndex];
+        updateImportProgress(
+          `Importing ${page.title || "page"}…`,
+          30 + ((pageIndex + 1) / incomingPages.length) * 62,
+          pageIndex + 1,
+          incomingPages.length
+        );
+        try {
           editorDebugLog("pages-import:save-page", {  
             title: page.title,  
             slug: page.slug,  
@@ -673,16 +699,19 @@ export default function usePageActionsController({
         } catch {  
           savedPages.push(page);  
         }  
-      }  
-    
-      const selectedPage = savedPages.find(isNormalWebsitePage) || savedPages[0];  
+      }
+
+      updateImportProgress("Refreshing the page library…", 96, savedPages.length, incomingPages.length);
+      const selectedPage = savedPages.find(isNormalWebsitePage) || savedPages[0];
     
       setPages(savedPages);  
       setActivePageId(selectedPage.id);  
       setFormPage(selectedPage);  
-      setActiveView("pages");  
-      setNotice(`Reimported ${savedPages.length} pages with corrected editable HTML paths.`);  
-    } catch (error) {  
+      setActiveView("pages");
+      setNotice(`Reimported ${savedPages.length} pages with corrected editable HTML paths.`);
+      completeImportProgress(`Imported ${savedPages.length} page${savedPages.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      setPageImportProgress(null);
       if (String(error.message || "").includes("HTTP 401")) {  
         clearAdminSession();  
         setAdminToken("");  
@@ -695,6 +724,7 @@ export default function usePageActionsController({
 
   return {
     createNewPage, createProgramPage, savePage, updateActiveStatus, deletePageById, bulkDeletePages, deletePage,
-    toggleSelectedPage, toggleAllFiltered, bulkUpdateStatus, bulkDuplicate, exportAllPages, importPages, importLivePublishedPages
+    toggleSelectedPage, toggleAllFiltered, bulkUpdateStatus, bulkDuplicate, exportAllPages, importPages, importLivePublishedPages,
+    pageImportProgress
   };
 }

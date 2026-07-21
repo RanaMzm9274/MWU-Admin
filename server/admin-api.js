@@ -6,6 +6,9 @@ import jwt from "jsonwebtoken";
 import mysql from "mysql2/promise";
 import nodemailer from "nodemailer";
 import crypto from "node:crypto";
+import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.ADMIN_API_PORT || process.env.PORT || 4000);
 const API_PREFIX = process.env.ADMIN_API_PREFIX || "/api";
@@ -13,6 +16,7 @@ const JWT_SECRET = process.env.ADMIN_JWT_SECRET || "";
 const JWT_EXPIRES_IN = process.env.ADMIN_JWT_EXPIRES_IN || "8h";
 const APP_ORIGIN = process.env.ADMIN_APP_ORIGIN || "http://localhost:5173";
 const NODE_ENV = process.env.NODE_ENV || "development";
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 if (!JWT_SECRET) {
   throw new Error("ADMIN_JWT_SECRET is required.");
@@ -994,28 +998,76 @@ app.post(`${API_PREFIX}/forms/:shortcode/submit`, async (request, response, next
   } catch (error) { next(error); }
 });
 
-const BACKUP_TABLES = ["admin_pages", "portal_settings", "portal_email_templates", "portal_forms", "portal_form_submissions"];
+const BACKUP_TABLES = ["admin_users", "admin_user_audit", "admin_pages", "portal_settings", "portal_email_templates", "portal_forms", "portal_form_submissions"];
+const BACKUP_FILE_ROOTS = ["dist", "public/assets/partials", "public/assets/img", "public/data"];
+const BACKUP_SINGLE_FILES = ["src/styles.css", "public/assets/madda-logo.png", "public/visual-page-builder.html", "package.json", "package-lock.json"];
+const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_BACKUP_FILES_BYTES = 25 * 1024 * 1024;
 const restoreRow = (row = {}) => Object.fromEntries(
   Object.entries(row).map(([key, value]) => [key, value && typeof value === "object" && !(value instanceof Date) ? JSON.stringify(value) : value])
 );
+const collectBackupFiles = async () => {
+  const relativeFiles = [...BACKUP_SINGLE_FILES];
+  const walk = async (relativeDirectory) => {
+    const absoluteDirectory = path.resolve(PROJECT_ROOT, relativeDirectory);
+    try { await access(absoluteDirectory); } catch { return; }
+    for (const entry of await readdir(absoluteDirectory, { withFileTypes: true })) {
+      const relativePath = path.posix.join(relativeDirectory.replace(/\\/g, "/"), entry.name);
+      if (entry.isDirectory()) await walk(relativePath);
+      else relativeFiles.push(relativePath);
+    }
+  };
+  for (const directory of BACKUP_FILE_ROOTS) await walk(directory);
+  try {
+    for (const entry of await readdir(path.resolve(PROJECT_ROOT, "public"), { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith(".html")) relativeFiles.push(`public/${entry.name}`);
+    }
+  } catch { /* Optional public directory. */ }
+  const files = [];
+  let totalBytes = 0;
+  for (const relativePath of [...new Set(relativeFiles)]) {
+    const absolutePath = path.resolve(PROJECT_ROOT, relativePath);
+    if (!absolutePath.startsWith(`${PROJECT_ROOT}${path.sep}`)) continue;
+    try {
+      const contents = await readFile(absolutePath);
+      if (contents.length > MAX_BACKUP_FILE_BYTES || totalBytes + contents.length > MAX_BACKUP_FILES_BYTES) continue;
+      totalBytes += contents.length;
+      files.push({ path: relativePath.replace(/\\/g, "/"), encoding: "base64", contents: contents.toString("base64"), bytes: contents.length });
+    } catch { /* A deploy may not contain every optional source file. */ }
+  }
+  return { files, totalBytes };
+};
+
+const restoreBackupFiles = async (files = []) => {
+  for (const file of files) {
+    const relativePath = String(file?.path || "").replace(/\\/g, "/").replace(/^\/+/, "");
+    const absolutePath = path.resolve(PROJECT_ROOT, relativePath);
+    if (!relativePath || !absolutePath.startsWith(`${PROJECT_ROOT}${path.sep}`)) throw new Error(`Unsafe backup file path: ${relativePath}`);
+    const contents = Buffer.from(String(file.contents || ""), file.encoding === "base64" ? "base64" : "utf8");
+    if (contents.length > MAX_BACKUP_FILE_BYTES) throw new Error(`Backup file is too large: ${relativePath}`);
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, contents);
+  }
+};
 const createDatabaseSnapshot = async () => {
   const tables = {};
   for (const table of BACKUP_TABLES) { const [rows] = await pool.query(`SELECT * FROM \`${table}\``); tables[table] = rows; }
-  return { format: "mwu-database-backup", version: 1, createdAt: new Date().toISOString(), tables };
+  const fileSnapshot = await collectBackupFiles();
+  return { format: "mwu-database-backup", version: 2, createdAt: new Date().toISOString(), tables, files: fileSnapshot.files, fileBytes: fileSnapshot.totalBytes };
 };
 
 app.get(`${API_PREFIX}/admin/backups`, requireAuth, requireModule("settings"), async (_request, response, next) => {
-  try { const [rows] = await pool.execute("SELECT id,name,created_by,created_at,OCTET_LENGTH(backup_json) size_bytes FROM portal_backups ORDER BY created_at DESC"); response.json({ backups: rows }); } catch (error) { next(error); }
+  try { const [rows] = await pool.execute("SELECT id,name,created_by,created_at,OCTET_LENGTH(backup_json) size_bytes,COALESCE(JSON_UNQUOTE(JSON_EXTRACT(backup_json, '$.version')), '1') backup_version,COALESCE(JSON_LENGTH(JSON_EXTRACT(backup_json, '$.files')), 0) file_count FROM portal_backups ORDER BY created_at DESC"); response.setHeader("Cache-Control", "no-store"); response.json({ backups: rows }); } catch (error) { next(error); }
 });
 
 app.post(`${API_PREFIX}/admin/backups`, requireAuth, requireModule("settings"), async (request, response, next) => {
-  try { const id = crypto.randomUUID(); const backup = await createDatabaseSnapshot(); const name = String(request.body.name || `MWU Backup ${new Date().toLocaleString()}`).slice(0, 190); await pool.execute("INSERT INTO portal_backups (id,name,backup_json,created_by) VALUES (?,?,?,?)", [id, name, JSON.stringify(backup), request.adminUser.id]); await audit({ actorId: request.adminUser.id, action: "database_backup_created", details: { backupId: id } }); response.status(201).json({ id, name, created_at: backup.createdAt }); } catch (error) { next(error); }
+  try { const id = crypto.randomUUID(); const backup = await createDatabaseSnapshot(); const serialized = JSON.stringify(backup); const name = String(request.body.name || `MWU Full Backup ${new Date().toLocaleString()}`).slice(0, 190); await pool.execute("INSERT INTO portal_backups (id,name,backup_json,created_by) VALUES (?,?,?,?)", [id, name, serialized, request.adminUser.id]); await audit({ actorId: request.adminUser.id, action: "database_backup_created", details: { backupId: id, version: backup.version, fileCount: backup.files.length } }); response.status(201).json({ id, name, created_at: backup.createdAt, size_bytes: Buffer.byteLength(serialized), backup_version: backup.version, file_count: backup.files.length }); } catch (error) { next(error); }
 });
 
 app.post(`${API_PREFIX}/admin/backups/import`, requireAuth, requireModule("settings"), async (request, response, next) => {
   try {
     const snapshot = request.body?.backup;
-    if (snapshot?.format !== "mwu-database-backup" || snapshot?.version !== 1 || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported MWU database backup." });
+    if (snapshot?.format !== "mwu-database-backup" || ![1, 2].includes(Number(snapshot?.version)) || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported MWU database backup." });
     const id = crypto.randomUUID();
     const name = String(request.body.name || `Imported Backup ${new Date().toLocaleString()}`).slice(0, 190);
     await pool.execute("INSERT INTO portal_backups (id,name,backup_json,created_by) VALUES (?,?,?,?)", [id, name, JSON.stringify(snapshot), request.adminUser.id]);
@@ -1030,7 +1082,7 @@ app.get(`${API_PREFIX}/admin/backups/:id/export`, requireAuth, requireModule("se
 
 app.post(`${API_PREFIX}/admin/backups/:id/restore`, requireAuth, requireModule("settings"), async (request, response, next) => {
   const connection = await pool.getConnection();
-  try { const [rows] = await connection.execute("SELECT backup_json FROM portal_backups WHERE id=?", [request.params.id]); if (!rows[0]) return response.status(404).json({ error: "Backup not found." }); const snapshot = pageJson(rows[0].backup_json, null); if (snapshot?.format !== "mwu-database-backup" || snapshot?.version !== 1 || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported backup." }); await connection.beginTransaction(); for (const table of BACKUP_TABLES) { await connection.query(`DELETE FROM \`${table}\``); for (const row of snapshot.tables[table] || []) { await connection.query(`INSERT INTO \`${table}\` SET ?`, restoreRow(row)); } } await connection.commit(); await audit({ actorId: request.adminUser.id, action: "database_backup_restored", details: { backupId: request.params.id } }); response.json({ ok: true, message: "Database backup restored successfully." }); } catch (error) { await connection.rollback(); next(error); } finally { connection.release(); }
+  try { const [rows] = await connection.execute("SELECT backup_json FROM portal_backups WHERE id=?", [request.params.id]); if (!rows[0]) return response.status(404).json({ error: "Backup not found." }); const snapshot = pageJson(rows[0].backup_json, null); if (snapshot?.format !== "mwu-database-backup" || ![1, 2].includes(Number(snapshot?.version)) || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported backup." }); await connection.beginTransaction(); for (const table of BACKUP_TABLES) { if (!Array.isArray(snapshot.tables[table])) continue; await connection.query(`DELETE FROM \`${table}\``); for (const row of snapshot.tables[table]) { await connection.query(`INSERT INTO \`${table}\` SET ?`, restoreRow(row)); } } if (Number(snapshot.version) >= 2) await restoreBackupFiles(snapshot.files || []); await connection.commit(); await audit({ actorId: request.adminUser.id, action: "database_backup_restored", details: { backupId: request.params.id, version: snapshot.version, fileCount: snapshot.files?.length || 0 } }); response.json({ ok: true, version: snapshot.version, restoredFiles: snapshot.files?.length || 0, message: "Full backup restored successfully." }); } catch (error) { await connection.rollback(); next(error); } finally { connection.release(); }
 });
 
 app.delete(`${API_PREFIX}/admin/backups/:id`, requireAuth, requireModule("settings"), async (request, response, next) => {

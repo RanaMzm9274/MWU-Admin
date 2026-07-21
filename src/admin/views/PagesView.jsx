@@ -49,6 +49,7 @@ export default function PagesView({
   importLivePublishedPages,
   importInputRef,
   importPages,
+  pageImportProgress,
   createNewPage,
   deletePageById,
   pageStatusFilters,
@@ -105,11 +106,11 @@ export default function PagesView({
           <h2>Editing and Management</h2>
         </div>
         <div className="header-actions">
-          <button className="ghost-button" type="button" onClick={importLivePublishedPages}>
+          <button className="ghost-button" type="button" disabled={Boolean(pageImportProgress)} onClick={importLivePublishedPages}>
             <Globe2 size={17} />
             <span>Import Live Published</span>
           </button>
-          <button className="ghost-button" type="button" onClick={() => importInputRef.current?.click()}>
+          <button className="ghost-button" type="button" disabled={Boolean(pageImportProgress)} onClick={() => importInputRef.current?.click()}>
             <FolderOpen size={17} />
             <span>Import</span>
           </button>
@@ -124,6 +125,18 @@ export default function PagesView({
           </button>
         </div>
       </div>
+
+      {pageImportProgress && (
+        <div className="operation-progress page-import-progress" role="status" aria-live="polite">
+          <div className="operation-progress-head">
+            <strong>{pageImportProgress.label}</strong>
+            <span>{pageImportProgress.total ? `${pageImportProgress.current}/${pageImportProgress.total} · ` : ""}{pageImportProgress.progress}%</span>
+          </div>
+          <div className="operation-progress-track" aria-hidden="true">
+            <i style={{ width: `${pageImportProgress.progress}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="view-content">
         <div className="filter-bar manager-toolbar pages-toolbar">
