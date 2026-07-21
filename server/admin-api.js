@@ -1016,8 +1016,19 @@ const BACKUP_SINGLE_FILES = ["src/styles.css", "public/assets/madda-logo.png", "
 const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_BACKUP_FILES_BYTES = 25 * 1024 * 1024;
 const restoreRow = (row = {}) => Object.fromEntries(
-  Object.entries(row).map(([key, value]) => [key, value && typeof value === "object" && !(value instanceof Date) ? JSON.stringify(value) : value])
+  Object.entries(row).map(([key, value]) => [key, value === undefined ? null : value && typeof value === "object" && !(value instanceof Date) ? JSON.stringify(value) : value])
 );
+const insertRestoredRow = async (connection, table, row) => {
+  const normalized = restoreRow(row);
+  const columns = Object.keys(normalized).filter((column) => /^[a-zA-Z0-9_]+$/.test(column));
+  if (!columns.length) return;
+  const columnSql = columns.map((column) => `\`${column}\``).join(",");
+  const placeholders = columns.map(() => "?").join(",");
+  await connection.execute(
+    `INSERT INTO \`${table}\` (${columnSql}) VALUES (${placeholders})`,
+    columns.map((column) => normalized[column])
+  );
+};
 const collectBackupFiles = async () => {
   const relativeFiles = [...BACKUP_SINGLE_FILES];
   const walk = async (relativeDirectory) => {
@@ -1187,7 +1198,7 @@ app.get(`${API_PREFIX}/admin/backups/:id/export`, requireAuth, requireModule("se
 
 app.post(`${API_PREFIX}/admin/backups/:id/restore`, requireAuth, requireModule("settings"), async (request, response, next) => {
   const connection = await pool.getConnection();
-  try { const [rows] = await connection.execute("SELECT backup_json,backup_format,file_path FROM portal_backups WHERE id=?", [request.params.id]); if (!rows[0]) return response.status(404).json({ error: "Backup not found." }); let snapshot; let zipBackup = null; if (rows[0].backup_format === "zip") { zipBackup = readZipBackup(rows[0].file_path); snapshot = zipBackup.snapshot; } else { snapshot = pageJson(rows[0].backup_json, null); } if (snapshot?.format !== "mwu-database-backup" || ![1, 2, 3].includes(Number(snapshot?.version)) || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported backup." }); await connection.beginTransaction(); for (const table of BACKUP_TABLES) { if (!Array.isArray(snapshot.tables[table])) continue; await connection.query(`DELETE FROM \`${table}\``); for (const row of snapshot.tables[table]) { await connection.query(`INSERT INTO \`${table}\` SET ?`, restoreRow(row)); } } const restoredFiles = zipBackup ? await restoreZipFiles(zipBackup.zip) : Number(snapshot.version) >= 2 ? (await restoreBackupFiles(snapshot.files || []), snapshot.files?.length || 0) : 0; await connection.commit(); await audit({ actorId: request.adminUser.id, action: "database_backup_restored", details: { backupId: request.params.id, version: snapshot.version, restoredFiles } }); response.json({ ok: true, version: snapshot.version, restoredFiles, message: "Full backup restored successfully." }); } catch (error) { await connection.rollback(); next(error); } finally { connection.release(); }
+  try { const [rows] = await connection.execute("SELECT backup_json,backup_format,file_path FROM portal_backups WHERE id=?", [request.params.id]); if (!rows[0]) return response.status(404).json({ error: "Backup not found." }); let snapshot; let zipBackup = null; if (rows[0].backup_format === "zip") { zipBackup = readZipBackup(rows[0].file_path); snapshot = zipBackup.snapshot; } else { snapshot = pageJson(rows[0].backup_json, null); } if (snapshot?.format !== "mwu-database-backup" || ![1, 2, 3].includes(Number(snapshot?.version)) || !snapshot.tables) return response.status(400).json({ error: "Invalid or unsupported backup." }); await connection.beginTransaction(); for (const table of BACKUP_TABLES) { if (!Array.isArray(snapshot.tables[table])) continue; try { await connection.query(`DELETE FROM \`${table}\``); for (const row of snapshot.tables[table]) await insertRestoredRow(connection, table, row); } catch (error) { throw new Error(`Restore failed while rebuilding ${table}: ${error.message}`); } } const restoredFiles = zipBackup ? await restoreZipFiles(zipBackup.zip) : Number(snapshot.version) >= 2 ? (await restoreBackupFiles(snapshot.files || []), snapshot.files?.length || 0) : 0; await connection.commit(); await audit({ actorId: request.adminUser.id, action: "database_backup_restored", details: { backupId: request.params.id, version: snapshot.version, restoredFiles } }); response.json({ ok: true, version: snapshot.version, restoredFiles, message: "Full backup restored successfully." }); } catch (error) { await connection.rollback(); next(error); } finally { connection.release(); }
 });
 
 app.delete(`${API_PREFIX}/admin/backups/:id`, requireAuth, requireModule("settings"), async (request, response, next) => {
