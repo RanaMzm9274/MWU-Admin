@@ -1489,6 +1489,8 @@ function App() {
         {activeView === "blogs" && hasPortalAccess(adminProfile, "blogs") && (
           <BlogPagesView
             pages={blogPages}
+            createLabel="Add News"
+            onCreate={() => createContentPage("news")}
             pageStatusFilters={pageStatusFilters}
             getThumbnail={getAutoThumbnailForPage}
             isLocalDraftPage={isLocalDraftPage}
@@ -1511,8 +1513,8 @@ function App() {
             setActiveView={setActiveView}
             setEditorTab={setEditorTab}
             deletePageById={deletePageById}
-            createLabel="Add News"
-            onCreate={() => createContentPage("news")}
+            createLabel="Add Research"
+            onCreate={() => createContentPage("research")}
           />
         )}
 
@@ -1527,8 +1529,6 @@ function App() {
             setActiveView={setActiveView}
             setEditorTab={setEditorTab}
             deletePageById={deletePageById}
-            createLabel="Add Research"
-            onCreate={() => createContentPage("research")}
           />
         )}
 

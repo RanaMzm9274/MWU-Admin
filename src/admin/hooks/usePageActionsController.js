@@ -48,8 +48,19 @@ export default function usePageActionsController({
       heroTag: isResearch ? "Research & Innovation" : "University News",
       owner: isResearch ? "Research Directorate" : "MWU Communications",
       ctaLabel: "Read More",
-      ctaUrl: isResearch ? "/legacy/research-details.html" : "/legacy/blog-details.html",
-      sections: [normalizeSection({ id: makeId(), type: "Text Block", title: "Article content", body: "Add the full article or publication content here.", visible: true })]
+      ctaUrl: isResearch ? "/research-details" : "/blog-details",
+      sections: (isResearch
+        ? [
+            { title: "Abstract", body: "Add a concise summary of the research, its purpose, and scope." },
+            { title: "Research Content", body: "Add the methodology, analysis, and complete publication content here." },
+            { title: "Findings and Conclusion", body: "Summarize the main findings, recommendations, and conclusion." }
+          ]
+        : [
+            { title: "Introduction", body: "Add a short introduction to the news story." },
+            { title: "News Content", body: "Add the complete news article here." },
+            { title: "Highlights", body: "Add important facts, outcomes, or quotations from the story." }
+          ]
+      ).map((section) => normalizeSection({ id: makeId(), type: "Text Block", ...section, visible: true }))
     });
     setPages((current) => [draft, ...current]);
     setActivePageId(draft.id);
