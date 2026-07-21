@@ -8931,6 +8931,79 @@ iframe {
   padding: 0 10px;
 }
 
+/* Reuse the Pages search/filter scale on every listing screen. */
+.crm-app .manager-toolbar,
+.crm-app .content-pages-toolbar {
+  gap: 6px;
+}
+
+.crm-app .content-pages-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(5, minmax(110px, 0.7fr)) auto;
+  padding: 0;
+}
+
+.crm-app .manager-toolbar {
+  padding: 0;
+}
+
+.crm-app .manager-toolbar .search-field,
+.crm-app .manager-toolbar .select-field,
+.crm-app .user-list-toolbar .search-field,
+.crm-app .menu-builder-panel .search-field,
+.crm-app .site-chrome-editor .search-field,
+.crm-app .content-pages-search,
+.crm-app .content-pages-filter {
+  min-height: 38px;
+  margin: 0;
+  padding: 0 10px;
+  gap: 8px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.crm-app .manager-toolbar .search-field input,
+.crm-app .manager-toolbar .select-field select,
+.crm-app .user-list-toolbar .search-field input,
+.crm-app .menu-builder-panel .search-field input,
+.crm-app .site-chrome-editor .search-field input,
+.crm-app .content-pages-search input,
+.crm-app .content-pages-filter select {
+  min-height: 0;
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.crm-app .manager-toolbar .search-field > svg,
+.crm-app .manager-toolbar .select-field > svg,
+.crm-app .user-list-toolbar .search-field > svg,
+.crm-app .menu-builder-panel .search-field > svg,
+.crm-app .site-chrome-editor .search-field > svg,
+.crm-app .content-pages-search > svg,
+.crm-app .content-pages-filter > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--mwu-muted);
+}
+
+.crm-app .content-pages-toolbar .view-mode-toggle,
+.crm-app .programs-pages-toolbar .view-mode-toggle {
+  padding: 2px;
+}
+
+.crm-app .content-pages-toolbar .view-mode-toggle button,
+.crm-app .programs-pages-toolbar .view-mode-toggle button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.8125rem;
+}
+
+.crm-app .user-list-toolbar {
+  gap: 6px;
+  padding: 12px 18px;
+}
+
 /* Exact live website canvas added to prevent the editor from rebuilding pages with a different React layout. */
 .editor-mode-tools {
   display: inline-flex;

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  BarChart3,
   Download,
   FileText,
   Filter,
   GraduationCap,
   Layers,
   Link as LinkIcon,
+  ListChecks,
   ListTree,
   Pencil,
   Plus,
@@ -40,13 +42,36 @@ export default function ProgramsView({
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [pageQuery, setPageQuery] = useState("");
   const [pageStatusFilter, setPageStatusFilter] = useState("All");
+  const [pageTypeFilter, setPageTypeFilter] = useState("All");
+  const [pageMenuFilter, setPageMenuFilter] = useState("All");
+  const [pageSortKey, setPageSortKey] = useState("updatedAt");
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
   const [pageViewMode, setPageViewMode] = useState("grid");
   const sortedCategories = [...categories].sort((a, b) => Number(a.menuOrder) - Number(b.menuOrder));
+  const programPageTypes = useMemo(() => Array.from(new Set(programPages.map((page) => page.type).filter(Boolean))).sort(), [programPages]);
+  const programPageMenus = useMemo(() => Array.from(new Set(programPages.map((page) => page.menu).filter(Boolean))).sort(), [programPages]);
   const filteredProgramPages = programPages
     .filter((page) => pageStatusFilter === "All" || (page.status || "").toLowerCase() === pageStatusFilter.toLowerCase())
+    .filter((page) => pageTypeFilter === "All" || page.type === pageTypeFilter)
+    .filter((page) => pageMenuFilter === "All" || page.menu === pageMenuFilter)
     .filter((page) =>
       [page.title, page.slug, page.type, page.menu, page.summary].join(" ").toLowerCase().includes(pageQuery.toLowerCase())
-    );
+    )
+    .sort((a, b) => {
+      if (pageSortKey === "title") return String(a.title || "").localeCompare(String(b.title || ""));
+      if (pageSortKey === "menuOrder") return Number(a.menuOrder || 0) - Number(b.menuOrder || 0);
+      if (pageSortKey === "status") return String(a.status || "").localeCompare(String(b.status || ""));
+      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    });
+  const totalProgramPageCount = Math.max(1, Math.ceil(filteredProgramPages.length / pageSize));
+  const safeProgramPage = Math.min(currentPage, totalProgramPageCount);
+  const programPageStart = (safeProgramPage - 1) * pageSize;
+  const visibleProgramPages = filteredProgramPages.slice(programPageStart, programPageStart + pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [pageQuery, pageStatusFilter, pageTypeFilter, pageMenuFilter, pageSortKey, pageSize]);
   const filteredPrograms = programs
     .filter((program) => categoryFilter === "All" || program.categorySlug === categoryFilter)
     .filter((program) => programStatusFilter === "All" || (program.status || "").toLowerCase() === programStatusFilter.toLowerCase())
@@ -105,7 +130,7 @@ export default function ProgramsView({
             </div>
           </div>
 
-          <div className="manager-toolbar programs-toolbar programs-pages-toolbar">
+          <div className="filter-bar manager-toolbar pages-toolbar programs-pages-toolbar">
             <label className="search-field">
               <Search size={17} />
               <input value={pageQuery} onChange={(event) => setPageQuery(event.target.value)} placeholder="Search program page title or slug" />
@@ -117,11 +142,40 @@ export default function ProgramsView({
                 {pageStatusFilters.map((status) => <option key={status}>{status}</option>)}
               </select>
             </label>
+            <label className="select-field">
+              <Layers size={17} />
+              <select value={pageTypeFilter} onChange={(event) => setPageTypeFilter(event.target.value)}>
+                <option>All</option>
+                {programPageTypes.map((type) => <option key={type}>{type}</option>)}
+              </select>
+            </label>
+            <label className="select-field">
+              <ListChecks size={17} />
+              <select value={pageMenuFilter} onChange={(event) => setPageMenuFilter(event.target.value)}>
+                <option>All</option>
+                {programPageMenus.map((menu) => <option key={menu}>{menu}</option>)}
+              </select>
+            </label>
+            <label className="select-field">
+              <BarChart3 size={17} />
+              <select value={pageSortKey} onChange={(event) => setPageSortKey(event.target.value)}>
+                <option value="updatedAt">Latest Updated</option>
+                <option value="title">Title A-Z</option>
+                <option value="menuOrder">Menu Order</option>
+                <option value="status">Status</option>
+              </select>
+            </label>
+            <label className="select-field">
+              <ListTree size={17} />
+              <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
+                {[25, 50, 100].map((size) => <option value={size} key={size}>{size} per page</option>)}
+              </select>
+            </label>
             <ViewModeToggle value={pageViewMode} onChange={setPageViewMode} />
           </div>
 
           <div className={`program-pages-grid ${pageViewMode === "list" ? "list-mode" : ""}`}>
-            {filteredProgramPages.map((page) => (
+            {visibleProgramPages.map((page) => (
               <article className={`program-page-card ${pageViewMode === "list" ? "list-mode" : ""}`} key={page.id}>
                 <img src={getThumbnail(page)} alt="" />
                 <div className="program-page-card-body">
@@ -145,6 +199,16 @@ export default function ProgramsView({
             ))}
             {!filteredProgramPages.length && <p className="program-empty">No program pages match the current filters.</p>}
           </div>
+          {filteredProgramPages.length > 0 && (
+            <div className="pagination-bar">
+              <span>Showing {programPageStart + 1}-{Math.min(programPageStart + pageSize, filteredProgramPages.length)} of {filteredProgramPages.length} pages</span>
+              <div className="pagination-actions">
+                <button className="ghost-button" type="button" disabled={safeProgramPage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</button>
+                <strong>Page {safeProgramPage} of {totalProgramPageCount}</strong>
+                <button className="ghost-button" type="button" disabled={safeProgramPage >= totalProgramPageCount} onClick={() => setCurrentPage((page) => Math.min(totalProgramPageCount, page + 1))}>Next</button>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
