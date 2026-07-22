@@ -380,6 +380,13 @@ const removeMenuTreeItem = (items = [], itemId) =>
 const addMenuTreeChild = (items = [], parentId, child) =>
   updateMenuTreeItem(items, parentId, (item) => ({ ...item, children: [...(item.children || []), child] }));
 
+const createHeaderChildItem = (parentId) => ({
+  id: `header-child-added-${Date.now()}-${parentId}`,
+  title: "New menu item",
+  href: "#",
+  children: []
+});
+
 const moveMenuTreeItem = (items = [], itemId, direction) => {
   const index = items.findIndex((item) => item.id === itemId);
   if (index >= 0) {
@@ -801,7 +808,10 @@ export default function SiteChromeView({
   const addHeaderChildItem = (itemId) => {
     commitVisualHeaderModel((current) => ({
       ...current,
-      menuItems: addMenuTreeChild(current.menuItems, itemId, { id: `header-child-added-${Date.now()}-${itemId}`, title: "", href: "", children: [] })
+      // Header state is persisted through generated HTML. A completely blank
+      // child is intentionally omitted by the serializer, so give new child
+      // and sub-child rows editable defaults that survive that round trip.
+      menuItems: addMenuTreeChild(current.menuItems, itemId, createHeaderChildItem(itemId))
     }));
   };
 

@@ -69,10 +69,11 @@ export default function useSiteChromeController({
       { method: "POST", path: `/admin/pages/${encodeURIComponent(identifier)}` }  
     ]);  
     const createAttempts = [  
-      { method: "POST", path: "/admin/pages" },
       // Recover an existing canonical header/footer row by slug when the
-      // current list payload did not include its database marker.
+      // current list payload did not include its database marker. Try this
+      // before POST so an existing slug does not generate a noisy 409 first.
       { method: "PATCH", path: `/admin/pages/${encodeURIComponent(nextPage.slug)}` },
+      { method: "POST", path: "/admin/pages" },
       { method: "PUT", path: "/admin/pages" }  
     ];  
     const attempts = pageExistsInDatabase  

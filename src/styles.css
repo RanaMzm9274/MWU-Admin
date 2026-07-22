@@ -1578,18 +1578,27 @@ button:disabled {
 .site-chrome-children {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .site-chrome-child-row {
   display: grid;
-  grid-template-columns: minmax(112px, 0.72fr) minmax(170px, 1.28fr) repeat(4, 40px);
-  gap: 8px;
+  grid-template-columns: minmax(90px, 0.72fr) minmax(130px, 1.28fr) repeat(4, 36px);
+  gap: 6px;
   align-items: center;
-  min-width: 500px;
+  width: 100%;
+  min-width: 0;
 }
 
 .site-chrome-child-row input {
+  width: 100%;
   min-width: 0;
+}
+
+.site-chrome-child-row .icon-button {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
 }
 
 .site-chrome-page-link-select {
@@ -1872,16 +1881,17 @@ button:disabled {
 }
 
 .site-chrome-footer-link-wrap {
-  margin-left: calc(var(--footer-link-depth, 0) * 18px);
-  overflow-x: auto;
+  margin-left: min(calc(var(--footer-link-depth, 0) * 12px), 36px);
+  min-width: 0;
 }
 
 .site-chrome-footer-link-row {
   display: grid;
-  grid-template-columns: minmax(112px, 0.72fr) minmax(170px, 1.28fr) auto;
-  gap: 12px;
+  grid-template-columns: minmax(90px, 0.72fr) minmax(130px, 1.28fr) auto;
+  gap: 8px;
   align-items: end;
-  min-width: 620px;
+  width: 100%;
+  min-width: 0;
   border-radius: 11px;
   padding: 12px;
   background: #f8fafc;
@@ -6411,6 +6421,22 @@ button:disabled {
     display: none;
   }
 
+  .site-chrome-child-row {
+    grid-template-columns: minmax(72px, 0.7fr) minmax(100px, 1.3fr) repeat(4, 32px);
+    gap: 4px;
+  }
+
+  .site-chrome-child-row .icon-button {
+    width: 32px;
+    min-width: 32px;
+  }
+
+  .site-chrome-footer-link-row {
+    grid-template-columns: minmax(72px, 0.7fr) minmax(100px, 1.3fr) auto;
+    gap: 6px;
+    padding: 8px;
+  }
+
   .user-management-summary {
     width: 100%;
     grid-template-columns: 1fr;
@@ -7872,6 +7898,32 @@ button:disabled {
     font-size: 10px;
     gap: 8px;
     padding: 8px 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .site-chrome-child-row {
+    grid-template-columns: minmax(60px, 0.7fr) minmax(80px, 1.3fr) repeat(4, 28px);
+    gap: 3px;
+  }
+
+  .site-chrome-child-row .icon-button {
+    width: 28px;
+    min-width: 28px;
+  }
+
+  .site-chrome-footer-link-row {
+    grid-template-columns: minmax(60px, 0.7fr) minmax(80px, 1.3fr) auto;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .site-chrome-footer-link-wrap {
+    margin-left: min(calc(var(--footer-link-depth, 0) * 6px), 18px);
+  }
+
+  .site-chrome-page-link-trigger {
+    padding-inline: 6px;
   }
 }
 
