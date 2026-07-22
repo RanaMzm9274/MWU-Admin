@@ -921,6 +921,20 @@ export default function SiteChromeView({
     setMainMenuPageIds([]);
   };
 
+  const addTopLevelMainMenuItem = () => {
+    setMainMenuItems((current) => [
+      ...current,
+      {
+        id: `header-menu-manual-${Date.now()}`,
+        sourceIndex: current.length,
+        title: "New menu item",
+        href: "#",
+        isMega: false,
+        children: []
+      }
+    ]);
+  };
+
   const removeMainMenuRoot = (itemId) => {
     setMainMenuItems((current) => current.filter((item) => item.id !== itemId || item.isMega));
   };
@@ -1210,6 +1224,11 @@ export default function SiteChromeView({
                           ? `Add Selected Under ${selectedMainMenuParent.title}`
                           : "Add Selected to Top Level"}
                       </span>
+                    </button>
+
+                    <button className="ghost-button site-chrome-add-pages" type="button" onClick={addTopLevelMainMenuItem}>
+                      <Plus size={16} />
+                      <span>Add Top-Level Item</span>
                     </button>
 
                     <div className="site-chrome-main-hierarchy">
