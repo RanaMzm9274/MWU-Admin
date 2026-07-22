@@ -215,12 +215,11 @@
   }
   .field-select.unit-value-select:focus{box-shadow:none}
   .linked-grid{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px}
-  .linked-grid.is-linked{grid-template-columns:minmax(0,1fr)!important}
-  .linked-grid.is-linked .quad-field:not([data-quad-side="top"]){display:none!important}
   .linked-grid .quad-field{min-width:0}
   .linked-grid .quad-field .field-input{width:100%;min-width:0}
   .linked-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-  .clip-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink-600)}
+  .clip-toggle{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0;cursor:pointer;color:var(--ink-600)}
+  .clip-toggle svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .clip-toggle.active{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
   .quad-field label{font-size:10px;font-weight:700;color:var(--ink-400);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px}
   .spacing-field label{ font-size:10px; font-weight:700; color: var(--ink-400); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:5px; }
@@ -458,6 +457,7 @@
   .callout-widget{display:flex;gap:14px;align-items:flex-start}.callout-icon{flex:0 0 auto;display:flex;align-items:center;justify-content:center}.callout-widget h4{font-family:'Fraunces',serif;margin-bottom:5px}.callout-widget p{line-height:1.6;color:var(--ink-600)}
   .form-widget{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-widget .full{grid-column:1/-1}.form-widget input,.form-widget textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:12px}.form-widget button{border:none;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer}
   .social-widget{display:flex;gap:8px;flex-wrap:wrap}.social-widget a{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:800}
+  .custom-html-widget a{text-decoration:none}
   .progress-widget .progress-track{height:10px;background:var(--line-soft);border-radius:10px;overflow:hidden}.progress-widget .progress-fill{height:100%;border-radius:10px}.progress-meta{display:flex;justify-content:space-between;margin-bottom:7px;font-size:12px;font-weight:700}
   @media(max-width:900px){.tb-crumb span:not(.tb-page-name),.btn-exit,.save-state{display:none}.side-panel{width:270px}.canvas-status{left:288px}.template-grid{grid-template-columns:1fr}.modal-grid{grid-template-columns:1fr}.modal-grid .full{grid-column:auto}}
 
@@ -656,10 +656,10 @@ function defaultAdvanced(){ return { marginTop:0, marginRight:0, marginBottom:0,
 function defaultsFor(type){
   let base;
   switch(type){
-    case 'heading': base = { content:{ text:"Add Your Heading Text Here", tag:"h2" }, style:{ fontSize:32, fontWeight:"700", color:"#161D2B", align:"left", letterSpacing:0, transform:"none" } }; break;
-    case 'text': base = { content:{ text:"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent nec metus in sapien sagittis pharetra." }, style:{ fontSize:15, lineHeight:1.7, color:"#4B5468", align:"left", letterSpacing:0 } }; break;
+    case 'heading': base = { content:{ text:"Add Your Heading Text Here", tag:"h2" }, style:{ fontSize:32, fontWeight:"700", color:"#161D2B", align:"left", letterSpacing:0, transform:"none", textDecoration:"none" } }; break;
+    case 'text': base = { content:{ text:"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent nec metus in sapien sagittis pharetra." }, style:{ fontSize:15, lineHeight:1.7, color:"#4B5468", align:"left", letterSpacing:0, textDecoration:"none" } }; break;
     case 'image': base = { content:{ src:IMAGE_PRESETS[0], alt:"Descriptive image alt text" }, style:{ width:100, widthUnit:'%', height:0, heightUnit:'px', fit:'cover', radius:12, align:"left" } }; break;
-    case 'button': base = { content:{ text:"Learn More", link:"#" }, style:{ bg:"#C99A3B", color:"#0B1830", radius:8, size:"md", align:"left", borderWidth:0, borderColor:"#0B1830" } }; break;
+    case 'button': base = { content:{ text:"Learn More", link:"#" }, style:{ bg:"#C99A3B", color:"#0B1830", radius:8, size:"md", align:"left", borderWidth:0, borderColor:"#0B1830", textDecoration:"none" } }; break;
     case 'icon-box': base = { content:{ icon:"starIcon", title:"Feature Title", text:"A short description of this feature or benefit goes here." }, style:{ iconColor:"#C99A3B", iconBg:"#F6EDDB", iconBorderColor:"#F6D38A", iconBorderWidth:0, iconRadius:14, titleColor:"#161D2B", textColor:"#4B5468", align:"left", iconSize:52, titleSize:17, textSize:13, gap:14 } }; break;
     case 'list': base = { content:{ items:"Accredited undergraduate and graduate programs\nModern research facilities and laboratories\nDedicated academic and career advising" }, style:{ color:"#161D2B", fontSize:14, markerColor:"#C99A3B", gap:9 } }; break;
     case 'testimonial': base = { content:{ quote:"The research center gave me hands-on experience I couldn't have found anywhere else.", name:"Selam Tesfaye", role:"MSc Public Health, Class of 2025" }, style:{ accent:"#C99A3B", bg:"#FBF6EB", radius:14 } }; break;
@@ -1820,6 +1820,7 @@ function describeImportedNode(node){
       lineHeight: normalizeImportedMetricValue(getImportedStyleValue(node,'lineHeight')),
       textAlign: normalizeImportedSelectValue(getImportedStyleValue(node,'textAlign'), ['left','center','right','justify'], ''),
       textTransform: normalizeImportedSelectValue(getImportedStyleValue(node,'textTransform'), ['none','uppercase','capitalize','lowercase'], 'none'),
+      textDecoration: normalizeImportedSelectValue(getImportedStyleValue(node,'textDecorationLine'), ['none','underline','overline','line-through'], 'none'),
       width: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'width'), targetRect.width ? `${Math.round(targetRect.width)}px` : ''),
       height: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'height'), targetRect.height ? `${Math.round(targetRect.height)}px` : ''),
       minHeight: normalizeImportedMetricValue(getImportedStyleValue(styleTarget,'minHeight')),
@@ -2518,7 +2519,8 @@ function bindImportedBoxStyleEvents(node, boxState){
       toggle.addEventListener('click', ()=>{
         boxState[linkedKey] = !boxState[linkedKey];
         toggle.classList.toggle('active', boxState[linkedKey]);
-        toggle.textContent = boxState[linkedKey] ? 'Clip' : 'Free';
+        toggle.setAttribute('aria-pressed', String(boxState[linkedKey]));
+        toggle.title = boxState[linkedKey] ? 'Linked: update all four sides together' : 'Unlinked: edit each side separately';
         updateLinkedQuadUi(prefix, boxState[linkedKey]);
         if(boxState[linkedKey]){
           const value = Number(inputs[0]?.value)||0;
@@ -2662,7 +2664,6 @@ function renderImportedSettings(node){
   const importedIconClass = isIconElement ? getImportedFontAwesomeClass(node) : '';
   const importedIconPresetChoices = isIconElement ? importedFontAwesomeOptions(importedIconFamily) : [];
   const importedIconPresetValue = importedIconPresetChoices.some(([value])=> value === importedIconClass) ? importedIconClass : '';
-  const importedHtmlModel = getImportedHtmlElementModel();
   const importedMarginLinked = node.getAttribute('data-import-margin-linked') !== 'false';
   const importedPaddingLinked = node.getAttribute('data-import-padding-linked') !== 'false';
   importedSelectionNode = node;
@@ -2676,12 +2677,6 @@ function renderImportedSettings(node){
   const textEditable = supportsTypography && details.text;
   contentBox.innerHTML = `
     <div class="field-hint">Imported page editing is active. Double-click text to edit inline. Click icons and vectors directly. Shift-click selects the structural parent; Ctrl/Alt-click selects the nearest container.</div>
-    <div class="field-group">
-      <div class="field-group-label">HTML source</div>
-      <textarea class="field-textarea code-output" id="f_importedHtmlCode" rows="16" spellcheck="false">${escapeHtml(importedHtmlModel?.content?.code || '')}</textarea>
-      <div class="builder-file-stack" style="margin-top:10px;"><button class="field-button" type="button" id="importedApplyHtmlSourceBtn">Apply HTML code</button><button class="field-button" type="button" id="importedEditHtmlSourceBtn">Select full HTML element</button></div>
-      <div class="field-hint">Edit the imported markup, then apply it to rebuild the canvas. The complete HTML remains editable as one source element.</div>
-    </div>
     ${parentTarget ? `<div class="field-group"><div class="builder-file-stack"><button class="field-button" type="button" id="importedSelectParentBtn">Select parent container</button></div></div>` : ''}
     ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
     ${hasLinkField ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
@@ -2705,6 +2700,7 @@ function renderImportedSettings(node){
     ${isHeadingElement ? rangeField('Line height', 'importedLineHeight', 0.8, 2.4, importedLineHeight, '', 0.1) : ''}
     ${isHeadingElement ? rangeField('Letter spacing', 'importedLetterSpacing', -2, 8, importedLetterSpacing, 'px', 0.5) : ''}
     ${supportsTypography ? selectField('Text transform', 'importedTextTransform', [['none','None'],['uppercase','UPPERCASE'],['capitalize','Capitalize'],['lowercase','lowercase']], details.styles.textTransform || 'none') : ''}
+    ${supportsTypography ? selectField('Text decoration', 'importedTextDecoration', [['none','None'],['underline','Underline'],['overline','Overline'],['line-through','Line through']], details.styles.textDecoration || 'none') : ''}
     ${(isTextElement || isButtonElement) ? rangeField('Font size', 'importedFontSize', 10, 48, importedFontSize, 'px') : ''}
     ${(isTextElement || isButtonElement) ? selectField('Font weight', 'importedFontWeight', [['','Default'],['400','400'],['500','500'],['600','600'],['700','700'],['800','800'],['900','900']], details.styles.fontWeight || '') : ''}
     ${(isTextElement || isButtonElement) ? rangeField('Line height', 'importedLineHeight', 1, 3, importedLineHeight, '', 0.1) : ''}
@@ -2763,7 +2759,7 @@ function renderImportedSettings(node){
       ${fieldInput('Bottom', 'importedBottom', details.styles.bottom || '')}
       ${fieldInput('Left', 'importedLeft', details.styles.left || '')}
     </div>
-    <div class="field-hint">Margin and padding are linked by default. Choose Free to edit Top | Bottom and Left | Right independently.</div>
+    <div class="field-hint">Margin and padding show Top | Bottom and Left | Right. Use the chain button to update all four values together or edit each side independently.</div>
   `;
   const textNode = document.getElementById('f_importedTextContent');
   if(textNode){
@@ -2773,30 +2769,6 @@ function renderImportedSettings(node){
   const parentSelectButton = document.getElementById('importedSelectParentBtn');
   if(parentSelectButton && parentTarget){
     parentSelectButton.addEventListener('click', ()=> selectImportedNode(parentTarget));
-  }
-  const editHtmlSourceButton = document.getElementById('importedEditHtmlSourceBtn');
-  if(editHtmlSourceButton){
-    editHtmlSourceButton.addEventListener('click', ()=>{
-      const model = getImportedHtmlElementModel();
-      if(!model) return;
-      clearImportedSelection();
-      selectElement(model.id);
-    });
-  }
-  const applyHtmlSourceButton = document.getElementById('importedApplyHtmlSourceBtn');
-  const importedHtmlCodeNode = document.getElementById('f_importedHtmlCode');
-  if(applyHtmlSourceButton && importedHtmlCodeNode){
-    applyHtmlSourceButton.addEventListener('click', ()=>{
-      const model = getImportedHtmlElementModel();
-      if(!model) return;
-      model.content = model.content || {};
-      model.content.code = importedHtmlCodeNode.value;
-      clearImportedSelection();
-      pushHistory();
-      renderAll();
-      selectElement(model.id);
-      showToast('HTML code applied');
-    });
   }
   const progressLabelNode = document.getElementById('f_importedProgressLabel');
   if(progressLabelNode && progressContext?.label){
@@ -3096,6 +3068,10 @@ function renderImportedSettings(node){
     mediaBorderColorTextNode.addEventListener('input', ()=>{ if(/^#[0-9A-Fa-f]{6}$/.test(mediaBorderColorTextNode.value)) mediaBorderColorNode.value = mediaBorderColorTextNode.value; applyMediaBorderColor(mediaBorderColorTextNode.value); });
     mediaBorderColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
   }
+  const textDecorationNode = document.getElementById('f_importedTextDecoration');
+  if(textDecorationNode){
+    textDecorationNode.addEventListener('change', ()=>{ applyImportedStyle('textDecoration', textDecorationNode.value); syncImportedHtmlToModel('imported-style', true); });
+  }
   const bindImportedSpacingQuad = (prefix, cssPrefix, linkedAttribute)=>{
     const sides=['Top','Right','Bottom','Left'];
     const inputs=sides.map((side)=> document.getElementById(`${prefix}${side}`)).filter(Boolean);
@@ -3107,7 +3083,8 @@ function renderImportedSettings(node){
         linked=!linked;
         importedSelectionNode.setAttribute(linkedAttribute, String(linked));
         toggle.classList.toggle('active', linked);
-        toggle.textContent=linked ? 'Clip' : 'Free';
+        toggle.setAttribute('aria-pressed', String(linked));
+        toggle.title=linked ? 'Linked: update all four sides together' : 'Unlinked: edit each side separately';
         updateLinkedQuadUi(prefix, linked);
         if(linked){
           const value=Number(inputs[0]?.value)||0;
@@ -3907,6 +3884,7 @@ function renderStyleFields(el){
       html += selectField('Font weight', 'fontWeight', [['400','Regular'],['600','Semibold'],['700','Bold'],['800','Extra Bold']], s.fontWeight);
       html += rangeField('Letter spacing', 'letterSpacing', -2, 8, s.letterSpacing||0, 'px', 0.5);
       html += selectField('Text transform', 'transform', [['none','None'],['uppercase','UPPERCASE'],['capitalize','Capitalize']], s.transform||'none');
+      html += selectField('Text decoration', 'textDecoration', [['none','None'],['underline','Underline'],['overline','Overline'],['line-through','Line through']], s.textDecoration||'none');
       html += colorField('Text color', 'color', s.color);
       html += alignField('align', s.align, s.verticalAlign||'top');
       break;
@@ -3914,6 +3892,7 @@ function renderStyleFields(el){
       html += rangeField('Font size', 'fontSize', 12, 24, s.fontSize, 'px');
       html += rangeField('Line height', 'lineHeight', 1.2, 2.2, s.lineHeight, '', 0.1);
       html += rangeField('Letter spacing', 'letterSpacing', -1, 4, s.letterSpacing||0, 'px', 0.5);
+      html += selectField('Text decoration', 'textDecoration', [['none','None'],['underline','Underline'],['overline','Overline'],['line-through','Line through']], s.textDecoration||'none');
       html += colorField('Text color', 'color', s.color);
       html += alignField('align', s.align, s.verticalAlign||'top');
       break;
@@ -3927,6 +3906,7 @@ function renderStyleFields(el){
     case 'button':
       html += colorField('Background color', 'bg', s.bg);
       html += colorField('Text color', 'color', s.color);
+      html += selectField('Text decoration', 'textDecoration', [['none','None'],['underline','Underline'],['overline','Overline'],['line-through','Line through']], s.textDecoration||'none');
       html += rangeField('Corner radius', 'radius', 0, 30, s.radius, 'px');
       html += rangeField('Border width', 'borderWidth', 0, 6, s.borderWidth||0, 'px');
       html += colorField('Border color', 'borderColor', s.borderColor||'#0B1830');
@@ -4230,7 +4210,8 @@ function bindBoxStyleEvents(el){
       toggle.addEventListener('click', () => {
         b[linkedKey] = !b[linkedKey];
         toggle.classList.toggle('active', b[linkedKey]);
-        toggle.textContent = b[linkedKey] ? 'Clip' : 'Free';
+        toggle.setAttribute('aria-pressed', String(b[linkedKey]));
+        toggle.title = b[linkedKey] ? 'Linked: update all four sides together' : 'Unlinked: edit each side separately';
         updateLinkedQuadUi(prefix, b[linkedKey]);
         if(b[linkedKey]){
           const value = Number(inputs[0]?.value)||0;
@@ -4277,9 +4258,9 @@ function simpleNumberField(label, id, value, min=-999, max=999, step=1, side='')
 }
 function linkedQuadField(title, prefix, values, linked=true, min=0, max=200){
   return `<div class="field-group">
-    <div class="linked-head"><div class="field-group-label" style="margin-bottom:0;">${title}</div><button type="button" class="clip-toggle ${linked?'active':''}" id="${prefix}Linked">${linked?'Clip':'Free'}</button></div>
+    <div class="linked-head"><div class="field-group-label" style="margin-bottom:0;">${title}</div><button type="button" class="clip-toggle ${linked?'active':''}" id="${prefix}Linked" aria-label="Link ${title.toLowerCase()} values" aria-pressed="${linked}" title="${linked?'Linked: update all four sides together':'Unlinked: edit each side separately'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></svg></button></div>
     <div class="linked-grid ${linked?'is-linked':'is-free'}" data-linked-grid="${prefix}">
-      ${simpleNumberField(linked ? 'All directions' : 'Top', `${prefix}Top`, values.top, min, max, 1, 'top')}
+      ${simpleNumberField('Top', `${prefix}Top`, values.top, min, max, 1, 'top')}
       ${simpleNumberField('Bottom', `${prefix}Bottom`, values.bottom, min, max, 1, 'bottom')}
       ${simpleNumberField('Left', `${prefix}Left`, values.left, min, max, 1, 'left')}
       ${simpleNumberField('Right', `${prefix}Right`, values.right, min, max, 1, 'right')}
@@ -4291,8 +4272,6 @@ function updateLinkedQuadUi(prefix, linked){
   if(!grid) return;
   grid.classList.toggle('is-linked', !!linked);
   grid.classList.toggle('is-free', !linked);
-  const topLabel = grid.querySelector('[data-quad-side="top"] label');
-  if(topLabel) topLabel.textContent = linked ? 'All directions' : 'Top';
 }
 function stepperField(label, id, value, min=-999, max=999, step=1){
   return `<div class="field-group"><div class="field-group-label">${label}</div><div class="stepper-field"><input class="field-input" id="f_${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><div class="stepper-buttons"><button type="button" data-step-target="f_${id}" data-step-delta="1">+</button><button type="button" data-step-target="f_${id}" data-step-delta="-1">-</button></div></div></div>`;
@@ -4382,7 +4361,7 @@ function bindStyleEvents(el){
   });
 
   // selects
-  ['fontWeight','size','transform','lineStyle','fit'].forEach(key=>{
+  ['fontWeight','size','transform','textDecoration','lineStyle','fit'].forEach(key=>{
     const node = document.getElementById('f_'+key);
     if(!node) return;
     node.addEventListener('change', ()=>{ s[key]=node.value; reRenderElement(el); pushHistory(); });
@@ -4527,7 +4506,8 @@ function renderAdvancedFields(el){
       toggle.addEventListener('click', ()=> {
         a[linkedKey] = !a[linkedKey];
         toggle.classList.toggle('active', a[linkedKey]);
-        toggle.textContent = a[linkedKey] ? 'Clip' : 'Free';
+        toggle.setAttribute('aria-pressed', String(a[linkedKey]));
+        toggle.title = a[linkedKey] ? 'Linked: update all four sides together' : 'Unlinked: edit each side separately';
         updateLinkedQuadUi(prefix, a[linkedKey]);
         if(a[linkedKey]){
           const value = Number(fields[0]?.value)||0;
@@ -4812,11 +4792,11 @@ elementInnerHTML = function(el){
   switch(el.type){
     case 'container':
       return '';
-    case 'heading': return `<${c.tag} data-inline-field="text" style="font-family:'Fraunces',serif;font-weight:${s.fontWeight};font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:1.22;margin:0;letter-spacing:${s.letterSpacing||0}px;text-transform:${s.transform||'none'};">${escapeHtml(c.text)}</${c.tag}>`;
-    case 'text': return `<p data-inline-field="text" style="font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:${s.lineHeight};margin:0;letter-spacing:${s.letterSpacing||0}px;white-space:pre-line;">${escapeHtml(c.text)}</p>`;
+    case 'heading': return `<${c.tag} data-inline-field="text" style="font-family:'Fraunces',serif;font-weight:${s.fontWeight};font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:1.22;margin:0;letter-spacing:${s.letterSpacing||0}px;text-transform:${s.transform||'none'};text-decoration:${s.textDecoration||'none'};">${escapeHtml(c.text)}</${c.tag}>`;
+    case 'text': return `<p data-inline-field="text" style="font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:${s.lineHeight};margin:0;letter-spacing:${s.letterSpacing||0}px;text-decoration:${s.textDecoration||'none'};white-space:pre-line;">${escapeHtml(c.text)}</p>`;
     case 'button': {
       const pad=s.size==='sm'?'8px 16px':s.size==='lg'?'16px 30px':'12px 24px',fsz=s.size==='sm'?'12px':s.size==='lg'?'16px':'13.5px';
-      return `<div style="text-align:${s.align};"><a data-inline-field="text" class="builder-link" href="${safeUrl(c.link||'#')}" style="display:inline-block;background:${s.bg};color:${s.color};padding:${pad};border-radius:${s.radius}px;font-weight:700;font-size:${fsz};text-decoration:none;border:${s.borderWidth||0}px solid ${s.borderColor||'transparent'};">${escapeHtml(c.text)}</a></div>`;
+      return `<div style="text-align:${s.align};"><a data-inline-field="text" class="builder-link" href="${safeUrl(c.link||'#')}" style="display:inline-block;background:${s.bg};color:${s.color};padding:${pad};border-radius:${s.radius}px;font-weight:700;font-size:${fsz};text-decoration:${s.textDecoration||'none'};border:${s.borderWidth||0}px solid ${s.borderColor||'transparent'};">${escapeHtml(c.text)}</a></div>`;
     }
     case 'section': {
       const verticalMap={top:'flex-start',middle:'center',bottom:'flex-end'};
@@ -4992,19 +4972,27 @@ renderContentFields=function(el){
   if(el.type==='form') h=replaceFieldHtml('Form title','title',c.title)+replaceAreaHtml('Fields','fields',c.fields,8,'One per line: Label | type | required/optional')+replaceFieldHtml('Button text','buttonText',c.buttonText)+replaceFieldHtml('Success message','successMessage',c.successMessage);
   if(el.type==='social') h=renderSocialItemsEditor();
   if(el.type==='list') h=renderListItemsEditor();
-  if(el.type==='html') h=replaceAreaHtml('HTML code','code',c.code,18,'Paste trusted HTML here. Changes render immediately in the page canvas.');
+  if(el.type==='html') h=replaceAreaHtml('Custom HTML code','code',c.code,18,'Paste trusted HTML, SVG, or embed markup here, then apply it to the page canvas.')+`<button class="field-button" type="button" id="applyCustomHtmlBtn">Apply Custom HTML</button>`;
   box.innerHTML=h;
   Object.keys(c).forEach(key=>{
     if(el.type==='html' && key==='code'){
       bindXInput(key,v=>{
         c.code=v;
-        const widget=canvasPage.querySelector(`.el-wrap[data-id="${el.id}"] .custom-html-widget`);
-        if(widget) widget.innerHTML=v;
       });
       return;
     }
     bindXInput(key,v=>{c[key]=key==='value'?Number(v):v;reRenderElement(el)});
   });
+  if(el.type==='html'){
+    const applyCustomHtmlBtn=document.getElementById('applyCustomHtmlBtn');
+    if(applyCustomHtmlBtn) applyCustomHtmlBtn.addEventListener('click',()=>{
+      const codeField=document.getElementById('x_code');
+      c.code=codeField ? codeField.value : c.code;
+      reRenderElement(el);
+      pushHistory();
+      showToast('Custom HTML applied');
+    });
+  }
   if(el.type==='gallery')bindImageUpload('galleryUpload',src=>{c.images=(c.images?c.images+'\n':'')+src;reRenderElement(el);renderContentFields(el);});
   if(el.type==='list'){
     const commit = (items) => { c.listItemsData = items; c.items = items.map((item) => item.text).join('\n'); reRenderElement(el); };
