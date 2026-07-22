@@ -109,6 +109,25 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
+
+// Published pages are a read-only public feed consumed by the main website.
+// Keep its CORS contract explicit so an environment-specific global CORS
+// configuration cannot prevent News and Research listings from loading.
+app.use(`${API_PREFIX}/pages`, (request, response, next) => {
+  const requestOrigin = String(request.headers.origin || "").replace(/\/$/, "");
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    response.setHeader("Access-Control-Allow-Origin", requestOrigin);
+    response.setHeader("Access-Control-Allow-Credentials", "true");
+    response.setHeader("Vary", "Origin");
+  }
+  if (request.method === "OPTIONS") {
+    response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    response.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+    response.status(204).end();
+    return;
+  }
+  next();
+});
 app.use(express.json({ limit: "25mb" }));
 
 // Same-origin proxy used only by the visual editor for public website styles,
