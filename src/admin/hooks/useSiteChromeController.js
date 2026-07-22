@@ -69,7 +69,10 @@ export default function useSiteChromeController({
       { method: "POST", path: `/admin/pages/${encodeURIComponent(identifier)}` }  
     ]);  
     const createAttempts = [  
-      { method: "POST", path: "/admin/pages" },  
+      { method: "POST", path: "/admin/pages" },
+      // Recover an existing canonical header/footer row by slug when the
+      // current list payload did not include its database marker.
+      { method: "PATCH", path: `/admin/pages/${encodeURIComponent(nextPage.slug)}` },
       { method: "PUT", path: "/admin/pages" }  
     ];  
     const attempts = pageExistsInDatabase  
@@ -103,7 +106,11 @@ export default function useSiteChromeController({
       if ([404, 405].includes(response.status)) {  
         sawMissingMutationRoute = true;  
       }  
-      if (response.status === 401 || !shouldTryNextMutationRoute(response.status)) {  
+      if (response.status === 409 && !pageExistsInDatabase) {
+        continue;
+      }
+
+      if (response.status === 401 || !shouldTryNextMutationRoute(response.status)) {
         break;  
       }  
     }  
@@ -339,7 +346,23 @@ export default function useSiteChromeController({
       event?.preventDefault?.();  
       return null;  
     }  
-    const savedPage = await savePage(event, pageOverride);  
+    event?.preventDefault?.();
+    let savedPage;
+    try {
+      const previousPage = findSiteChromePage(pages, kind) || formPage || null;
+      const persisted = await persistPageToApi(pageOverride, previousPage);
+      savedPage = persisted.savedPage;
+      setPages((current) => {
+        const existingIndex = current.findIndex((entry) => isMatchingSiteChromePage(entry, kind));
+        if (existingIndex < 0) return [savedPage, ...current];
+        return current.map((entry, index) => (index === existingIndex ? savedPage : entry));
+      });
+      setFormPage(savedPage);
+      setActivePageId(savedPage.id);
+    } catch (error) {
+      setNotice(`${getSiteChromeConfig(kind).title} could not be saved. ${error.message || "Admin API rejected the update."}`);
+      return null;
+    }
     if (!savedPage) return null;  
     
     // The editor state is authoritative for this publish. Some page API  

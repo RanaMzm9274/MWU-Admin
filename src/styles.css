@@ -1560,8 +1560,19 @@ button:disabled {
   font-weight: 700;
 }
 
+.site-chrome-menu-card-head {
+  flex-wrap: nowrap;
+}
+
+.site-chrome-menu-card-head > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .site-chrome-menu-actions {
   justify-content: flex-end;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 .site-chrome-children {
@@ -1571,9 +1582,10 @@ button:disabled {
 
 .site-chrome-child-row {
   display: grid;
-  grid-template-columns: minmax(180px, 0.72fr) minmax(280px, 1.28fr) auto auto auto;
+  grid-template-columns: minmax(112px, 0.72fr) minmax(170px, 1.28fr) repeat(4, 40px);
   gap: 8px;
   align-items: center;
+  min-width: 500px;
 }
 
 .site-chrome-child-row input {
@@ -1861,13 +1873,15 @@ button:disabled {
 
 .site-chrome-footer-link-wrap {
   margin-left: calc(var(--footer-link-depth, 0) * 18px);
+  overflow-x: auto;
 }
 
 .site-chrome-footer-link-row {
   display: grid;
-  grid-template-columns: minmax(180px, 0.72fr) minmax(280px, 1.28fr);
+  grid-template-columns: minmax(112px, 0.72fr) minmax(170px, 1.28fr) auto;
   gap: 12px;
   align-items: end;
+  min-width: 620px;
   border-radius: 11px;
   padding: 12px;
   background: #f8fafc;
@@ -6379,6 +6393,24 @@ button:disabled {
     flex: 1;
   }
 
+  .site-chrome-menu-card-head {
+    gap: 6px;
+  }
+
+  .site-chrome-menu-actions {
+    gap: 5px;
+  }
+
+  .site-chrome-menu-actions .ghost-button,
+  .site-chrome-menu-actions .danger-button {
+    min-width: 40px;
+    padding-inline: 10px;
+  }
+
+  .site-chrome-menu-actions button span {
+    display: none;
+  }
+
   .user-management-summary {
     width: 100%;
     grid-template-columns: 1fr;
@@ -6394,8 +6426,6 @@ button:disabled {
   }
 
   .site-chrome-cta-grid,
-  .site-chrome-child-row,
-  .site-chrome-footer-link-row,
   .site-chrome-hierarchy-row,
   .site-chrome-mega-program-list,
   .programs-mega-category-grid {

@@ -686,7 +686,7 @@ let elements = [];
 let selectedId = null;
 let currentDevice = 'desktop';
 const RESPONSIVE_DEVICES = ['desktop','tablet','mobile'];
-const GLOBAL_ADVANCED_KEYS = new Set(['cssId','cssClasses','customCss','hideDesktop','hideTablet','hideMobile']);
+const GLOBAL_ADVANCED_KEYS = new Set(['cssId','cssClasses','customCss','hideDesktop','hideTablet','hideMobile','animation','outroAnimation']);
 let history = [];
 let historyIndex = -1;
 let dragPayload = null; // { kind:'new', widgetType } or { kind:'move', id }
@@ -1963,7 +1963,8 @@ function ensureImportedDesktopStyle(node){
 }
 function applyImportedResponsiveDeviceStyles(root=getImportedHtmlRoot(), device=currentDevice){
   if(!root) return;
-  root.querySelectorAll('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]').forEach((node)=>{
+  const responsiveNodes=[...(root.matches?.('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]')?[root]:[]),...root.querySelectorAll('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]')];
+  responsiveNodes.forEach((node)=>{
     ensureImportedDesktopStyle(node);
     node.style.cssText = node.getAttribute('data-mwu-desktop-style') || '';
     if(device === 'tablet' || device === 'mobile'){
@@ -1977,7 +1978,8 @@ function applyImportedResponsiveDeviceStyles(root=getImportedHtmlRoot(), device=
       });
     }
   });
-  root.querySelectorAll('[data-mwu-hide-desktop],[data-mwu-hide-tablet],[data-mwu-hide-mobile]').forEach((node)=>{
+  const visibilityNodes=[...(root.matches?.('[data-mwu-hide-desktop],[data-mwu-hide-tablet],[data-mwu-hide-mobile]')?[root]:[]),...root.querySelectorAll('[data-mwu-hide-desktop],[data-mwu-hide-tablet],[data-mwu-hide-mobile]')];
+  visibilityNodes.forEach((node)=>{
     node.setAttribute('data-import-device-hidden', String(node.getAttribute(`data-mwu-hide-${device}`)==='true'));
   });
 }
@@ -2001,11 +2003,13 @@ function importedResponsivePublishData(root){
     node.removeAttribute('style');
     node.removeAttribute('data-mwu-desktop-style');
   });
-  clone.querySelectorAll('[data-import-id]').forEach((node)=>{
+  const publishedNodes=[...(clone.matches?.('[data-import-id]')?[clone]:[]),...clone.querySelectorAll('[data-import-id]')];
+  const desktopVisibilityRules=[], tabletVisibilityRules=[], mobileVisibilityRules=[];
+  publishedNodes.forEach((node)=>{
     const selector=`[data-import-id="${String(node.getAttribute('data-import-id')).replace(/"/g,'\\"')}"]`, declarations=[];
-    if(node.getAttribute('data-mwu-hide-desktop')==='true') baseRules.push(`${selector}{display:none!important;}`);
-    if(node.getAttribute('data-mwu-hide-tablet')==='true') tabletRules.push(`${selector}{display:none!important;}`);
-    if(node.getAttribute('data-mwu-hide-mobile')==='true') mobileRules.push(`${selector}{display:none!important;}`);
+    if(node.getAttribute('data-mwu-hide-desktop')==='true') desktopVisibilityRules.push(`${selector}{display:none!important;}`);
+    if(node.getAttribute('data-mwu-hide-tablet')==='true') tabletVisibilityRules.push(`${selector}{display:none!important;}`);
+    if(node.getAttribute('data-mwu-hide-mobile')==='true') mobileVisibilityRules.push(`${selector}{display:none!important;}`);
     ['color','background-color','background-image','border-color','opacity','transform'].forEach((property)=>{
       const value=node.getAttribute(`data-mwu-hover-${property}`);
       if(value) declarations.push(`${property}:${property==='background-image'?`url("${String(value).replace(/"/g,'\\"')}")`:value}!important`);
@@ -2013,7 +2017,7 @@ function importedResponsivePublishData(root){
     if(declarations.length) hoverRules.push(`${selector}:hover{${declarations.join(';')}}`);
     node.removeAttribute('data-import-device-hidden');
   });
-  const css = `${baseRules.join('')}${hoverRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
+  const css = `${baseRules.join('')}${hoverRules.join('')}${desktopVisibilityRules.length?`@media(min-width:1025px){${desktopVisibilityRules.join('')}}`:''}${tabletRules.length||tabletVisibilityRules.length?`@media(min-width:768px) and (max-width:1024px){${tabletRules.join('')}${tabletVisibilityRules.join('')}}`:''}${tabletRules.length||mobileRules.length||mobileVisibilityRules.length?`@media(max-width:767px){${tabletRules.join('')}${mobileRules.join('')}${mobileVisibilityRules.join('')}}`:''}`;
   return { html: clone.innerHTML, css };
 }
 function importedResponsiveModelHtml(root){
@@ -5587,8 +5591,6 @@ function responsiveMarkupStyleRules(el, device){
   const rules = [];
   const wrapperDeclarations = importantDeclarations(composeWrapStyle(viewEl));
   if(wrapperDeclarations) rules.push(`${prefix}{${wrapperDeclarations}}`);
-  if(isHiddenForDevice(el, device)) rules.push(`${prefix}{display:none!important;}`);
-
   if(el.type === 'container'){
     const s = viewEl.style || {};
     rules.push(`${prefix}>.container-shell{display:flex!important;flex-direction:${s.flow==='row'?'row':'column'}!important;gap:${Number(s.gap||0)}px!important;justify-content:${s.justify||'flex-start'}!important;align-items:${s.alignItems||'stretch'}!important;}`);
@@ -5623,23 +5625,25 @@ function buildPublishedResponsiveCss(){
   const desktopRules = [];
   const tabletRules = [];
   const mobileRules = [];
+  const desktopVisibilityRules = [];
+  const tabletVisibilityRules = [];
+  const mobileVisibilityRules = [];
   visitElements(elements, (el)=>{
     const desktopHidden = isHiddenForDevice(el, 'desktop');
     const tabletHidden = isHiddenForDevice(el, 'tablet');
     const mobileHidden = isHiddenForDevice(el, 'mobile');
-    if(desktopHidden) desktopRules.push(`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`);
-    if(elementHasResponsiveOverrides(el, 'tablet') || desktopHidden !== tabletHidden){
+    const visibilityRule=`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`;
+    if(desktopHidden) desktopVisibilityRules.push(visibilityRule);
+    if(tabletHidden) tabletVisibilityRules.push(visibilityRule);
+    if(mobileHidden) mobileVisibilityRules.push(visibilityRule);
+    if(elementHasResponsiveOverrides(el, 'tablet')){
       tabletRules.push(responsiveMarkupStyleRules(el, 'tablet'));
-    }else if(tabletHidden){
-      tabletRules.push(`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`);
     }
-    if(elementHasResponsiveOverrides(el, 'mobile') || tabletHidden !== mobileHidden){
+    if(elementHasResponsiveOverrides(el, 'mobile')){
       mobileRules.push(responsiveMarkupStyleRules(el, 'mobile'));
-    }else if(mobileHidden){
-      mobileRules.push(`.published-widget.${cssSafeElementClass(el.id)}{display:none!important;}`);
     }
   });
-  return `${desktopRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
+  return `${desktopRules.join('')}${desktopVisibilityRules.length?`@media(min-width:1025px){${desktopVisibilityRules.join('')}}`:''}${tabletRules.length||tabletVisibilityRules.length?`@media(min-width:768px) and (max-width:1024px){${tabletRules.join('')}${tabletVisibilityRules.join('')}}`:''}${tabletRules.length||mobileRules.length||mobileVisibilityRules.length?`@media(max-width:767px){${tabletRules.join('')}${mobileRules.join('')}${mobileVisibilityRules.join('')}}`:''}`;
 }
 function restorePublishedLiveAssetUrls(value=''){
   const proxyPrefix = String(hostLiveAssetProxyPrefix || '').replace(/\/$/, '');
@@ -5648,6 +5652,19 @@ function restorePublishedLiveAssetUrls(value=''){
   const escaped = proxyPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return String(value || '').replace(new RegExp(escaped, 'g'), liveOrigin);
 }
+function publishedMotionAttributes(el={}){
+  const intro=String(el.advanced?.animation||'none');
+  const outro=String(el.advanced?.outroAnimation||'none');
+  return `data-mwu-intro-animation="${escapeHtml(intro)}" data-mwu-outro-animation="${escapeHtml(outro)}"`;
+}
+const PUBLISHED_MOTION_CSS=`
+  @keyframes mwuFadeIn{from{opacity:0}to{opacity:1}}@keyframes mwuSlideIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}@keyframes mwuZoomIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+  @keyframes mwuFadeOut{to{opacity:0}}@keyframes mwuSlideOut{to{opacity:0;transform:translateY(24px)}}@keyframes mwuZoomOut{to{opacity:0;transform:scale(.92)}}
+  .mwu-motion-intro-fade{animation:mwuFadeIn .5s ease both}.mwu-motion-intro-slide{animation:mwuSlideIn .55s ease both}.mwu-motion-intro-zoom{animation:mwuZoomIn .45s ease both}
+  .mwu-motion-outro-fade{animation:mwuFadeOut .45s ease both}.mwu-motion-outro-slide{animation:mwuSlideOut .5s ease both}.mwu-motion-outro-zoom{animation:mwuZoomOut .4s ease both}
+  @media(prefers-reduced-motion:reduce){[data-mwu-intro-animation],[data-mwu-outro-animation]{animation:none!important;transition:none!important}}
+`;
+const PUBLISHED_MOTION_SCRIPT=`<script>(()=>{const nodes=[...document.querySelectorAll('[data-mwu-intro-animation],[data-mwu-outro-animation]')];if(!nodes.length)return;const classes=['mwu-motion-intro-fade','mwu-motion-intro-slide','mwu-motion-intro-zoom','mwu-motion-outro-fade','mwu-motion-outro-slide','mwu-motion-outro-zoom'];const play=(node,kind)=>{const value=node.dataset[kind==='intro'?'mwuIntroAnimation':'mwuOutroAnimation']||'none';node.classList.remove(...classes);if(value==='none')return;void node.offsetWidth;node.classList.add('mwu-motion-'+kind+'-'+value);node.addEventListener('animationend',()=>node.classList.remove('mwu-motion-'+kind+'-'+value),{once:true})};if(!('IntersectionObserver'in window)){nodes.forEach(node=>play(node,'intro'));return}const seen=new WeakSet();const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){seen.add(entry.target);play(entry.target,'intro')}else if(seen.has(entry.target)){play(entry.target,'outro')}}),{threshold:.12});nodes.forEach(node=>observer.observe(node))})();<\/script>`;
 buildPublishedHtml = function(){
   const selectedGoogleFonts=buildSelectedGoogleFontsLink();
   if(isImportedExactPageMode()){
@@ -5659,14 +5676,14 @@ buildPublishedHtml = function(){
     const inlineCss = String(hostImportInlineCss || '').trim();
     const inlineStyle = inlineCss ? `<style>${inlineCss}</style>` : '';
     const responsiveStyle = responsivePublish.css ? `<style>${responsivePublish.css}</style>` : '';
-    const fontStyle = `<style>
+    const fontStyle = `<style>${PUBLISHED_MOTION_CSS}
       @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-solid-900.woff2') format('woff2'); font-weight: 900; font-style: normal; font-display: block; }
       @font-face { font-family: 'Font Awesome 6 Brands'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-brands-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
       .fa, .fas, .fa-solid { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
       .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
       [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
     </style>`;
-    return restorePublishedLiveAssetUrls(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${selectedGoogleFonts}${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}</body></html>`);
+    return restorePublishedLiveAssetUrls(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${selectedGoogleFonts}${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}${PUBLISHED_MOTION_SCRIPT}</body></html>`);
   }
   elements = ensureTreeDefaults(elements);
   const customRules = [];
@@ -5681,14 +5698,14 @@ buildPublishedHtml = function(){
         const s = desktopEl.style || {};
         const inner = renderPublishedTree(el.children || []);
         const backgroundLayer = buildContainerBackgroundLayer(desktopEl.box || {});
-        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(desktopEl)}">${backgroundLayer}<div class="container-shell ${backgroundLayer ? 'has-background' : ''}" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;min-height:84px;${backgroundLayer ? 'background:transparent;border-color:transparent;' : 'border:0;background:transparent;'}"><div class="container-children" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;">${inner}</div></div></div>`;
+        return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} ${publishedMotionAttributes(el)} class="${cls}" style="${composeWrapStyle(desktopEl)}">${backgroundLayer}<div class="container-shell ${backgroundLayer ? 'has-background' : ''}" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;min-height:84px;${backgroundLayer ? 'background:transparent;border-color:transparent;' : 'border:0;background:transparent;'}"><div class="container-children" style="display:flex;flex-direction:${s.flow==='row'?'row':'column'};flex-wrap:nowrap;gap:${Number(s.gap||16)}px;justify-content:${s.justify||'flex-start'};align-items:${s.alignItems||'stretch'};width:100%;">${inner}</div></div></div>`;
       }
-      return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(desktopEl)}">${elementInnerHTML(desktopEl)}</div>`;
+      return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} ${publishedMotionAttributes(el)} class="${cls}" style="${composeWrapStyle(desktopEl)}">${elementInnerHTML(desktopEl)}</div>`;
     }).join('\n');
   };
   // Keep selected catalogue/custom Google families available in exported standard pages too.
-  const body = selectedGoogleFonts + renderPublishedTree(elements);
-  const custom = customRules.join('\n');
+  const body = selectedGoogleFonts + renderPublishedTree(elements) + PUBLISHED_MOTION_SCRIPT;
+  const custom = PUBLISHED_MOTION_CSS + customRules.join('\n');
   const responsiveCss = buildPublishedResponsiveCss();
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}.container-shell{position:relative;border-radius:inherit}.container-shell.has-background{background:transparent;border-color:transparent}.container-bg-layer{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}.container-shell>.container-children,.container-shell>.published-widget,.container-shell>.drop-zone{position:relative;z-index:1}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}}${custom}${responsiveCss}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
 };
