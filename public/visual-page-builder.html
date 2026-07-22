@@ -987,8 +987,50 @@ function ensureImportedEditorFonts(){
     .custom-html-widget .far, .custom-html-widget .fa-regular { font-family: 'Font Awesome 6 Pro' !important; font-weight: 400 !important; }
     .custom-html-widget .fab, .custom-html-widget .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
     .custom-html-widget [class^='fa-']::before, .custom-html-widget [class*=' fa-']::before, .custom-html-widget .icon-btn::before, .custom-html-widget .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
+    .custom-html-widget .far::before, .custom-html-widget .fa-regular::before { font-family: 'Font Awesome 6 Pro' !important; font-weight: 400 !important; }
+    .custom-html-widget .fab::before, .custom-html-widget .fa-brands::before { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
+    .custom-html-widget i::before { font-style: normal !important; text-rendering: auto !important; }
   `;
   document.head.appendChild(style);
+}
+function ensureImportedPseudoSuppressionStyle(root){
+  let style = root?.querySelector?.('style[data-mwu-materialized-pseudo-style]');
+  if(!style && root){
+    style=document.createElement('style');
+    style.setAttribute('data-mwu-materialized-pseudo-style','true');
+    root.prepend(style);
+  }
+  if(style){
+    style.textContent='.mwu-pseudo-materialized-before::before,.mwu-pseudo-materialized-after::after{display:none!important;content:none!important;}';
+  }
+}
+function materializeImportedVectorPseudoElements(root){
+  if(!root) return;
+  const vectorProperties=['position','zIndex','top','right','bottom','left','width','height','minWidth','minHeight','background','backgroundColor','backgroundImage','border','borderRadius','clipPath','webkitClipPath','transform','transformOrigin','opacity','display','pointerEvents'];
+  Array.from(root.querySelectorAll('*')).forEach((owner)=>{
+    if(owner.closest?.('[data-import-vector="true"]')) return;
+    ['before','after'].forEach((side)=>{
+      if(owner.classList.contains(`mwu-pseudo-materialized-${side}`)) return;
+      let computed;
+      try{ computed=window.getComputedStyle(owner, `::${side}`); }catch{ return; }
+      const content=String(computed?.content || '').trim();
+      const clipPath=String(computed?.clipPath || computed?.webkitClipPath || '').trim();
+      if(!computed || content==='none' || content==='normal' || (!clipPath || clipPath==='none')) return;
+      const vector=document.createElement('span');
+      vector.className='mwu-imported-vector';
+      vector.setAttribute('data-import-vector','true');
+      vector.setAttribute('data-import-vector-side',side);
+      vector.setAttribute('title',`${side} vector decoration`);
+      vectorProperties.forEach((property)=>{
+        const value=computed[property];
+        if(value && value!=='auto' && value!=='none' && value!=='normal') vector.style[property]=value;
+      });
+      vector.style.setProperty('pointer-events','auto','important');
+      owner.classList.add(`mwu-pseudo-materialized-${side}`);
+      owner.appendChild(vector);
+    });
+  });
+  if(root.querySelector('[data-import-vector="true"]')) ensureImportedPseudoSuppressionStyle(root);
 }
 function importedBackgroundSource(node){
   if(!node || node.tagName.toLowerCase()==='img') return '';
@@ -997,6 +1039,7 @@ function importedBackgroundSource(node){
 function hydrateImportedAssets(root){
   if(!root) return;
   ensureImportedEditorFonts();
+  materializeImportedVectorPseudoElements(root);
   root.querySelectorAll('img').forEach((img)=>{
     const dataSrc = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy') || '';
     const dataSrcset = img.getAttribute('data-srcset') || img.getAttribute('data-lazy-srcset') || '';
@@ -1115,6 +1158,7 @@ function importedClassText(node){
 }
 function isImportedOverlayLikeNode(node){
   if(!node || node.nodeType!==1) return false;
+  if(node.getAttribute?.('data-import-vector')==='true') return false;
   const tag = String(node.tagName || '').toLowerCase();
   if(['img','picture','source','video','canvas','svg','path','i'].includes(tag)) return false;
   if(node.getAttribute?.('data-bg-src') || node.getAttribute?.('data-background') || isImportedBackgroundMediaNode(node)) return false;
@@ -1292,6 +1336,9 @@ function findImportedPointTarget(event, selector, normalize=(node)=>node){
 }
 function resolveImportedInteractionTarget(event){
   const rawTarget = resolveImportedPointerTarget(event);
+  const vectorTarget = event?.target?.closest?.('[data-import-vector="true"]')
+    || findImportedPointTarget(event, '[data-import-vector="true"]');
+  if(vectorTarget) return { target:vectorTarget, kind:'vector' };
   const iconTarget = getImportedEditableIconTarget(event?.target)
     || findImportedPointTarget(event, 'i, svg', normalizeImportedIconElement);
   if(iconTarget) return { target:iconTarget, kind:'icon' };
@@ -1313,6 +1360,17 @@ function getImportedParentSelectableNode(node){
     const selectable = getImportedContentNode(current);
     if(selectable && selectable!==node) return selectable;
     current = current.parentElement;
+  }
+  return null;
+}
+function getImportedStructuralContainer(node, includeSelf=true){
+  const root=getImportedHtmlRoot();
+  let current=node?.nodeType===3 ? node.parentElement : node;
+  if(!includeSelf) current=current?.parentElement;
+  while(current && current!==root){
+    const tag=String(current.tagName || '').toLowerCase();
+    if(['main','aside','section','article','header','footer','nav','div'].includes(tag) && current.getAttribute?.('data-import-vector')!=='true') return current;
+    current=current.parentElement;
   }
   return null;
 }
@@ -1666,6 +1724,7 @@ function resolveImportedMediaTargetById(root, elementId=''){
 }
 function importedElementType(node){
   const tag = String(node?.tagName || '').toLowerCase();
+  if(node?.getAttribute?.('data-import-vector')==='true') return 'vector';
   if(isImportedIconNode(node)) return 'icon';
   if(tag==='img') return 'image';
   if(tag==='a' || tag==='button') return 'button';
@@ -1774,6 +1833,7 @@ function describeImportedNode(node){
       zIndex: String(getImportedStyleValue(styleTarget,'zIndex') || '').trim(),
       objectFit: normalizeImportedSelectValue(getImportedStyleValue(node,'objectFit'), ['cover','contain','fill','none','scale-down'], ''),
       objectPosition: String(getImportedStyleValue(node,'objectPosition') || '').trim(),
+      clipPath: String(getImportedStyleValue(styleTarget,'clipPath') || getImportedStyleValue(styleTarget,'webkitClipPath') || '').trim(),
       top: getImportedStyleValue(styleTarget,'top'),
       right: getImportedStyleValue(styleTarget,'right'),
       bottom: getImportedStyleValue(styleTarget,'bottom'),
@@ -2569,6 +2629,7 @@ function renderImportedSettings(node){
   const isButtonElement = details.type === 'button';
   const isImageElement = details.type === 'image';
   const isIconElement = details.type === 'icon';
+  const isVectorElement = details.type === 'vector';
   const isContainerElement = details.type === 'container';
   const supportsTypography = isHeadingElement || isTextElement || isButtonElement;
   const backgroundContextTarget = isImageElement ? null : getImportedBackgroundContextTarget(node);
@@ -2610,7 +2671,7 @@ function renderImportedSettings(node){
   const advancedBox = document.getElementById('advancedFields');
   const textEditable = supportsTypography && details.text;
   contentBox.innerHTML = `
-    <div class="field-hint">Imported page editing is active. Double-click text to edit inline. Click icons directly to style them. Shift-click selects the parent container.</div>
+    <div class="field-hint">Imported page editing is active. Double-click text to edit inline. Click icons and vectors directly. Shift-click selects the structural parent; Ctrl/Alt-click selects the nearest container.</div>
     <div class="field-group">
       <div class="field-group-label">HTML source</div>
       <textarea class="field-textarea code-output" id="f_importedHtmlCode" rows="16" spellcheck="false">${escapeHtml(importedHtmlModel?.content?.code || '')}</textarea>
@@ -2624,6 +2685,7 @@ function renderImportedSettings(node){
     ${isIconElement ? selectField('Icon library', 'importedIconFamily', [['fa-solid','Solid'],['fa-regular','Regular'],['fa-brands','Brands']], importedIconFamily) : ''}
     ${isIconElement ? selectField('Preset icon', 'importedIconPreset', [['','Custom'], ...importedIconPresetChoices], importedIconPresetValue) : ''}
     ${isIconElement ? fieldInput('Font Awesome class', 'importedIconClass', importedIconClass || '') : ''}
+    ${isVectorElement ? `<div class="field-hint">This is a materialized CSS vector decoration. Its shape, color, size, and position are editable.</div>` : ''}
     ${hasMediaTarget ? fieldInput('Image URL', 'importedImageUrl', mediaDetails?.src || details.src || '') : ''}
     ${mediaIsImage ? fieldInput('Alt text', 'importedImageAlt', mediaDetails?.alt || details.alt || '') : ''}
     ${hasMediaTarget ? `<div class="field-group"><div class="field-group-label">Replace image</div><div class="builder-file-stack"><button class="field-button" type="button" id="importedImageLibraryBtn">Media Library</button>${imageUploadHtml('importedImageUpload')}</div></div>` : ''}
@@ -2648,6 +2710,9 @@ function renderImportedSettings(node){
     ${isIconElement ? `<div class="panel-section-label" style="padding:0 0 10px;">Icon</div>` : ''}
     ${isIconElement ? rangeField('Icon size', 'importedFontSize', 8, 160, importedFontSize, 'px') : ''}
     ${isIconElement ? colorField('Icon color', 'importedColor', details.styles.color && details.styles.color.startsWith('#') ? details.styles.color : '#161D2B') : ''}
+    ${isVectorElement ? `<div class="panel-section-label" style="padding:0 0 10px;">Vector</div>` : ''}
+    ${isVectorElement ? colorField('Vector color', 'importedVectorColor', details.styles.backgroundColor || '#f2b900') : ''}
+    ${isVectorElement ? fieldInput('Clip path', 'importedVectorClipPath', details.styles.clipPath || '') : ''}
     ${isContainerElement ? `<div class="panel-section-label" style="padding:0 0 10px;">Layout</div>` : ''}
     ${isContainerElement ? selectField('Direction', 'importedFlexDirection', [['','Default'],['row','Row'],['row-reverse','Row reverse'],['column','Column'],['column-reverse','Column reverse']], details.styles.flexDirection || '') : ''}
     ${isContainerElement ? selectField('Justify content', 'importedJustifyContent', [['','Default'],['flex-start','Start'],['center','Center'],['flex-end','End'],['space-between','Space between']], details.styles.justifyContent || '') : ''}
@@ -2806,6 +2871,35 @@ function renderImportedSettings(node){
       if(iconPresetNode) iconPresetNode.value = importedFontAwesomeOptions(iconFamilyNode?.value || 'fa-solid').some(([value])=> value === normalized) ? normalized : '';
     });
     iconClassNode.addEventListener('blur', commitImportedIconReplacement);
+  }
+  const vectorColorNode = document.getElementById('f_importedVectorColor');
+  const vectorColorTextNode = document.getElementById('t_importedVectorColor');
+  const applyVectorColor = (value)=>{
+    setImportedInlineStyle(importedSelectionNode, 'backgroundColor', value);
+    syncImportedHtmlToModel('imported-vector');
+  };
+  if(vectorColorNode){
+    vectorColorNode.addEventListener('input', ()=>{
+      if(vectorColorTextNode) vectorColorTextNode.value=vectorColorNode.value;
+      applyVectorColor(vectorColorNode.value);
+    });
+    vectorColorNode.addEventListener('change', ()=> syncImportedHtmlToModel('imported-vector', true));
+  }
+  if(vectorColorTextNode){
+    vectorColorTextNode.addEventListener('input', ()=>{
+      if(vectorColorNode && /^#[0-9A-Fa-f]{6}$/.test(vectorColorTextNode.value)) vectorColorNode.value=vectorColorTextNode.value;
+      applyVectorColor(vectorColorTextNode.value);
+    });
+    vectorColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-vector', true));
+  }
+  const vectorClipPathNode = document.getElementById('f_importedVectorClipPath');
+  if(vectorClipPathNode){
+    vectorClipPathNode.addEventListener('input', ()=>{
+      setImportedInlineStyle(importedSelectionNode, 'clipPath', vectorClipPathNode.value);
+      setImportedInlineStyle(importedSelectionNode, 'webkitClipPath', vectorClipPathNode.value);
+      syncImportedHtmlToModel('imported-vector');
+    });
+    vectorClipPathNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-vector', true));
   }
   const imageNode = document.getElementById('f_importedImageUrl');
   if(imageNode){
@@ -3039,11 +3133,16 @@ function initializeImportedPage(){
   }
   root.addEventListener('click', (event)=>{
     const interaction = resolveImportedInteractionTarget(event);
-    const target = interaction.target;
+    let target = interaction.target;
     if(!target) return;
+    if(event.shiftKey){
+      target=getImportedStructuralContainer(target, false) || target.parentElement || target;
+    }else if(event.ctrlKey || event.metaKey || event.altKey){
+      target=getImportedStructuralContainer(target, true) || target;
+    }
     event.preventDefault();
     event.stopPropagation();
-    selectImportedNode(event.shiftKey && target.parentElement && target.parentElement!==root ? target.parentElement : target);
+    selectImportedNode(target);
   }, true);
   root.addEventListener('dblclick', (event)=>{
     const interaction = resolveImportedInteractionTarget(event);
