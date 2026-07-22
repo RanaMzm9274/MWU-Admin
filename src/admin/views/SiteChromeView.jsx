@@ -339,20 +339,11 @@ const setAnchorLabel = (anchor, label = "") => {
 
 const syncFooterMenuList = (list, items = []) => {
   if (!list) return;
-  const listItems = Array.from(list.children || []).filter((child) => child.tagName?.toLowerCase() === "li");
-  listItems.forEach((listItem, index) => {
-    const modelItem = items[index];
-    if (!modelItem) return;
-    const anchor = getDirectAnchor(listItem);
-    if (anchor) {
-      anchor.setAttribute("href", modelItem.href || "#");
-      setAnchorLabel(anchor, modelItem.title || "Footer Link");
-    }
-    const childList = Array.from(listItem.children || []).find((child) => child.tagName?.toLowerCase() === "ul");
-    if (childList && modelItem.children?.length) {
-      syncFooterMenuList(childList, modelItem.children);
-    }
-  });
+  const renderItems = (entries = []) => entries.map((item) => {
+    const children = Array.isArray(item.children) ? item.children : [];
+    return `<li${children.length ? ' class="menu-item-has-children"' : ""}><a href="${escapeMenuMarkup(item.href || "#")}">${escapeMenuMarkup(item.title || "Footer Link")}</a>${children.length ? `<ul class="sub-menu">${renderItems(children)}</ul>` : ""}</li>`;
+  }).join("");
+  list.innerHTML = renderItems(items);
 };
 
 const updateFooterNavigationMarkup = (html = "", groups = []) => {
@@ -363,7 +354,7 @@ const updateFooterNavigationMarkup = (html = "", groups = []) => {
     getFooterNavigationWidgets(doc).forEach((widget, index) => {
       const group = groups.find((item) => item.id === `footer-nav-${index}`);
       if (!group) return;
-      syncFooterMenuList(widget.querySelector("ul.menu"), group.items);
+      syncFooterMenuList(widget.querySelector("ul.menu, ul"), group.items);
     });
     return doc.body.innerHTML.trim();
   } catch {
@@ -380,6 +371,27 @@ const updateMenuTreeItem = (items = [], itemId, updater) =>
       children: updateMenuTreeItem(item.children, itemId, updater)
     };
   });
+
+const removeMenuTreeItem = (items = [], itemId) =>
+  items
+    .filter((item) => item.id !== itemId)
+    .map((item) => ({ ...item, children: removeMenuTreeItem(item.children || [], itemId) }));
+
+const addMenuTreeChild = (items = [], parentId, child) =>
+  updateMenuTreeItem(items, parentId, (item) => ({ ...item, children: [...(item.children || []), child] }));
+
+const moveMenuTreeItem = (items = [], itemId, direction) => {
+  const index = items.findIndex((item) => item.id === itemId);
+  if (index >= 0) {
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (target < 0 || target >= items.length) return items;
+    const next = [...items];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    return next;
+  }
+  return items.map((item) => ({ ...item, children: moveMenuTreeItem(item.children || [], itemId, direction) }));
+};
 
 function MenuHierarchyItems({ items = [] }) {
   return (
@@ -516,7 +528,7 @@ function PageLinkField({ label, children }) {
   );
 }
 
-function FooterMenuItemEditor({ item, groupId, pages, depth = 0, onFieldChange, onPageSelect }) {
+function FooterMenuItemEditor({ item, groupId, pages, depth = 0, onFieldChange, onPageSelect, onAddChild, onRemove, onMove }) {
   return (
     <div className="site-chrome-footer-link-wrap" style={{ "--footer-link-depth": depth }}>
       <div className="site-chrome-footer-link-row">
@@ -531,6 +543,12 @@ function FooterMenuItemEditor({ item, groupId, pages, depth = 0, onFieldChange, 
             onChange={(href, selectedPage) => onPageSelect(groupId, item.id, href, selectedPage)}
           />
         </PageLinkField>
+        <div className="site-chrome-menu-actions">
+          <button className="ghost-button" type="button" onClick={() => onAddChild(groupId, item.id)}><Plus size={15} /><span>Add Child</span></button>
+          <button className="icon-button" type="button" aria-label="Move item up" onClick={() => onMove(groupId, item.id, "up")}><ChevronUp size={15} /></button>
+          <button className="icon-button" type="button" aria-label="Move item down" onClick={() => onMove(groupId, item.id, "down")}><ChevronDown size={15} /></button>
+          <button className="icon-button danger" type="button" aria-label="Remove item" onClick={() => onRemove(groupId, item.id)}><Trash2 size={15} /></button>
+        </div>
       </div>
       {(item.children || []).map((child) => (
         <FooterMenuItemEditor
@@ -541,8 +559,27 @@ function FooterMenuItemEditor({ item, groupId, pages, depth = 0, onFieldChange, 
           depth={depth + 1}
           onFieldChange={onFieldChange}
           onPageSelect={onPageSelect}
+          onAddChild={onAddChild}
+          onRemove={onRemove}
+          onMove={onMove}
         />
       ))}
+    </div>
+  );
+}
+
+function HeaderChildItemEditor({ item, pages, depth = 1, onFieldChange, onPageSelect, onAddChild, onRemove, onMove }) {
+  return (
+    <div className="site-chrome-footer-link-wrap" style={{ "--footer-link-depth": depth }}>
+      <div className="site-chrome-child-row">
+        <input value={item.title} onChange={(event) => onFieldChange(item.id, "title", event.target.value)} placeholder={depth > 1 ? "Subchild label" : "Child label"} />
+        <PageLinkSelect value={item.href} pages={pages} ariaLabel={`Select page for ${item.title || "menu item"}`} onChange={(href, page) => onPageSelect(item.id, href, page)} />
+        <button className="icon-button" type="button" aria-label="Add child" title="Add child" onClick={() => onAddChild(item.id)}><Plus size={16} /></button>
+        <button className="icon-button" type="button" aria-label="Move up" onClick={() => onMove(item.id, "up")}><ChevronUp size={16} /></button>
+        <button className="icon-button" type="button" aria-label="Move down" onClick={() => onMove(item.id, "down")}><ChevronDown size={16} /></button>
+        <button className="icon-button danger" type="button" aria-label="Remove item" onClick={() => onRemove(item.id)}><Trash2 size={16} /></button>
+      </div>
+      {(item.children || []).map((child) => <HeaderChildItemEditor key={child.id} item={child} pages={pages} depth={depth + 1} onFieldChange={onFieldChange} onPageSelect={onPageSelect} onAddChild={onAddChild} onRemove={onRemove} onMove={onMove} />)}
     </div>
   );
 }
@@ -648,8 +685,11 @@ export default function SiteChromeView({
       ),
     [availableMenuPages, mainMenuQuery]
   );
-  const selectedMainMenuParent =
-    mainMenuItems.find((item) => item.id === mainMenuParentId) || null;
+  const mainMenuParentOptions = useMemo(() => {
+    const flatten = (items = [], depth = 0) => items.flatMap((item) => item.isMega ? [] : [{ item, depth }, ...flatten(item.children || [], depth + 1)]);
+    return flatten(mainMenuItems);
+  }, [mainMenuItems]);
+  const selectedMainMenuParent = mainMenuParentOptions.find(({ item }) => item.id === mainMenuParentId)?.item || null;
   const previewSnippetHtml = useMemo(() => {
     if (kind !== "header") return snippetHtml;
     let nextHtml = snippetHtml;
@@ -751,70 +791,31 @@ export default function SiteChromeView({
     }));
   };
 
-  const updateHeaderChildItem = (itemId, childId, field, value) => {
+  const updateHeaderChildItem = (itemId, field, value) => {
     commitVisualHeaderModel((current) => ({
       ...current,
-      menuItems: current.menuItems.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              children: item.children.map((child) => (child.id === childId ? { ...child, [field]: value } : child))
-            }
-          : item
-      )
+      menuItems: updateMenuTreeItem(current.menuItems, itemId, (item) => ({ ...item, [field]: value }))
     }));
   };
 
   const addHeaderChildItem = (itemId) => {
     commitVisualHeaderModel((current) => ({
       ...current,
-      menuItems: current.menuItems.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              children: [
-                ...(item.children || []),
-                {
-                  id: `header-child-added-${Date.now()}-${itemId}`,
-                  title: "",
-                  href: ""
-                }
-              ]
-            }
-          : item
-      )
+      menuItems: addMenuTreeChild(current.menuItems, itemId, { id: `header-child-added-${Date.now()}-${itemId}`, title: "", href: "", children: [] })
     }));
   };
 
-  const removeHeaderChildItem = (itemId, childId) => {
+  const removeHeaderChildItem = (itemId) => {
     commitVisualHeaderModel((current) => ({
       ...current,
-      menuItems: current.menuItems.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              children: item.children.filter((child) => child.id !== childId)
-            }
-          : item
-      )
+      menuItems: removeMenuTreeItem(current.menuItems, itemId)
     }));
   };
 
-  const moveHeaderChildItem = (itemId, childId, direction) => {
+  const moveHeaderChildItem = (itemId, direction) => {
     commitVisualHeaderModel((current) => ({
       ...current,
-      menuItems: current.menuItems.map((item) => {
-        if (item.id !== itemId) return item;
-        const children = [...(item.children || [])];
-        const index = children.findIndex((child) => child.id === childId);
-        const targetIndex = direction === "up" ? index - 1 : index + 1;
-        if (index < 0 || targetIndex < 0 || targetIndex >= children.length) {
-          return item;
-        }
-        const [moved] = children.splice(index, 1);
-        children.splice(targetIndex, 0, moved);
-        return { ...item, children };
-      })
+      menuItems: moveMenuTreeItem(current.menuItems, itemId, direction)
     }));
   };
 
@@ -840,25 +841,10 @@ export default function SiteChromeView({
     }));
   };
 
-  const selectHeaderChildPage = (itemId, childId, href, selectedPage) => {
+  const selectHeaderChildPage = (itemId, href, selectedPage) => {
     commitVisualHeaderModel((current) => ({
       ...current,
-      menuItems: current.menuItems.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              children: item.children.map((child) =>
-                child.id === childId
-                  ? {
-                      ...child,
-                      href,
-                      title: selectedPage?.title || child.title
-                    }
-                  : child
-              )
-            }
-          : item
-      )
+      menuItems: updateMenuTreeItem(current.menuItems, itemId, (item) => ({ ...item, href, title: selectedPage?.title || item.title }))
     }));
   };
 
@@ -871,11 +857,10 @@ export default function SiteChromeView({
     );
   };
 
-  const cloneMainMenuItems = () =>
-    visualHeaderModel.menuItems.map((item) => ({
-      ...item,
-      children: (item.children || []).map((child) => ({ ...child }))
-    }));
+  const cloneMainMenuItems = () => {
+    const cloneItems = (items = []) => items.map((item) => ({ ...item, children: cloneItems(item.children || []) }));
+    return cloneItems(visualHeaderModel.menuItems);
+  };
 
   const openMainMenuEditor = () => {
     setMainMenuItems(cloneMainMenuItems());
@@ -921,21 +906,7 @@ export default function SiteChromeView({
           }))
         ];
       }
-      return current.map((item) =>
-        item.id === mainMenuParentId
-          ? {
-              ...item,
-              children: [
-                ...(item.children || []),
-                ...pagesToAdd.map((page, index) => ({
-                  id: `header-page-child-${page.id}-${index}`,
-                  title: page.title,
-                  href: page.href
-                }))
-              ]
-            }
-          : item
-      );
+      return updateMenuTreeItem(current, mainMenuParentId, (item) => ({ ...item, children: [...(item.children || []), ...pagesToAdd.map((page, index) => ({ id: `header-page-child-${page.id}-${index}`, title: page.title, href: page.href, children: [] }))] }));
     });
     setMainMenuPageIds([]);
   };
@@ -1009,6 +980,10 @@ export default function SiteChromeView({
       )
     );
   };
+
+  const addFooterChildItem = (groupId, parentId) => commitFooterNavigationGroups((groups) => groups.map((group) => group.id === groupId ? { ...group, items: addMenuTreeChild(group.items, parentId, { id: `footer-child-${Date.now()}-${parentId}`, title: "", href: "", children: [] }) } : group));
+  const removeFooterMenuItem = (groupId, itemId) => commitFooterNavigationGroups((groups) => groups.map((group) => group.id === groupId ? { ...group, items: removeMenuTreeItem(group.items, itemId) } : group));
+  const moveFooterMenuItem = (groupId, itemId, direction) => commitFooterNavigationGroups((groups) => groups.map((group) => group.id === groupId ? { ...group, items: moveMenuTreeItem(group.items, itemId, direction) } : group));
 
   const openPreviewPage = async () => {
     const previewWindow = window.open("", "_blank");
@@ -1175,10 +1150,8 @@ export default function SiteChromeView({
                       <Field label="Add Pages Under">
                         <select value={mainMenuParentId} onChange={(event) => setMainMenuParentId(event.target.value)}>
                           <option value="">Top-level menu — show in main navigation</option>
-                          {mainMenuItems
-                            .filter((item) => !item.isMega)
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>Under {item.title}</option>
+                          {mainMenuParentOptions.map(({ item, depth }) => (
+                              <option key={item.id} value={item.id}>{`${"— ".repeat(depth + 1)}Under ${item.title}`}</option>
                             ))}
                         </select>
                       </Field>
@@ -1398,46 +1371,8 @@ export default function SiteChromeView({
                               <span>Add Child</span>
                             </button>
                           </div>
-                          {(item.children || []).map((child, childIndex) => (
-                            <div className="site-chrome-child-row" key={child.id}>
-                              <input
-                                value={child.title}
-                                onChange={(event) => updateHeaderChildItem(item.id, child.id, "title", event.target.value)}
-                                placeholder="Child label"
-                              />
-                              <PageLinkSelect
-                                value={child.href}
-                                pages={linkablePages}
-                                ariaLabel={`Select page for ${child.title || "dropdown item"}`}
-                                onChange={(href, selectedPage) => selectHeaderChildPage(item.id, child.id, href, selectedPage)}
-                              />
-                              <button
-                                className="icon-button"
-                                type="button"
-                                aria-label="Move child up"
-                                onClick={() => moveHeaderChildItem(item.id, child.id, "up")}
-                                disabled={childIndex === 0}
-                              >
-                                <ChevronUp size={16} />
-                              </button>
-                              <button
-                                className="icon-button"
-                                type="button"
-                                aria-label="Move child down"
-                                onClick={() => moveHeaderChildItem(item.id, child.id, "down")}
-                                disabled={childIndex === item.children.length - 1}
-                              >
-                                <ChevronDown size={16} />
-                              </button>
-                              <button
-                                className="icon-button danger"
-                                type="button"
-                                aria-label="Remove child"
-                                onClick={() => removeHeaderChildItem(item.id, child.id)}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                          {(item.children || []).map((child) => (
+                            <HeaderChildItemEditor key={child.id} item={child} pages={linkablePages} onFieldChange={updateHeaderChildItem} onPageSelect={selectHeaderChildPage} onAddChild={addHeaderChildItem} onRemove={removeHeaderChildItem} onMove={moveHeaderChildItem} />
                           ))}
                           {!item.children.length && <div className="site-chrome-empty-note">This menu item currently has no dropdown children.</div>}
                         </div>
@@ -1486,6 +1421,9 @@ export default function SiteChromeView({
                           pages={linkablePages}
                           onFieldChange={updateFooterMenuItem}
                           onPageSelect={selectFooterMenuPage}
+                          onAddChild={addFooterChildItem}
+                          onRemove={removeFooterMenuItem}
+                          onMove={moveFooterMenuItem}
                         />
                       ))}
                     </div>

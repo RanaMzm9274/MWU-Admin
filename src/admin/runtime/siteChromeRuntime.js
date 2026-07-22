@@ -325,6 +325,11 @@ const parseHeaderVisualModel = (html = "") => {
 
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
+    const parseChildren = (list, path) => Array.from(list?.children || []).map((child, childIndex) => {
+      const childLink = Array.from(child.children || []).find((entry) => entry.tagName?.toLowerCase() === "a") || child.querySelector("a");
+      const nested = Array.from(child.children || []).find((entry) => entry.tagName?.toLowerCase() === "ul");
+      return { id: `${path}-child-${childIndex}`, title: String(childLink?.textContent || "").trim(), href: childLink?.getAttribute("href") || "#", children: parseChildren(nested, `${path}-child-${childIndex}`) };
+    }).filter((child) => child.title || child.href || child.children.length);
     const menuRoot = doc.querySelector(".main-menu > ul");
     const cta = doc.querySelector(".header-action .th-btn");
     const menuItems = menuRoot
@@ -338,16 +343,7 @@ const parseHeaderVisualModel = (html = "") => {
             title: String(directLink?.textContent || "").trim(),
             href: directLink?.getAttribute("href") || "#",
             isMega,
-            children: isMega || !subMenu
-              ? []
-              : Array.from(subMenu.children).map((child, childIndex) => {
-                  const childLink = child.querySelector("a");
-                  return {
-                    id: `header-menu-${index}-child-${childIndex}`,
-                    title: String(childLink?.textContent || "").trim(),
-                    href: childLink?.getAttribute("href") || "#"
-                  };
-                }).filter((child) => child.title || child.href)
+            children: isMega || !subMenu ? [] : parseChildren(subMenu, `header-menu-${index}`)
           };
         }).filter((item) => item.title || item.href)
       : [];
@@ -375,7 +371,7 @@ const buildVisualHeaderMenuItemHtml = (item = {}) => {
     <li class="menu-item-has-children">
       <a href="${href}">${title}</a>
       <ul class="sub-menu">
-        ${children.map((child) => `<li><a href="${escapeHtml(child.href || "#")}">${escapeHtml(child.title || "Submenu Item")}</a></li>`).join("\n")}
+        ${children.map((child) => buildVisualHeaderMenuItemHtml(child)).join("\n")}
       </ul>
     </li>
   `;

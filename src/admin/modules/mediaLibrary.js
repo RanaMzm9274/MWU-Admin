@@ -1,9 +1,12 @@
 const MEDIA_LIBRARY_KEY = "mwu-crm-media-library-v1";
 const LIVE_SITE_ORIGIN = "https://maddauni.online";
 const DEV_MEDIA_PROXY_PREFIX = "/__live_media";
-// Vite supplies the development proxy. Production assets can be loaded
-// directly by img/link elements without waiting for an API deployment.
-const LIVE_ASSET_PROXY_PREFIX = import.meta.env.DEV ? "/__live_asset" : LIVE_SITE_ORIGIN;
+// Keep editor assets same-origin in development and route production reads
+// through the Admin API proxy. Direct maddauni.online font/CSS reads are
+// blocked by browser CORS and leave imported pages partially unstyled.
+const LIVE_ASSET_PROXY_PREFIX = import.meta.env.DEV
+  ? "/__live_asset"
+  : `${String(import.meta.env.VITE_API_BASE_URL || "https://admin.maddauni.online/api").replace(/\/$/, "")}/public-assets`;
 const MEDIA_API_PATH = "/admin/media";
 
 const normalizeDevProxyBaseUrl = (value, devPrefix) => {

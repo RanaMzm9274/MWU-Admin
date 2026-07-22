@@ -694,6 +694,36 @@ let hostImportCssLinks = [];
 let hostImportInlineCss = '';
 let hostImportScopeHint = '';
 let hostLiveAssetProxyPrefix = '/__live_asset';
+const GOOGLE_FONT_FAMILIES = [
+  'ABeeZee','Abel','Abril Fatface','Alegreya','Alegreya Sans','Archivo','Archivo Black','Arimo','Asap','Barlow','Barlow Condensed','Bebas Neue','Bitter','Bree Serif','Cabin','Cairo','Catamaran','Cinzel','Comfortaa','Cormorant Garamond','Crimson Text','DM Sans','DM Serif Display','Dancing Script','Domine','EB Garamond','Exo 2','Fira Sans','Fjalla One','Fraunces','Great Vibes','Heebo','IBM Plex Mono','IBM Plex Sans','Inconsolata','Inter','Josefin Sans','Kanit','Karla','Lato','Libre Baskerville','Libre Franklin','Lobster','Lora','Manrope','Merriweather','Montserrat','Mulish','Noto Sans','Noto Serif','Nunito','Nunito Sans','Open Sans','Oswald','Outfit','Pacifico','Parisienne','Playfair Display','Plus Jakarta Sans','Poppins','Prompt','PT Sans','PT Serif','Quicksand','Raleway','Roboto','Roboto Condensed','Roboto Mono','Roboto Slab','Rubik','Satisfy','Source Sans 3','Source Serif 4','Space Grotesk','Tajawal','Titillium Web','Ubuntu','Urbanist','Work Sans','Yellowtail','Zilla Slab'
+];
+function googleFontValue(family){return `'${family}', sans-serif`;}
+function googleFontOptions(includeDefault=true){return [...(includeDefault?[['','Default']]:[]),...GOOGLE_FONT_FAMILIES.map((family)=>[googleFontValue(family),family]),['__custom__','Custom Google Font']];}
+function ensureGoogleFontLoaded(value=''){
+  const family=normalizeImportedFontFamilyValue(value);
+  if(!family || ['Arial','Georgia','sans-serif','serif'].includes(family)) return;
+  const id=`google-font-${family.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
+  if(document.getElementById(id)) return;
+  const link=document.createElement('link');link.id=id;link.rel='stylesheet';link.href=`https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g,'+')}:ital,wght@0,100..900;1,100..900&display=swap`;
+  link.onerror=()=>{link.href=`https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g,'+')}&display=swap`;};
+  document.head.appendChild(link);
+}
+function buildSelectedGoogleFontsLink(){
+  const families=new Set();
+  const addFamily=(value)=>{const family=normalizeImportedFontFamilyValue(value||'');if(family&&!['Arial','Georgia','sans-serif','serif','inherit','initial'].includes(family))families.add(family);};
+  const collect=(items=[])=>items.forEach((el)=>{addFamily(el?.style?.fontFamily);collect(el.children||[])});
+  collect(elements);
+  addFamily(pageSettings.fontFamily);
+  const importedRoot=getImportedHtmlRoot();
+  if(importedRoot) importedRoot.querySelectorAll('[style],[data-mwu-desktop-style]').forEach((node)=>{
+    const probe=document.createElement('div');
+    probe.style.cssText=node.getAttribute('data-mwu-desktop-style')||node.getAttribute('style')||'';
+    addFamily(probe.style.fontFamily);
+  });
+  if(!families.size) return '';
+  const query=[...families].map((family)=>`family=${encodeURIComponent(family).replace(/%20/g,'+')}:ital,wght@0,100..900;1,100..900`).join('&');
+  return `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?${query}&display=swap" rel="stylesheet">`;
+}
 let hostLiveSiteOrigin = '';
 let importedSelectionNode = null;
 let importedSelectionId = '';
@@ -1839,6 +1869,7 @@ function describeImportedNode(node){
       fontSize: normalizeImportedMetricValue(getImportedStyleValue(node,'fontSize')),
       letterSpacing: normalizeImportedMetricValue(getImportedStyleValue(node,'letterSpacing')),
       fontWeight: String(getImportedStyleValue(node,'fontWeight') || '').trim(),
+      fontStyle: normalizeImportedSelectValue(getImportedStyleValue(node,'fontStyle'), ['normal','italic','oblique'], 'normal'),
       lineHeight: normalizeImportedMetricValue(getImportedStyleValue(node,'lineHeight')),
       textAlign: normalizeImportedSelectValue(getImportedStyleValue(node,'textAlign'), ['left','center','right','justify'], ''),
       textTransform: normalizeImportedSelectValue(getImportedStyleValue(node,'textTransform'), ['none','uppercase','capitalize','lowercase'], 'none'),
@@ -2648,22 +2679,9 @@ function bindImportedBoxStyleEvents(node, boxState){
 function renderImportedSettings(node){
   const details = describeImportedNode(node);
   if(!details) return;
-  const importedFontChoicesBase = [
-    ['','Default'],
-    ["'Inter', sans-serif",'Inter'],
-    ["'Plus Jakarta Sans', sans-serif",'Plus Jakarta Sans'],
-    ["'Roboto', sans-serif",'Roboto'],
-    ["'Open Sans', sans-serif",'Open Sans'],
-    ["'Lato', sans-serif",'Lato'],
-    ["'Montserrat', sans-serif",'Montserrat'],
-    ["'Poppins', sans-serif",'Poppins'],
-    ["'Merriweather', serif",'Merriweather'],
-    ["'Playfair Display', serif",'Playfair Display'],
-    ["Georgia, serif",'Georgia'],
-    ["Arial, sans-serif",'Arial']
-  ];
+  const importedFontChoicesBase = [...googleFontOptions(true).filter(([value])=>value!=='__custom__'),["Georgia, serif",'Georgia'],["Arial, sans-serif",'Arial']];
   const matchedFontChoice = importedFontChoicesBase.find(([value])=> normalizeImportedFontFamilyValue(value) === normalizeImportedFontFamilyValue(details.styles.fontFamily || ''));
-  const importedFontChoices = [...importedFontChoicesBase, ['__custom__','Custom']];
+  const importedFontChoices = [...importedFontChoicesBase, ['__custom__','Custom Google Font']];
   const selectedFontValue = matchedFontChoice?.[0] || '__custom__';
   const showCustomFontField = selectedFontValue === '__custom__';
   const isHeadingElement = details.type === 'heading';
@@ -2735,6 +2753,7 @@ function renderImportedSettings(node){
     ${supportsTypography ? `<div class="panel-section-label" style="padding:0 0 10px;">Typography</div>` : ''}
     ${supportsTypography ? selectField('Font family', 'importedFontFamily', importedFontChoices, selectedFontValue) : ''}
     ${supportsTypography ? `<div id="importedFontFamilyCustomWrap" style="${showCustomFontField ? '' : 'display:none;'}">${fieldInput('Custom font family', 'importedFontFamilyCustom', details.styles.fontFamily || '')}</div>` : ''}
+    ${supportsTypography ? selectField('Font style', 'importedFontStyle', [['normal','Normal'],['italic','Italic'],['oblique','Oblique']], details.styles.fontStyle || 'normal') : ''}
     ${isHeadingElement ? rangeField('Font size', 'importedFontSize', 16, 96, importedFontSize, 'px') : ''}
     ${isHeadingElement ? selectField('Font weight', 'importedFontWeight', [['400','Regular'],['600','Semibold'],['700','Bold'],['800','Extra Bold'],['900','Black']], details.styles.fontWeight || '700') : ''}
     ${isHeadingElement ? rangeField('Line height', 'importedLineHeight', 0.8, 2.4, importedLineHeight, '', 0.1) : ''}
@@ -2955,13 +2974,14 @@ function renderImportedSettings(node){
       const customFontNode = document.getElementById('f_importedFontFamilyCustom');
       if(customWrap) customWrap.style.display = fontFamilyNode.value === '__custom__' ? '' : 'none';
       const nextValue = fontFamilyNode.value === '__custom__' ? (customFontNode?.value || '') : fontFamilyNode.value;
+      ensureGoogleFontLoaded(nextValue);
       applyImportedStyle('fontFamily', nextValue);
       syncImportedHtmlToModel('imported-style', true);
     });
   }
   const fontFamilyCustomNode = document.getElementById('f_importedFontFamilyCustom');
   if(fontFamilyCustomNode){
-    fontFamilyCustomNode.addEventListener('input', ()=> applyImportedStyle('fontFamily', fontFamilyCustomNode.value));
+    fontFamilyCustomNode.addEventListener('input', ()=>{ const value=googleFontValue(fontFamilyCustomNode.value);ensureGoogleFontLoaded(value);applyImportedStyle('fontFamily',value); });
     fontFamilyCustomNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
   }
   const fontSizeNode = document.getElementById('f_importedFontSize');
@@ -3131,6 +3151,8 @@ function renderImportedSettings(node){
     mediaBorderColorTextNode.addEventListener('input', ()=>{ if(/^#[0-9A-Fa-f]{6}$/.test(mediaBorderColorTextNode.value)) mediaBorderColorNode.value = mediaBorderColorTextNode.value; applyMediaBorderColor(mediaBorderColorTextNode.value); });
     mediaBorderColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
   }
+  const fontStyleNode = document.getElementById('f_importedFontStyle');
+  if(fontStyleNode){fontStyleNode.addEventListener('change',()=>{applyImportedStyle('fontStyle',fontStyleNode.value);syncImportedHtmlToModel('imported-style',true);});}
   const textDecorationNode = document.getElementById('f_importedTextDecoration');
   if(textDecorationNode){
     textDecorationNode.addEventListener('change', ()=>{ applyImportedStyle('textDecoration', textDecorationNode.value); syncImportedHtmlToModel('imported-style', true); });
@@ -4906,11 +4928,11 @@ elementInnerHTML = function(el){
   switch(el.type){
     case 'container':
       return '';
-    case 'heading': return `<${c.tag} data-inline-field="text" style="font-family:'Fraunces',serif;font-weight:${s.fontWeight};font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:1.22;margin:0;letter-spacing:${s.letterSpacing||0}px;text-transform:${s.transform||'none'};text-decoration:${s.textDecoration||'none'};">${escapeHtml(c.text)}</${c.tag}>`;
-    case 'text': return `<p data-inline-field="text" style="font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:${s.lineHeight};margin:0;letter-spacing:${s.letterSpacing||0}px;text-decoration:${s.textDecoration||'none'};white-space:pre-line;">${escapeHtml(c.text)}</p>`;
+    case 'heading': return `<${c.tag} data-inline-field="text" style="font-family:${s.fontFamily||"'Fraunces',serif"};font-style:${s.fontStyle||'normal'};font-weight:${s.fontWeight};font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:1.22;margin:0;letter-spacing:${s.letterSpacing||0}px;text-transform:${s.transform||'none'};text-decoration:${s.textDecoration||'none'};">${escapeHtml(c.text)}</${c.tag}>`;
+    case 'text': return `<p data-inline-field="text" style="font-family:${s.fontFamily||'inherit'};font-style:${s.fontStyle||'normal'};font-size:${s.fontSize}px;color:${s.color};text-align:${s.align};line-height:${s.lineHeight};margin:0;letter-spacing:${s.letterSpacing||0}px;text-decoration:${s.textDecoration||'none'};white-space:pre-line;">${escapeHtml(c.text)}</p>`;
     case 'button': {
       const pad=s.size==='sm'?'8px 16px':s.size==='lg'?'16px 30px':'12px 24px',fsz=s.size==='sm'?'12px':s.size==='lg'?'16px':'13.5px';
-      return `<div style="text-align:${s.align};"><a data-inline-field="text" class="builder-link" href="${safeUrl(c.link||'#')}" style="display:inline-block;background:${s.bg};color:${s.color};padding:${pad};border-radius:${s.radius}px;font-weight:700;font-size:${fsz};text-decoration:${s.textDecoration||'none'};border:${s.borderWidth||0}px solid ${s.borderColor||'transparent'};">${escapeHtml(c.text)}</a></div>`;
+      return `<div style="text-align:${s.align};"><a data-inline-field="text" class="builder-link" href="${safeUrl(c.link||'#')}" style="display:inline-block;background:${s.bg};color:${s.color};padding:${pad};border-radius:${s.radius}px;font-family:${s.fontFamily||'inherit'};font-style:${s.fontStyle||'normal'};font-weight:700;font-size:${fsz};text-decoration:${s.textDecoration||'none'};border:${s.borderWidth||0}px solid ${s.borderColor||'transparent'};">${escapeHtml(c.text)}</a></div>`;
     }
     case 'section': {
       const verticalMap={top:'flex-start',middle:'center',bottom:'flex-end'};
@@ -5529,6 +5551,16 @@ renderStyleFields=function(el){
   const box=document.getElementById('styleFields');
   el.hover=el.hover||{};
   const h=el.hover;
+  if(['heading','text','button'].includes(el.type)){
+    const currentFont=el.style.fontFamily||'';
+    const options=googleFontOptions(true);
+    const selected=options.some(([value])=>normalizeImportedFontFamilyValue(value)===normalizeImportedFontFamilyValue(currentFont))?currentFont:(currentFont?'__custom__':'');
+    box.insertAdjacentHTML('beforeend',`<div class="panel-section-label" style="padding:14px 0 10px;">Google typography</div>${selectField('Font family','googleFontFamily',options,selected)}<div id="googleFontCustomWrap" style="${selected==='__custom__'?'':'display:none;'}">${fieldInput('Custom Google font','googleFontCustom',normalizeImportedFontFamilyValue(currentFont))}</div>${selectField('Font style','googleFontStyle',[['normal','Normal'],['italic','Italic'],['oblique','Oblique']],el.style.fontStyle||'normal')}`);
+    const family=document.getElementById('f_googleFontFamily'),custom=document.getElementById('f_googleFontCustom'),customWrap=document.getElementById('googleFontCustomWrap'),fontStyle=document.getElementById('f_googleFontStyle');
+    family?.addEventListener('change',()=>{if(customWrap)customWrap.style.display=family.value==='__custom__'?'':'none';if(family.value!=='__custom__'){el.style.fontFamily=family.value;ensureGoogleFontLoaded(family.value);reRenderElement(el);pushHistory();}});
+    custom?.addEventListener('change',()=>{el.style.fontFamily=googleFontValue(custom.value);ensureGoogleFontLoaded(el.style.fontFamily);reRenderElement(el);pushHistory();});
+    fontStyle?.addEventListener('change',()=>{el.style.fontStyle=fontStyle.value;reRenderElement(el);pushHistory();});
+  }
   box.insertAdjacentHTML('beforeend',`<div class="panel-section-label" style="padding:14px 0 10px;">Hover state</div><div class="field-hint">These settings apply only while this element is hovered.</div>${colorField('Hover text color','hoverColor',h.color||'#161D2B')}${colorField('Hover background color','hoverBackgroundColor',h.backgroundColor||'#ffffff')}${fieldInput('Hover background image','hoverBackgroundImage',h.backgroundImage||'')}${colorField('Hover border color','hoverBorderColor',h.borderColor||'#d7e3f2')}${rangeField('Hover opacity','hoverOpacity',0,100,h.opacity??100,'%')}${selectField('Hover transform','hoverTransform',[['','None'],['translateY(-4px)','Lift up'],['scale(1.03)','Scale up'],['scale(.97)','Scale down']],h.transform||'')}<button class="field-button" type="button" id="clearHoverStylesBtn">Clear hover styling</button>`);
   const bindHoverColor=(key,id)=>{const picker=document.getElementById(`f_${id}`),text=document.getElementById(`t_${id}`);const apply=(value)=>{h[key]=value;rebuildCustomStyles()};picker?.addEventListener('input',()=>{text.value=picker.value;apply(picker.value)});text?.addEventListener('input',()=>apply(text.value));text?.addEventListener('blur',pushHistory);picker?.addEventListener('change',pushHistory)};
   bindHoverColor('color','hoverColor');bindHoverColor('backgroundColor','hoverBackgroundColor');bindHoverColor('borderColor','hoverBorderColor');
@@ -5617,6 +5649,7 @@ function restorePublishedLiveAssetUrls(value=''){
   return String(value || '').replace(new RegExp(escaped, 'g'), liveOrigin);
 }
 buildPublishedHtml = function(){
+  const selectedGoogleFonts=buildSelectedGoogleFontsLink();
   if(isImportedExactPageMode()){
     const root = getImportedHtmlRoot();
     const model = getImportedHtmlElementModel();
@@ -5633,7 +5666,7 @@ buildPublishedHtml = function(){
       .fab, .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
       [class^='fa-']::before, [class*=' fa-']::before, .icon-btn::before, .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
     </style>`;
-    return restorePublishedLiveAssetUrls(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}</body></html>`);
+    return restorePublishedLiveAssetUrls(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${selectedGoogleFonts}${cssLinks}${inlineStyle}${fontStyle}${responsiveStyle}</head><body>${bodyHtml}</body></html>`);
   }
   elements = ensureTreeDefaults(elements);
   const customRules = [];
@@ -5653,7 +5686,8 @@ buildPublishedHtml = function(){
       return `<div ${el.advanced?.cssId?`id="${escapeHtml(el.advanced.cssId)}"`:''} class="${cls}" style="${composeWrapStyle(desktopEl)}">${elementInnerHTML(desktopEl)}</div>`;
     }).join('\n');
   };
-  const body = renderPublishedTree(elements);
+  // Keep selected catalogue/custom Google families available in exported standard pages too.
+  const body = selectedGoogleFonts + renderPublishedTree(elements);
   const custom = customRules.join('\n');
   const responsiveCss = buildPublishedResponsiveCss();
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(pageSettings.seoTitle||pageSettings.title)}</title><meta name="description" content="${escapeHtml(pageSettings.seoDescription||'')}"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}body{margin:0;background:${pageSettings.bodyBg};font-family:${pageSettings.fontFamily},Arial,sans-serif;color:#161D2B}.page{max-width:1180px;margin:32px auto;background:${pageSettings.canvasBg};padding:0;border-radius:14px}.gallery-grid{display:grid}.gallery-grid img{width:100%;object-fit:cover}.accordion-content{display:none}.accordion-item.open .accordion-content{display:block}.tabs-head{display:flex;gap:6px;border-bottom:1px solid #e4e7ed}.tab-chip{border:0;background:none;padding:10px;font-weight:700}.tab-panel{padding:14px 0}.form-widget{display:grid;gap:12px}.form-widget input,.form-widget textarea{width:100%;padding:11px;border:1px solid #ddd}.social-widget{display:flex;gap:8px}.social-widget a{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:50%}.container-shell{position:relative;border-radius:inherit}.container-shell.has-background{background:transparent;border-color:transparent}.container-bg-layer{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}.container-shell>.container-children,.container-shell>.published-widget,.container-shell>.drop-zone{position:relative;z-index:1}@media(max-width:700px){.page{margin:0;border-radius:0}.gallery-grid,.form-widget{grid-template-columns:1fr!important}}${custom}${responsiveCss}</style></head><body><main class="page">${body}</main><script>document.addEventListener('click',e=>{const a=e.target.closest('.accordion-title');if(a){a.parentElement.classList.toggle('open')}const t=e.target.closest('.tab-chip');if(t){const r=t.closest('.tabs-widget'),i=t.dataset.tabIndex;r.querySelectorAll('.tab-chip').forEach(x=>x.classList.toggle('active',x===t));r.querySelectorAll('.tab-panel').forEach(x=>x.style.display=x.dataset.panelIndex===i?'block':'none')}});document.addEventListener('submit',e=>{if(e.target.matches('.demo-form')){e.preventDefault();const s=e.target.querySelector('.form-success');if(s)s.style.display='inline'}});<\/script></body></html>`;
@@ -5707,10 +5741,10 @@ function showTemplates(){openModal('Template library',`<div class="template-grid
   document.querySelectorAll('[data-template]').forEach(card=>card.addEventListener('click',()=>{elements=JSON.parse(JSON.stringify(TEMPLATES[card.dataset.template])).map(e=>({...e,id:uid()}));selectedId=null;history=[];historyIndex=-1;pushHistory();renderAll();closeModal();showToast('Template applied');}));
   document.getElementById('blankPageBtn').addEventListener('click',()=>{elements=[];selectedId=null;history=[];historyIndex=-1;pushHistory();renderAll();closeModal()});document.getElementById('cancelTemplateBtn').addEventListener('click',closeModal);
 }
-function showPageSettings(){const initialPageTitle=String(pageSettings.title||'').trim();openModal('Page settings',`<div class="modal-grid"><div>${replaceFieldHtml('Page title','pageTitle',pageSettings.title)}</div><div>${replaceFieldHtml('URL slug','pageSlug',pageSettings.slug)}</div><div>${xSelect('Status','pageStatus',[['draft','Draft'],['review','Pending review'],['published','Published']],pageSettings.status)}</div><div>${xSelect('Global font','pageFont',[['Inter','Inter'],['Arial','Arial'],['Georgia','Georgia']],pageSettings.fontFamily)}</div><div>${xColor('Canvas background','pageCanvasBg',pageSettings.canvasBg)}</div><div>${xColor('Workspace background','pageBodyBg',pageSettings.bodyBg)}</div><div class="full">${replaceFieldHtml('SEO title','seoTitle',pageSettings.seoTitle)}</div><div class="full">${replaceAreaHtml('SEO description','seoDescription',pageSettings.seoDescription,4)}</div></div>`,`<button class="btn btn-danger" id="clearPageBtn">Clear page</button><button class="btn btn-light" id="cancelPageBtn">Cancel</button><button class="btn btn-gold" id="applyPageBtn">Apply settings</button>`);
+function showPageSettings(){const initialPageTitle=String(pageSettings.title||'').trim();const currentPageFont=googleFontValue(normalizeImportedFontFamilyValue(pageSettings.fontFamily||'Inter'));openModal('Page settings',`<div class="modal-grid"><div>${replaceFieldHtml('Page title','pageTitle',pageSettings.title)}</div><div>${replaceFieldHtml('URL slug','pageSlug',pageSettings.slug)}</div><div>${xSelect('Status','pageStatus',[['draft','Draft'],['review','Pending review'],['published','Published']],pageSettings.status)}</div><div>${xSelect('Global Google font','pageFont',googleFontOptions(false).filter(([value])=>value!=='__custom__'),currentPageFont)}</div><div>${xColor('Canvas background','pageCanvasBg',pageSettings.canvasBg)}</div><div>${xColor('Workspace background','pageBodyBg',pageSettings.bodyBg)}</div><div class="full">${replaceFieldHtml('SEO title','seoTitle',pageSettings.seoTitle)}</div><div class="full">${replaceAreaHtml('SEO description','seoDescription',pageSettings.seoDescription,4)}</div></div>`,`<button class="btn btn-danger" id="clearPageBtn">Clear page</button><button class="btn btn-light" id="cancelPageBtn">Cancel</button><button class="btn btn-gold" id="applyPageBtn">Apply settings</button>`);
   const pageTitleInput=document.getElementById('x_pageTitle');const pageSlugInput=document.getElementById('x_pageSlug');pageSlugInput.readOnly=true;pageSlugInput.title='Automatically generated from the page title';pageTitleInput.addEventListener('input',()=>{pageSlugInput.value=slugify(pageTitleInput.value)});
   document.getElementById('clearPageBtn').addEventListener('click',()=>{if(confirm('Remove all widgets from this page?')){elements=[];selectedId=null;pushHistory();renderAll();closeModal()}});document.getElementById('cancelPageBtn').addEventListener('click',closeModal);
-  document.getElementById('applyPageBtn').addEventListener('click',()=>{pageSettings.title=document.getElementById('x_pageTitle').value;pageSettings.slug=String(pageSettings.title||'').trim()===initialPageTitle?pageSettings.slug:slugify(pageSettings.title);pageSettings.status=document.getElementById('x_pageStatus').value;pageSettings.fontFamily=document.getElementById('x_pageFont').value;pageSettings.canvasBg=document.getElementById('x_pageCanvasBg').value;pageSettings.bodyBg=document.getElementById('x_pageBodyBg').value;pageSettings.seoTitle=document.getElementById('x_seoTitle').value;pageSettings.seoDescription=document.getElementById('x_seoDescription').value;document.querySelector('.tb-page-name').textContent=pageSettings.title;document.body.style.fontFamily=pageSettings.fontFamily+',sans-serif';renderCanvas();markDirty();closeModal();showToast('Page settings applied')});
+  document.getElementById('applyPageBtn').addEventListener('click',()=>{pageSettings.title=document.getElementById('x_pageTitle').value;pageSettings.slug=String(pageSettings.title||'').trim()===initialPageTitle?pageSettings.slug:slugify(pageSettings.title);pageSettings.status=document.getElementById('x_pageStatus').value;pageSettings.fontFamily=document.getElementById('x_pageFont').value;ensureGoogleFontLoaded(pageSettings.fontFamily);pageSettings.canvasBg=document.getElementById('x_pageCanvasBg').value;pageSettings.bodyBg=document.getElementById('x_pageBodyBg').value;pageSettings.seoTitle=document.getElementById('x_seoTitle').value;pageSettings.seoDescription=document.getElementById('x_seoDescription').value;document.querySelector('.tb-page-name').textContent=pageSettings.title;document.body.style.fontFamily=pageSettings.fontFamily+',sans-serif';renderCanvas();markDirty();closeModal();showToast('Page settings applied')});
 }
 function showExport(){const json=JSON.stringify(snapshot(),null,2);openModal('Export or import',`<div class="field-group"><div class="field-group-label">Builder JSON</div><textarea class="code-output" id="exportCode">${escapeHtml(json)}</textarea></div><div class="upload-box"><input type="file" accept="application/json,.json" id="importJson"><label for="importJson">${svgIcon('upload',15)} Import builder JSON</label><p>Replaces the current page after validating the file.</p></div>`,`<button class="btn btn-light" id="copyJsonBtn">Copy JSON</button><button class="btn btn-light" id="downloadJsonBtn">Download JSON</button><button class="btn btn-gold" id="doneExportBtn">Done</button>`);
   document.getElementById('copyJsonBtn').addEventListener('click',async()=>{showToast(await copyText(document.getElementById('exportCode').value)?'JSON copied':'Copy was blocked — select the JSON manually')});document.getElementById('downloadJsonBtn').addEventListener('click',()=>downloadBlob(document.getElementById('exportCode').value,pageSettings.slug+'.builder.json','application/json'));document.getElementById('doneExportBtn').addEventListener('click',closeModal);
