@@ -30,18 +30,20 @@
   /* ============ TOP BAR ============ */
   .topbar{
     height:52px; flex-shrink:0; background: var(--navy-900); color:#fff;
-    display:flex; align-items:center; justify-content:space-between; padding: 0 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 0 14px;
     box-shadow: var(--shadow-md); position:relative; z-index:20;
+    overflow-x:auto; overflow-y:hidden; scrollbar-width:none;
   }
-  .tb-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .topbar::-webkit-scrollbar{display:none}
+  .tb-left{ display:flex; align-items:center; gap:10px; min-width:0; flex:0 0 auto; }
   .tb-mark{ width:30px; height:30px; border-radius:8px; background: radial-gradient(circle at 35% 30%, #2a4372, #0B1830 70%); border:1.5px solid var(--gold-500); display:flex; align-items:center; justify-content:center; font-family:'Fraunces', serif; font-weight:600; color: var(--gold-500); font-size:12px; flex-shrink:0; }
   .tb-crumb{ font-size:12px; color: rgba(255,255,255,.55); display:flex; align-items:center; gap:6px; min-width:0; }
   .tb-crumb b{ color:#fff; font-weight:700; }
   .tb-crumb svg{ width:12px; height:12px; flex-shrink:0; opacity:.5; }
   .tb-page-name{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 
-  .tb-center{ display:flex; align-items:center; gap:4px; background: rgba(255,255,255,0.06); border-radius:9px; padding:3px; }
-  .tb-icon-btn{ width:32px; height:32px; border-radius:7px; border:none; background:transparent; color: rgba(255,255,255,.65); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.13s ease; }
+  .tb-center{ display:flex; align-items:center; gap:4px; background: rgba(255,255,255,0.06); border-radius:9px; padding:3px; flex:0 0 auto; }
+  .tb-icon-btn{ width:32px; min-width:32px; height:32px; flex:0 0 32px; border-radius:7px; border:none; background:transparent; color: rgba(255,255,255,.65); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:.13s ease; }
   .tb-icon-btn svg{ width:16px; height:16px; }
   .tb-icon-btn:hover{ background: rgba(255,255,255,0.1); color:#fff; }
   .tb-icon-btn.active{ background: var(--gold-500); color: var(--navy-900); }
@@ -344,6 +346,10 @@
   .anim-fade{ animation: animFadeIn .5s ease; }
   .anim-slide{ animation: animSlideUp .5s ease; }
   .anim-zoom{ animation: animZoomIn .4s ease; }
+  .anim-out-fade{animation:animFadeOut .5s ease forwards}.anim-out-slide{animation:animSlideOut .5s ease forwards}.anim-out-zoom{animation:animZoomOut .4s ease forwards}
+  @keyframes animFadeOut{to{opacity:0}}@keyframes animSlideOut{to{opacity:0;transform:translateY(24px)}}@keyframes animZoomOut{to{opacity:0;transform:scale(.9)}}
+  .custom-html-widget [data-import-device-hidden="true"]{opacity:.32!important;filter:grayscale(.4);outline:1px dashed #c99a3b}
+  body.preview-mode .custom-html-widget [data-import-device-hidden="true"]{display:none!important}
 
   .el-controls{ position:absolute; top:-13px; right:8px; display:none; align-items:center; gap:3px; background: var(--navy-900); border-radius:7px; padding:3px; box-shadow: var(--shadow-md); z-index:5; }
   .el-wrap:hover .el-controls, .el-wrap.selected .el-controls{ display:flex; }
@@ -457,7 +463,7 @@
   .callout-widget{display:flex;gap:14px;align-items:flex-start}.callout-icon{flex:0 0 auto;display:flex;align-items:center;justify-content:center}.callout-widget h4{font-family:'Fraunces',serif;margin-bottom:5px}.callout-widget p{line-height:1.6;color:var(--ink-600)}
   .form-widget{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-widget .full{grid-column:1/-1}.form-widget input,.form-widget textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:12px}.form-widget button{border:none;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer}
   .social-widget{display:flex;gap:8px;flex-wrap:wrap}.social-widget a{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:800}
-  .custom-html-widget a{text-decoration:none}
+  .custom-html-widget a:not([style*="text-decoration"]){text-decoration:none!important}
   .progress-widget .progress-track{height:10px;background:var(--line-soft);border-radius:10px;overflow:hidden}.progress-widget .progress-fill{height:100%;border-radius:10px}.progress-meta{display:flex;justify-content:space-between;margin-bottom:7px;font-size:12px;font-weight:700}
   @media(max-width:900px){.tb-crumb span:not(.tb-page-name),.btn-exit,.save-state{display:none}.side-panel{width:270px}.canvas-status{left:288px}.template-grid{grid-template-columns:1fr}.modal-grid{grid-template-columns:1fr}.modal-grid .full{grid-column:auto}}
 
@@ -651,7 +657,7 @@ const IMAGE_PRESETS = [
 ];
 
 function defaultBox(){ return { bgMode:'color', bg:'transparent', bgImage:'', bgVideo:'', bgSize:'cover', bgPosition:'center center', bgAlignX:'center', bgAlignY:'center', bgOpacity:100, borderWidth:0, borderTopWidth:0, borderRightWidth:0, borderBottomWidth:0, borderLeftWidth:0, borderWidthLinked:true, borderColor:'#E4E7ED', borderStyle:'solid', borderRadius:0, borderTopLeftRadius:0, borderTopRightRadius:0, borderBottomRightRadius:0, borderBottomLeftRadius:0, borderRadiusLinked:true, shadow:false, shadowTop:0, shadowRight:0, shadowBottom:0, shadowLeft:0, shadowLinked:true, shadowBlur:18, shadowSpread:0, shadowColor:'rgba(15,23,42,0.16)', width:0, widthUnit:'px', height:0, heightUnit:'px', minHeight:0, minHeightUnit:'px', displayMode:'block', flexGrow:0 }; }
-function defaultAdvanced(){ return { marginTop:0, marginRight:0, marginBottom:0, marginLeft:0, marginLinked:true, paddingTop:0, paddingBottom:0, paddingLeft:0, paddingRight:0, paddingLinked:true, cssId:'', cssClasses:'', customCss:'', zIndex:'', opacity:100, hideDesktop:false, hideTablet:false, hideMobile:false, animation:'none' }; }
+function defaultAdvanced(){ return { marginTop:0, marginRight:0, marginBottom:0, marginLeft:0, marginLinked:true, paddingTop:0, paddingBottom:0, paddingLeft:0, paddingRight:0, paddingLinked:true, cssId:'', cssClasses:'', customCss:'', zIndex:'', opacity:100, hideDesktop:false, hideTablet:false, hideMobile:false, animation:'none', outroAnimation:'none' }; }
 
 function defaultsFor(type){
   let base;
@@ -1245,6 +1251,22 @@ function getImportedIconTarget(node){
     current = current.parentElement;
   }
   return null;
+}
+function refreshImportedHoverStyles(root=getImportedHtmlRoot()){
+  let style=document.getElementById('importedHoverStyles');
+  if(!style){style=document.createElement('style');style.id='importedHoverStyles';document.head.appendChild(style);}
+  if(!root){style.textContent='';return;}
+  const attrs=['color','background-color','background-image','border-color','opacity','transform'];
+  const rules=[];
+  root.querySelectorAll('[data-import-id]').forEach((node)=>{
+    const declarations=[];
+    attrs.forEach((property)=>{
+      const value=node.getAttribute(`data-mwu-hover-${property}`);
+      if(value) declarations.push(`${property}:${property==='background-image'?`url("${String(value).replace(/"/g,'\\"')}")`:value}!important`);
+    });
+    if(declarations.length) rules.push(`body.imported-page-mode .custom-html-widget [data-import-id="${node.getAttribute('data-import-id')}"]:hover{${declarations.join(';')}}`);
+  });
+  style.textContent=rules.join('\n');
 }
 function getImportedEditableIconTarget(node){
   const direct = getImportedIconTarget(node);
@@ -1924,6 +1946,9 @@ function applyImportedResponsiveDeviceStyles(root=getImportedHtmlRoot(), device=
       });
     }
   });
+  root.querySelectorAll('[data-mwu-hide-desktop],[data-mwu-hide-tablet],[data-mwu-hide-mobile]').forEach((node)=>{
+    node.setAttribute('data-import-device-hidden', String(node.getAttribute(`data-mwu-hide-${device}`)==='true'));
+  });
 }
 function importedResponsivePublishData(root){
   if(!root) return { html:'', css:'' };
@@ -1931,6 +1956,7 @@ function importedResponsivePublishData(root){
   const baseRules = [];
   const tabletRules = [];
   const mobileRules = [];
+  const hoverRules = [];
   clone.querySelectorAll('[data-mwu-desktop-style],[data-mwu-tablet-style],[data-mwu-mobile-style]').forEach((node)=>{
     const id = ensureImportedNodeId(node);
     const selector = `[data-import-id="${String(id).replace(/"/g,'\\"')}"]`;
@@ -1944,7 +1970,19 @@ function importedResponsivePublishData(root){
     node.removeAttribute('style');
     node.removeAttribute('data-mwu-desktop-style');
   });
-  const css = `${baseRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
+  clone.querySelectorAll('[data-import-id]').forEach((node)=>{
+    const selector=`[data-import-id="${String(node.getAttribute('data-import-id')).replace(/"/g,'\\"')}"]`, declarations=[];
+    if(node.getAttribute('data-mwu-hide-desktop')==='true') baseRules.push(`${selector}{display:none!important;}`);
+    if(node.getAttribute('data-mwu-hide-tablet')==='true') tabletRules.push(`${selector}{display:none!important;}`);
+    if(node.getAttribute('data-mwu-hide-mobile')==='true') mobileRules.push(`${selector}{display:none!important;}`);
+    ['color','background-color','background-image','border-color','opacity','transform'].forEach((property)=>{
+      const value=node.getAttribute(`data-mwu-hover-${property}`);
+      if(value) declarations.push(`${property}:${property==='background-image'?`url("${String(value).replace(/"/g,'\\"')}")`:value}!important`);
+    });
+    if(declarations.length) hoverRules.push(`${selector}:hover{${declarations.join(';')}}`);
+    node.removeAttribute('data-import-device-hidden');
+  });
+  const css = `${baseRules.join('')}${hoverRules.join('')}${tabletRules.length?`@media(max-width:1024px){${tabletRules.join('')}}`:''}${mobileRules.length?`@media(max-width:767px){${mobileRules.join('')}}`:''}`;
   return { html: clone.innerHTML, css };
 }
 function importedResponsiveModelHtml(root){
@@ -2666,6 +2704,8 @@ function renderImportedSettings(node){
   const importedIconPresetValue = importedIconPresetChoices.some(([value])=> value === importedIconClass) ? importedIconClass : '';
   const importedMarginLinked = node.getAttribute('data-import-margin-linked') !== 'false';
   const importedPaddingLinked = node.getAttribute('data-import-padding-linked') !== 'false';
+  const importedIntroAnimation = node.getAttribute('data-mwu-intro-animation') || 'none';
+  const importedOutroAnimation = node.getAttribute('data-mwu-outro-animation') || 'none';
   importedSelectionNode = node;
   importedSelectionId = details.id;
   document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : details.type==='icon' ? 'iconbox' : 'columns',15);
@@ -2731,6 +2771,15 @@ function renderImportedSettings(node){
     ${hasMediaTarget ? `<div class="field-grid">${selectField('Border style', 'importedImageBorderStyle', [['none','None'],['solid','Solid'],['dashed','Dashed'],['dotted','Dotted'],['double','Double']], mediaDetails?.borderStyle || 'solid')}${colorField('Border color', 'importedImageBorderColor', mediaDetails?.borderColor || '#d7e3f2')}</div>` : ''}
     ${hasMediaTarget ? rangeField('Border width', 'importedImageBorderWidth', 0, 20, mediaBorderWidth, 'px') : ''}
     ${progressContext ? `<div class="panel-section-label" style="padding:8px 0 10px;">Progress bar</div>${colorField('Fill color', 'importedProgressColor', normalizeImportedColorValue(getImportedStyleValue(progressContext.bar,'backgroundColor'), '#2257a5'))}${colorField('Track color', 'importedProgressTrackColor', normalizeImportedColorValue(getImportedStyleValue(progressContext.progress,'backgroundColor'), '#edf1f8'))}` : ''}
+    <div class="panel-section-label" style="padding:14px 0 10px;">Hover state</div>
+    <div class="field-hint">These values apply only while the pointer is over this element.</div>
+    ${colorField('Hover text color', 'importedHoverColor', node.getAttribute('data-mwu-hover-color') || '#161D2B')}
+    ${colorField('Hover background color', 'importedHoverBackgroundColor', node.getAttribute('data-mwu-hover-background-color') || '#ffffff')}
+    ${fieldInput('Hover background image', 'importedHoverBackgroundImage', node.getAttribute('data-mwu-hover-background-image') || '')}
+    ${colorField('Hover border color', 'importedHoverBorderColor', node.getAttribute('data-mwu-hover-border-color') || '#d7e3f2')}
+    ${rangeField('Hover opacity', 'importedHoverOpacity', 0, 100, Math.round(Number(node.getAttribute('data-mwu-hover-opacity') || 1)*100), '%')}
+    ${selectField('Hover transform', 'importedHoverTransform', [['','None'],['translateY(-4px)','Lift up'],['scale(1.03)','Scale up'],['scale(.97)','Scale down']], node.getAttribute('data-mwu-hover-transform') || '')}
+    <button class="field-button" type="button" id="clearImportedHoverBtn">Clear hover styling</button>
   `;
   advancedBox.innerHTML = `${responsiveEditorNotice()}
     <div class="panel-section-label" style="padding:0 0 10px;">Spacing</div>
@@ -2751,15 +2800,13 @@ function renderImportedSettings(node){
     ${selectField('Position', 'importedPosition', [['','Default'],['static','Static'],['relative','Relative'],['absolute','Absolute'],['fixed','Fixed'],['sticky','Sticky']], details.styles.position || '')}
     ${fieldInput('Z index', 'importedZIndex', details.styles.zIndex || '')}
     ${fieldInput('Opacity', 'importedOpacity', details.styles.opacity || '')}
-    <div class="field-grid">
-      ${fieldInput('Top', 'importedTop', details.styles.top || '')}
-      ${fieldInput('Right', 'importedRight', details.styles.right || '')}
-    </div>
-    <div class="field-grid">
-      ${fieldInput('Bottom', 'importedBottom', details.styles.bottom || '')}
-      ${fieldInput('Left', 'importedLeft', details.styles.left || '')}
-    </div>
     <div class="field-hint">Margin and padding show Top | Bottom and Left | Right. Use the chain button to update all four values together or edit each side independently.</div>
+    <div class="panel-section-label" style="padding:14px 0 10px;">Responsive visibility</div>
+    ${['desktop','tablet','mobile'].map((device)=>`<div class="toggle-row"><label>Hide on ${device}</label><div class="switch"><input type="checkbox" data-import-hide-device="${device}" ${node.getAttribute(`data-mwu-hide-${device}`)==='true'?'checked':''}><div class="switch-track"></div></div></div>`).join('')}
+    <div class="panel-section-label" style="padding:14px 0 10px;">Motion effects</div>
+    ${selectField('Intro animation', 'importedIntroAnimation', [['none','None'],['fade','Fade in'],['slide','Slide up'],['zoom','Zoom in']], importedIntroAnimation)}
+    ${selectField('Outro animation', 'importedOutroAnimation', [['none','None'],['fade','Fade out'],['slide','Slide down'],['zoom','Zoom out']], importedOutroAnimation)}
+    <div class="field-grid"><button class="field-button" type="button" id="previewImportedIntroBtn">Preview intro</button><button class="field-button" type="button" id="previewImportedOutroBtn">Preview outro</button></div>
   `;
   const textNode = document.getElementById('f_importedTextContent');
   if(textNode){
@@ -2956,6 +3003,22 @@ function renderImportedSettings(node){
     textTransformNode.addEventListener('change', ()=>{ applyImportedStyle('textTransform', textTransformNode.value); syncImportedHtmlToModel('imported-style', true); });
   }
   bindImportedColorPair('importedColor', 'color');
+  const bindImportedHoverValue=(id,attribute,transform=(value)=>value,event='input')=>{
+    const control=document.getElementById(`f_${id}`), text=document.getElementById(`t_${id}`);
+    const apply=(value)=>{ importedSelectionNode.setAttribute(attribute,transform(value)); refreshImportedHoverStyles(); syncImportedHtmlToModel('imported-hover'); };
+    if(control){control.addEventListener(event,()=>{if(text)text.value=control.value;apply(control.value)});control.addEventListener('change',()=>syncImportedHtmlToModel('imported-hover',true));}
+    if(text){text.addEventListener('input',()=>apply(text.value));text.addEventListener('blur',()=>syncImportedHtmlToModel('imported-hover',true));}
+  };
+  bindImportedHoverValue('importedHoverColor','data-mwu-hover-color');
+  bindImportedHoverValue('importedHoverBackgroundColor','data-mwu-hover-background-color');
+  bindImportedHoverValue('importedHoverBorderColor','data-mwu-hover-border-color');
+  bindImportedHoverValue('importedHoverBackgroundImage','data-mwu-hover-background-image');
+  bindImportedHoverValue('importedHoverOpacity','data-mwu-hover-opacity',(value)=>String((Number(value)||0)/100));
+  bindImportedHoverValue('importedHoverTransform','data-mwu-hover-transform',(value)=>value,'change');
+  document.getElementById('clearImportedHoverBtn')?.addEventListener('click',()=>{
+    ['color','background-color','background-image','border-color','opacity','transform'].forEach((name)=>importedSelectionNode.removeAttribute(`data-mwu-hover-${name}`));
+    refreshImportedHoverStyles();syncImportedHtmlToModel('imported-hover-clear',true);renderImportedSettings(importedSelectionNode);
+  });
   bindImportedAlignField(details);
   if(!isImageElement) bindImportedBoxStyleEvents(node, importedBoxState);
   [
@@ -3118,10 +3181,34 @@ function renderImportedSettings(node){
   if(positionNode){
     positionNode.addEventListener('change', ()=>{ applyImportedStyle('position', positionNode.value); syncImportedHtmlToModel('imported-style', true); });
   }
-  ['ZIndex','Top','Right','Bottom','Left'].forEach((name)=>{
-    const fieldMap = { ZIndex:'zIndex', Top:'top', Right:'right', Bottom:'bottom', Left:'left' };
+  ['ZIndex'].forEach((name)=>{
+    const fieldMap = { ZIndex:'zIndex' };
     bindImportedTextField(`imported${name}`, fieldMap[name]);
   });
+  document.querySelectorAll('[data-import-hide-device]').forEach((control)=>{
+    control.addEventListener('change',()=>{
+      importedSelectionNode.setAttribute(`data-mwu-hide-${control.dataset.importHideDevice}`,String(control.checked));
+      applyImportedResponsiveDeviceStyles(getImportedHtmlRoot(),currentDevice);
+      syncImportedHtmlToModel('imported-visibility',true);
+    });
+  });
+  const bindImportedAnimation=(id,attribute)=>{
+    const control=document.getElementById(`f_${id}`);
+    if(control) control.addEventListener('change',()=>{ importedSelectionNode.setAttribute(attribute,control.value); syncImportedHtmlToModel('imported-animation',true); });
+  };
+  bindImportedAnimation('importedIntroAnimation','data-mwu-intro-animation');
+  bindImportedAnimation('importedOutroAnimation','data-mwu-outro-animation');
+  const previewImportedAnimation=(kind)=>{
+    const control=document.getElementById(`f_imported${kind==='intro'?'Intro':'Outro'}Animation`);
+    const value=control?.value||'none';
+    importedSelectionNode.classList.remove('anim-fade','anim-slide','anim-zoom','anim-out-fade','anim-out-slide','anim-out-zoom');
+    if(value==='none') return;
+    void importedSelectionNode.offsetWidth;
+    importedSelectionNode.classList.add(kind==='intro'?`anim-${value}`:`anim-out-${value}`);
+    importedSelectionNode.addEventListener('animationend',()=> importedSelectionNode.classList.remove(kind==='intro'?`anim-${value}`:`anim-out-${value}`),{once:true});
+  };
+  document.getElementById('previewImportedIntroBtn')?.addEventListener('click',()=>previewImportedAnimation('intro'));
+  document.getElementById('previewImportedOutroBtn')?.addEventListener('click',()=>previewImportedAnimation('outro'));
   bindImageUpload('importedImageUpload', (src)=>{
     if(mediaTarget){
       setImportedMediaSource(mediaTarget, src);
@@ -3160,6 +3247,7 @@ function initializeImportedPage(){
   try{
     hydrateImportedAssets(root);
     applyImportedResponsiveDeviceStyles(root, currentDevice);
+    refreshImportedHoverStyles(root);
   }catch(error){
     reportImportedEditorError('asset-hydration-failed', { error });
   }
@@ -3760,11 +3848,21 @@ function rebuildCustomStyles(){
     existing.id = 'customElementStyles';
     document.head.appendChild(existing);
   }
-  const rules = elements
-    .filter(el => el.advanced && el.advanced.customCss && el.advanced.customCss.trim())
-    .map(el => `.${el.id} { ${el.advanced.customCss} }`)
-    .join('\n');
+  const rules = elements.map(el => {
+    const normal=el.advanced?.customCss?.trim()?`.${el.id}{${el.advanced.customCss}}`:'';
+    return normal+buildElementHoverCss(el,`.${el.id}`);
+  }).join('\n');
   existing.textContent = rules;
+}
+function buildElementHoverCss(el,selector){
+  const h=el.hover||{}, declarations=[];
+  if(h.backgroundColor) declarations.push(`background-color:${h.backgroundColor}!important`);
+  if(h.backgroundImage) declarations.push(`background-image:url("${String(h.backgroundImage).replace(/"/g,'\\"')}")!important`,`background-size:cover!important`,`background-position:center!important`);
+  if(h.borderColor) declarations.push(`border-color:${h.borderColor}!important`);
+  if(h.opacity!==''&&h.opacity!==undefined) declarations.push(`opacity:${Number(h.opacity)/100}!important`);
+  if(h.transform) declarations.push(`transform:${h.transform}!important`);
+  const base=declarations.length?`${selector}:hover{${declarations.join(';')}}`:'';
+  return base+(h.color?`${selector}:hover,${selector}:hover *{color:${h.color}!important}`:'');
 }
 function replayAnimation(id){
   const inner = canvasPage.querySelector(`.el-inner.${id}`);
@@ -4478,9 +4576,16 @@ function renderAdvancedFields(el){
         <option value="zoom" ${a.animation==='zoom'?'selected':''}>Zoom In</option>
       </select>
     </div>
-    <button class="sa-btn" id="replayAnimBtn" style="width:100%; gap:7px; font-size:11.5px; font-weight:700; color:var(--ink-600);">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 3l14 9-14 9V3z"/></svg> Replay animation
-    </button>
+    <div class="field-group">
+      <div class="field-group-label">Outro animation</div>
+      <select class="field-select" id="a_outroAnimation">
+        <option value="none" ${a.outroAnimation==='none'?'selected':''}>None</option>
+        <option value="fade" ${a.outroAnimation==='fade'?'selected':''}>Fade Out</option>
+        <option value="slide" ${a.outroAnimation==='slide'?'selected':''}>Slide Down</option>
+        <option value="zoom" ${a.outroAnimation==='zoom'?'selected':''}>Zoom Out</option>
+      </select>
+    </div>
+    <div class="field-grid"><button class="sa-btn" id="replayAnimBtn" style="width:100%;gap:7px;font-size:11.5px;font-weight:700;color:var(--ink-600);">Preview intro</button><button class="sa-btn" id="replayOutroAnimBtn" style="width:100%;gap:7px;font-size:11.5px;font-weight:700;color:var(--ink-600);">Preview outro</button></div>
 
     <div class="panel-section-label" style="padding:16px 0 10px;">Custom CSS</div>
     <div class="field-group">
@@ -4555,7 +4660,16 @@ function renderAdvancedFields(el){
     reRenderElement(el);
     pushHistory();
   });
+  document.getElementById('a_outroAnimation').addEventListener('change', (e)=>{ a.outroAnimation=e.target.value; pushHistory(); });
   document.getElementById('replayAnimBtn').addEventListener('click', ()=> replayAnimation(el.id));
+  document.getElementById('replayOutroAnimBtn').addEventListener('click', ()=>{
+    const wrap=canvasPage.querySelector(`.el-wrap[data-id="${el.id}"] .el-inner`), value=a.outroAnimation||'none';
+    if(!wrap || value==='none') return;
+    wrap.classList.remove('anim-out-fade','anim-out-slide','anim-out-zoom');
+    void wrap.offsetWidth;
+    wrap.classList.add(`anim-out-${value}`);
+    wrap.addEventListener('animationend',()=>wrap.classList.remove(`anim-out-${value}`),{once:true});
+  });
 
   document.getElementById('a_cssClasses').addEventListener('blur', (e)=>{ a.cssClasses = e.target.value; reRenderElement(el); pushHistory(); });
   document.getElementById('a_cssId').addEventListener('blur', (e)=>{ a.cssId = e.target.value; pushHistory(); });
@@ -5409,6 +5523,21 @@ renderStyleFields = function(el){
   if(alignItems) alignItems.addEventListener('change', ()=>{ s.alignItems = alignItems.value; reRenderElement(el); pushHistory(); });
 };
 
+const _renderHoverStyleFields=renderStyleFields;
+renderStyleFields=function(el){
+  _renderHoverStyleFields(el);
+  const box=document.getElementById('styleFields');
+  el.hover=el.hover||{};
+  const h=el.hover;
+  box.insertAdjacentHTML('beforeend',`<div class="panel-section-label" style="padding:14px 0 10px;">Hover state</div><div class="field-hint">These settings apply only while this element is hovered.</div>${colorField('Hover text color','hoverColor',h.color||'#161D2B')}${colorField('Hover background color','hoverBackgroundColor',h.backgroundColor||'#ffffff')}${fieldInput('Hover background image','hoverBackgroundImage',h.backgroundImage||'')}${colorField('Hover border color','hoverBorderColor',h.borderColor||'#d7e3f2')}${rangeField('Hover opacity','hoverOpacity',0,100,h.opacity??100,'%')}${selectField('Hover transform','hoverTransform',[['','None'],['translateY(-4px)','Lift up'],['scale(1.03)','Scale up'],['scale(.97)','Scale down']],h.transform||'')}<button class="field-button" type="button" id="clearHoverStylesBtn">Clear hover styling</button>`);
+  const bindHoverColor=(key,id)=>{const picker=document.getElementById(`f_${id}`),text=document.getElementById(`t_${id}`);const apply=(value)=>{h[key]=value;rebuildCustomStyles()};picker?.addEventListener('input',()=>{text.value=picker.value;apply(picker.value)});text?.addEventListener('input',()=>apply(text.value));text?.addEventListener('blur',pushHistory);picker?.addEventListener('change',pushHistory)};
+  bindHoverColor('color','hoverColor');bindHoverColor('backgroundColor','hoverBackgroundColor');bindHoverColor('borderColor','hoverBorderColor');
+  const image=document.getElementById('f_hoverBackgroundImage');image?.addEventListener('input',()=>{h.backgroundImage=image.value;rebuildCustomStyles()});image?.addEventListener('blur',pushHistory);
+  const opacity=document.getElementById('f_hoverOpacity');opacity?.addEventListener('input',()=>{h.opacity=Number(opacity.value);const label=document.getElementById('v_hoverOpacity');if(label)label.textContent=`${h.opacity}%`;rebuildCustomStyles()});opacity?.addEventListener('change',pushHistory);
+  const transform=document.getElementById('f_hoverTransform');transform?.addEventListener('change',()=>{h.transform=transform.value;rebuildCustomStyles();pushHistory()});
+  document.getElementById('clearHoverStylesBtn')?.addEventListener('click',()=>{el.hover={};rebuildCustomStyles();renderStyleFields(el);pushHistory()});
+};
+
 const _buildPublishedHtml = buildPublishedHtml;
 function cssSafeElementClass(value=''){
   return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '\\$&');
@@ -5513,6 +5642,8 @@ buildPublishedHtml = function(){
       const desktopEl = resolveElementForDevice(el, 'desktop');
       const cls = `published-widget ${el.id} ${(el.advanced?.cssClasses||'')}`.trim();
       if(el.advanced && el.advanced.customCss) customRules.push(`.${el.id}{${el.advanced.customCss}}`);
+      const hoverRule=buildElementHoverCss(el,`.published-widget.${cssSafeElementClass(el.id)}`);
+      if(hoverRule) customRules.push(hoverRule);
       if(el.type === 'container'){
         const s = desktopEl.style || {};
         const inner = renderPublishedTree(el.children || []);
@@ -5659,7 +5790,11 @@ function ensureBuilderChromeStyles(){
     html body{ background: var(--bg) !important; }
     body{ margin:0 !important; color: var(--ink-900) !important; }
     body > .app{ display:flex !important; flex-direction:column !important; height:100vh !important; background: var(--bg) !important; color: var(--ink-900) !important; }
-    body > .app > .topbar{ height:52px !important; min-height:52px !important; background: var(--navy-900) !important; color:#fff !important; display:flex !important; align-items:center !important; justify-content:space-between !important; padding:0 14px !important; box-shadow: var(--shadow-md) !important; position:relative !important; z-index:20 !important; border:0 !important; }
+    body > .app > .topbar{ height:52px !important; min-height:52px !important; background: var(--navy-900) !important; color:#fff !important; display:flex !important; align-items:center !important; justify-content:space-between !important; gap:12px !important; padding:0 14px !important; box-shadow: var(--shadow-md) !important; position:relative !important; z-index:20 !important; border:0 !important; overflow-x:auto !important; overflow-y:hidden !important; scrollbar-width:none !important; }
+    body > .app > .topbar::-webkit-scrollbar{display:none !important;}
+    body > .app > .topbar .tb-left,
+    body > .app > .topbar .tb-center,
+    body > .app > .topbar .tb-right{flex-shrink:0 !important;}
     body > .app > .workspace{ flex:1 !important; display:flex !important; min-height:0 !important; }
     body > .app > .workspace > .side-panel{ width:300px !important; min-width:300px !important; flex-shrink:0 !important; background:#fff !important; border-right:1px solid var(--line) !important; display:flex !important; flex-direction:column !important; min-height:0 !important; position:relative !important; z-index:10 !important; box-shadow: 2px 0 12px rgba(15,23,42,0.04) !important; }
     body > .app > .workspace > .side-panel,
@@ -5716,7 +5851,7 @@ function ensureBuilderChromeStyles(){
     body > .modal-backdrop > .modal .btn-gold{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
     body > .app > .topbar .tb-icon-btn,
     body > .app > .topbar .btn{ all: unset; box-sizing:border-box; }
-    body > .app > .topbar .tb-icon-btn{ width:32px !important; height:32px !important; border-radius:7px !important; color: rgba(255,255,255,.65) !important; display:flex !important; align-items:center !important; justify-content:center !important; cursor:pointer !important; }
+    body > .app > .topbar .tb-icon-btn{ width:32px !important; min-width:32px !important; height:32px !important; flex:0 0 32px !important; border-radius:7px !important; color: rgba(255,255,255,.65) !important; display:flex !important; align-items:center !important; justify-content:center !important; cursor:pointer !important; }
     body > .app > .topbar .tb-icon-btn.active{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
     body > .app > .topbar .btn{ font-weight:700 !important; font-size:12.5px !important; border-radius:8px !important; padding:8px 14px !important; display:inline-flex !important; align-items:center !important; gap:6px !important; white-space:nowrap !important; cursor:pointer !important; }
     body > .app > .topbar .btn-gold{ background: var(--gold-500) !important; color: var(--navy-900) !important; }
