@@ -25,7 +25,7 @@ export default function PageEditor({
 }) {
   const safePage = page || {};
   const pageId = safePage.id || safePage.slug || "new-page";
-  const builderUrl = `/visual-page-builder.html?pageId=${encodeURIComponent(pageId)}`;
+  const builderUrl = `/visual-page-builder.html?v=20260722-spacing2&pageId=${encodeURIComponent(pageId)}`;
   const builderFrameRef = useRef(null);
   const latestPayloadRef = useRef(builderInitPayload || {});
   const builderPayloadSignature = useMemo(() => JSON.stringify({

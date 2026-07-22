@@ -214,9 +214,11 @@
     box-shadow:none;
   }
   .field-select.unit-value-select:focus{box-shadow:none}
-  .linked-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .linked-grid.is-linked{grid-template-columns:1fr}
-  .linked-grid.is-linked .quad-field:not([data-quad-side="top"]){display:none}
+  .linked-grid{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:10px}
+  .linked-grid.is-linked{grid-template-columns:minmax(0,1fr)!important}
+  .linked-grid.is-linked .quad-field:not([data-quad-side="top"]){display:none!important}
+  .linked-grid .quad-field{min-width:0}
+  .linked-grid .quad-field .field-input{width:100%;min-width:0}
   .linked-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .clip-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink-600)}
   .clip-toggle.active{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
@@ -2661,6 +2663,8 @@ function renderImportedSettings(node){
   const importedIconPresetChoices = isIconElement ? importedFontAwesomeOptions(importedIconFamily) : [];
   const importedIconPresetValue = importedIconPresetChoices.some(([value])=> value === importedIconClass) ? importedIconClass : '';
   const importedHtmlModel = getImportedHtmlElementModel();
+  const importedMarginLinked = node.getAttribute('data-import-margin-linked') !== 'false';
+  const importedPaddingLinked = node.getAttribute('data-import-padding-linked') !== 'false';
   importedSelectionNode = node;
   importedSelectionId = details.id;
   document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : details.type==='icon' ? 'iconbox' : 'columns',15);
@@ -2733,6 +2737,20 @@ function renderImportedSettings(node){
     ${progressContext ? `<div class="panel-section-label" style="padding:8px 0 10px;">Progress bar</div>${colorField('Fill color', 'importedProgressColor', normalizeImportedColorValue(getImportedStyleValue(progressContext.bar,'backgroundColor'), '#2257a5'))}${colorField('Track color', 'importedProgressTrackColor', normalizeImportedColorValue(getImportedStyleValue(progressContext.progress,'backgroundColor'), '#edf1f8'))}` : ''}
   `;
   advancedBox.innerHTML = `${responsiveEditorNotice()}
+    <div class="panel-section-label" style="padding:0 0 10px;">Spacing</div>
+    ${linkedQuadField('Margin', 'importedMargin', {
+      top:parseImportedMetricParts(details.styles.marginTop, 0, 'px').value,
+      right:parseImportedMetricParts(details.styles.marginRight, 0, 'px').value,
+      bottom:parseImportedMetricParts(details.styles.marginBottom, 0, 'px').value,
+      left:parseImportedMetricParts(details.styles.marginLeft, 0, 'px').value
+    }, importedMarginLinked, -2000, 2000)}
+    ${linkedQuadField('Padding', 'importedPadding', {
+      top:parseImportedMetricParts(details.styles.paddingTop, 0, 'px').value,
+      right:parseImportedMetricParts(details.styles.paddingRight, 0, 'px').value,
+      bottom:parseImportedMetricParts(details.styles.paddingBottom, 0, 'px').value,
+      left:parseImportedMetricParts(details.styles.paddingLeft, 0, 'px').value
+    }, importedPaddingLinked, 0, 2000)}
+    <div class="panel-section-label" style="padding:6px 0 10px;">Positioning</div>
     ${selectField('Display', 'importedDisplay', [['','Default'],['block','Block'],['inline-block','Inline block'],['flex','Flex'],['grid','Grid'],['none','None']], details.styles.display || '')}
     ${selectField('Position', 'importedPosition', [['','Default'],['static','Static'],['relative','Relative'],['absolute','Absolute'],['fixed','Fixed'],['sticky','Sticky']], details.styles.position || '')}
     ${fieldInput('Z index', 'importedZIndex', details.styles.zIndex || '')}
@@ -2745,7 +2763,7 @@ function renderImportedSettings(node){
       ${fieldInput('Bottom', 'importedBottom', details.styles.bottom || '')}
       ${fieldInput('Left', 'importedLeft', details.styles.left || '')}
     </div>
-    <div class="field-hint">Positioning, stacking, and visibility controls stay in Advanced. Typography and box styling now match the native widget Style tab.</div>
+    <div class="field-hint">Margin and padding are linked by default. Choose Free to edit Top | Bottom and Left | Right independently.</div>
   `;
   const textNode = document.getElementById('f_importedTextContent');
   if(textNode){
@@ -3078,6 +3096,43 @@ function renderImportedSettings(node){
     mediaBorderColorTextNode.addEventListener('input', ()=>{ if(/^#[0-9A-Fa-f]{6}$/.test(mediaBorderColorTextNode.value)) mediaBorderColorNode.value = mediaBorderColorTextNode.value; applyMediaBorderColor(mediaBorderColorTextNode.value); });
     mediaBorderColorTextNode.addEventListener('blur', ()=> syncImportedHtmlToModel('imported-style', true));
   }
+  const bindImportedSpacingQuad = (prefix, cssPrefix, linkedAttribute)=>{
+    const sides=['Top','Right','Bottom','Left'];
+    const inputs=sides.map((side)=> document.getElementById(`${prefix}${side}`)).filter(Boolean);
+    const toggle=document.getElementById(`${prefix}Linked`);
+    const applySide=(side,value)=> setImportedInlineStyle(importedSelectionNode, `${cssPrefix}${side}`, `${value}px`);
+    let linked=importedSelectionNode.getAttribute(linkedAttribute)!=='false';
+    if(toggle){
+      toggle.addEventListener('click', ()=>{
+        linked=!linked;
+        importedSelectionNode.setAttribute(linkedAttribute, String(linked));
+        toggle.classList.toggle('active', linked);
+        toggle.textContent=linked ? 'Clip' : 'Free';
+        updateLinkedQuadUi(prefix, linked);
+        if(linked){
+          const value=Number(inputs[0]?.value)||0;
+          inputs.forEach((input)=>{ input.value=String(value); });
+          sides.forEach((side)=> applySide(side,value));
+        }
+        syncImportedHtmlToModel('imported-spacing', true);
+      });
+    }
+    inputs.forEach((input,index)=>{
+      input.addEventListener('input', ()=>{
+        const value=Number(input.value)||0;
+        if(linked){
+          inputs.forEach((field)=>{ field.value=String(value); });
+          sides.forEach((side)=> applySide(side,value));
+        }else{
+          applySide(sides[index],value);
+        }
+        syncImportedHtmlToModel('imported-spacing');
+      });
+      input.addEventListener('change', ()=> syncImportedHtmlToModel('imported-spacing', true));
+    });
+  };
+  bindImportedSpacingQuad('importedMargin','margin','data-import-margin-linked');
+  bindImportedSpacingQuad('importedPadding','padding','data-import-padding-linked');
   const displayNode = document.getElementById('f_importedDisplay');
   if(displayNode){
     displayNode.addEventListener('change', ()=>{ applyImportedStyle('display', displayNode.value); syncImportedHtmlToModel('imported-style', true); });

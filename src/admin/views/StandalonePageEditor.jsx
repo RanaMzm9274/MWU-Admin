@@ -78,7 +78,7 @@ export default function StandalonePageEditor({
   const latestHtmlBuilderPayloadRef = useRef(null);
   const pendingImageReplaceIdRef = useRef("");
   const livePageUrl = getLivePageUrl(safePage);
-  const htmlBuilderSrc = `/visual-page-builder.html?pageId=${encodeURIComponent(safePage.id || safePage.slug || "new-page")}`;
+  const htmlBuilderSrc = `/visual-page-builder.html?v=20260722-spacing2&pageId=${encodeURIComponent(safePage.id || safePage.slug || "new-page")}`;
   const htmlBuilderInitPayload = useMemo(() => buildHtmlVisualBuilderInitPayload(safePage), [
     safePage.id,
     safePage.title,
