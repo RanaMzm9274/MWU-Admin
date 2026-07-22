@@ -416,6 +416,12 @@ function MenuHierarchyItems({ items = [] }) {
   );
 }
 
+const normalizeCustomMenuUrl = (value = "") => {
+  const url = String(value || "").trim();
+  if (!url || /\s/.test(url) || /^(?:javascript|data|vbscript):/i.test(url)) return "";
+  return /^www\./i.test(url) ? `https://${url}` : url;
+};
+
 function PageLinkSelect({ value = "", pages = [], onChange, ariaLabel = "Select linked page" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -433,6 +439,8 @@ function PageLinkSelect({ value = "", pages = [], onChange, ariaLabel = "Select 
       .toLowerCase()
       .includes(query.trim().toLowerCase())
   );
+  const customUrl = normalizeCustomMenuUrl(query);
+  const customUrlMatchesPage = uniquePages.some((page) => String(page.href) === customUrl);
 
   const selectPage = (href, page = null) => {
     onChange(href, page);
@@ -483,10 +491,14 @@ function PageLinkSelect({ value = "", pages = [], onChange, ariaLabel = "Select 
                 if (event.key === "Enter") {
                   event.preventDefault();
                   const firstPage = filteredPages[0];
-                  if (firstPage) selectPage(firstPage.href, firstPage);
+                  if (firstPage) {
+                    selectPage(firstPage.href, firstPage);
+                  } else if (customUrl) {
+                    selectPage(customUrl, null);
+                  }
                 }
               }}
-              placeholder="Search pages by title or type"
+              placeholder="Search pages or enter a custom URL"
             />
           </label>
           <div className="site-chrome-page-link-options" role="listbox" aria-label={ariaLabel}>
@@ -515,7 +527,24 @@ function PageLinkSelect({ value = "", pages = [], onChange, ariaLabel = "Select 
                 {String(page.href) === String(value) && <CheckCircle2 size={16} />}
               </button>
             ))}
-            {!filteredPages.length && <div className="site-chrome-page-link-empty">No matching website pages found.</div>}
+            {customUrl && !customUrlMatchesPage && (
+              <button
+                className="site-chrome-page-link-custom"
+                type="button"
+                role="option"
+                aria-selected="false"
+                onClick={() => selectPage(customUrl, null)}
+              >
+                <span>
+                  <strong>Use custom URL</strong>
+                  <small>{customUrl}</small>
+                </span>
+                <Plus size={16} />
+              </button>
+            )}
+            {!filteredPages.length && !customUrl && (
+              <div className="site-chrome-page-link-empty">No matching website pages found. Enter a custom URL to use it directly.</div>
+            )}
           </div>
           <button className="site-chrome-page-link-clear" type="button" onClick={() => selectPage("", null)}>
             Clear page selection

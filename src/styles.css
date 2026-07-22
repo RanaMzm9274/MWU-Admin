@@ -1747,6 +1747,16 @@ button:disabled {
   background: #eaf2fc;
 }
 
+.site-chrome-page-link-options button.site-chrome-page-link-custom {
+  border: 1px dashed #8eadd2;
+  background: #f7fbff;
+}
+
+.site-chrome-page-link-options button.site-chrome-page-link-custom:hover {
+  border-color: var(--mwu-blue);
+  background: #eaf2fc;
+}
+
 .site-chrome-page-link-options button > svg {
   color: var(--mwu-blue);
 }
