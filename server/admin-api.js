@@ -419,6 +419,13 @@ const findPageByIdentifier = async (identifier) => {
 
 const withNameBasedContentSlug = (payload = {}, fallback = {}) => {
   const title = String(payload.title || payload.page_title || payload.name || fallback.title || "Untitled Page").trim();
+  const explicitSlug = String(payload.slug || payload.page_slug || "").trim();
+  // Imported and generated content already carries the canonical website
+  // route. Preserve that explicit slug so News/Research titles cannot rename
+  // live URLs such as `news-details-*` during an update.
+  if (explicitSlug) {
+    return { ...payload, slug: slugify(explicitSlug) };
+  }
   const marker = [
     payload.type, payload.page_type, payload.menu, payload.menu_group, payload.template,
     fallback.type, fallback.page_type, fallback.menu, fallback.menu_group, fallback.template
