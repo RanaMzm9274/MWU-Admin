@@ -215,6 +215,8 @@
   }
   .field-select.unit-value-select:focus{box-shadow:none}
   .linked-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .linked-grid.is-linked{grid-template-columns:1fr}
+  .linked-grid.is-linked .quad-field:not([data-quad-side="top"]){display:none}
   .linked-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .clip-toggle{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink-600)}
   .clip-toggle.active{background:var(--navy-900);color:#fff;border-color:var(--navy-900)}
@@ -979,8 +981,10 @@ function ensureImportedEditorFonts(){
   style.id='importedEditorFonts';
   style.textContent = `
     @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-solid-900.woff2') format('woff2'); font-weight: 900; font-style: normal; font-display: block; }
+    @font-face { font-family: 'Font Awesome 6 Pro'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-regular-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
     @font-face { font-family: 'Font Awesome 6 Brands'; src: url('${hostLiveAssetProxyPrefix}/assets/fonts/fontawesome/fa-brands-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
     .custom-html-widget .fa, .custom-html-widget .fas, .custom-html-widget .fa-solid { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
+    .custom-html-widget .far, .custom-html-widget .fa-regular { font-family: 'Font Awesome 6 Pro' !important; font-weight: 400 !important; }
     .custom-html-widget .fab, .custom-html-widget .fa-brands { font-family: 'Font Awesome 6 Brands' !important; font-weight: 400 !important; }
     .custom-html-widget [class^='fa-']::before, .custom-html-widget [class*=' fa-']::before, .custom-html-widget .icon-btn::before, .custom-html-widget .th-icon::after { font-family: 'Font Awesome 6 Pro' !important; font-weight: 900 !important; }
   `;
@@ -1196,9 +1200,25 @@ function getImportedIconTarget(node){
   }
   return null;
 }
+function getImportedEditableIconTarget(node){
+  const direct = getImportedIconTarget(node);
+  if(direct) return direct;
+  const root = getImportedHtmlRoot();
+  let current = node?.nodeType===3 ? node.parentElement : node;
+  while(current && current!==root){
+    const marker = importedClassText(current);
+    if(/(^|\s)([a-z0-9_-]*icon[a-z0-9_-]*)(\s|$)/i.test(marker)){
+      const child = current.querySelector?.('i, svg');
+      if(child && root?.contains(child)) return normalizeImportedIconElement(child);
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
 function getImportedFontAwesomeFamily(node){
   const classText = importedClassText(node);
   if(/\b(fab|fa-brands)\b/i.test(classText)) return 'fa-brands';
+  if(/\b(far|fa-regular)\b/i.test(classText)) return 'fa-regular';
   return 'fa-solid';
 }
 function getImportedFontAwesomeClass(node){
@@ -1218,7 +1238,7 @@ function ensureImportedIconShell(target){
 function applyImportedIconReplacement(node, family='fa-solid', iconClass=''){
   const current = normalizeImportedIconElement(node);
   if(!current || current.nodeType!==1) return null;
-  const nextFamily = family === 'fa-brands' ? 'fa-brands' : 'fa-solid';
+  const nextFamily = ['fa-solid','fa-regular','fa-brands'].includes(family) ? family : 'fa-solid';
   const nextIconClass = normalizeImportedFontAwesomeClass(iconClass) || (nextFamily === 'fa-brands' ? 'fa-facebook-f' : 'fa-star');
   const tag = String(current.tagName || '').toLowerCase();
   const existingClassText = importedClassText(current);
@@ -1243,6 +1263,47 @@ function applyImportedIconReplacement(node, family='fa-solid', iconClass=''){
   ensureImportedNodeId(nextNode);
   ensureImportedIconShell(nextNode);
   return nextNode;
+}
+function importedPointContains(node, event){
+  if(!node || !event || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return false;
+  try{
+    const rect = node.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }catch{
+    return false;
+  }
+}
+function findImportedPointTarget(event, selector, normalize=(node)=>node){
+  const root = getImportedHtmlRoot();
+  if(!root || !event) return null;
+  const matches = Array.from(root.querySelectorAll(selector))
+    .filter((node)=> importedPointContains(node, event))
+    .map((node)=>{
+      try{
+        const rect = node.getBoundingClientRect();
+        return { node:normalize(node), area:rect.width * rect.height };
+      }catch{
+        return { node:normalize(node), area:Number.MAX_SAFE_INTEGER };
+      }
+    })
+    .filter((entry)=> !!entry.node)
+    .sort((a,b)=> a.area-b.area);
+  return matches[0]?.node || null;
+}
+function resolveImportedInteractionTarget(event){
+  const rawTarget = resolveImportedPointerTarget(event);
+  const iconTarget = getImportedEditableIconTarget(event?.target)
+    || findImportedPointTarget(event, 'i, svg', normalizeImportedIconElement);
+  if(iconTarget) return { target:iconTarget, kind:'icon' };
+  const textTarget = getImportedInlineTextTarget(event?.target)
+    || findImportedPointTarget(event, 'h1,h2,h3,h4,h5,h6,p,li,a,button,label,strong,em,small,span', getImportedInlineTextTarget);
+  if(textTarget && String(textTarget.textContent || '').trim()) return { target:textTarget, kind:'text' };
+  const directImage = String(rawTarget?.tagName || '').toLowerCase()==='img' && !isImportedDecorativeImageNode(rawTarget)
+    ? rawTarget
+    : findImportedPointTarget(event, 'img', (node)=> isImportedDecorativeImageNode(node) ? null : node);
+  if(directImage) return { target:directImage, kind:'media' };
+  if(rawTarget && isImportedBackgroundMediaNode(rawTarget)) return { target:rawTarget, kind:'media' };
+  return { target:getImportedContentNode(rawTarget), kind:'element' };
 }
 function getImportedParentSelectableNode(node){
   if(!node || node.nodeType!==1) return null;
@@ -2396,6 +2457,12 @@ function bindImportedBoxStyleEvents(node, boxState){
         boxState[linkedKey] = !boxState[linkedKey];
         toggle.classList.toggle('active', boxState[linkedKey]);
         toggle.textContent = boxState[linkedKey] ? 'Clip' : 'Free';
+        updateLinkedQuadUi(prefix, boxState[linkedKey]);
+        if(boxState[linkedKey]){
+          const value = Number(inputs[0]?.value)||0;
+          inputs.forEach((input)=>{ input.value=String(value); });
+          styleFields.forEach((field)=> setImportedInlineStyle(styleTarget, field, `${value}px`));
+        }
         syncImportedHtmlToModel('imported-style', true);
       });
     }
@@ -2505,7 +2572,10 @@ function renderImportedSettings(node){
   const isContainerElement = details.type === 'container';
   const supportsTypography = isHeadingElement || isTextElement || isButtonElement;
   const backgroundContextTarget = isImageElement ? null : getImportedBackgroundContextTarget(node);
-  const resolvedMediaTarget = isImageElement ? node : getImportedEditableMediaTarget(node);
+  // Do not turn a text/icon/layout selection into an image merely because an
+  // unrelated descendant or ancestor contains one. Image controls belong only
+  // to the selected image or an explicitly selected background-media element.
+  const resolvedMediaTarget = isImageElement ? node : (isImportedBackgroundMediaNode(node) ? node : null);
   const mediaTarget = resolvedMediaTarget || backgroundContextTarget;
   const mediaDetails = mediaTarget ? describeImportedNode(mediaTarget)?.media : details.media;
   const hasMediaTarget = !!mediaTarget;
@@ -2529,6 +2599,7 @@ function renderImportedSettings(node){
   const importedIconClass = isIconElement ? getImportedFontAwesomeClass(node) : '';
   const importedIconPresetChoices = isIconElement ? importedFontAwesomeOptions(importedIconFamily) : [];
   const importedIconPresetValue = importedIconPresetChoices.some(([value])=> value === importedIconClass) ? importedIconClass : '';
+  const importedHtmlModel = getImportedHtmlElementModel();
   importedSelectionNode = node;
   importedSelectionId = details.id;
   document.getElementById('settingsIcon').innerHTML = svgIcon(details.type==='image' ? 'image' : details.type==='button' ? 'button' : details.type==='heading' ? 'heading' : details.type==='text' ? 'text' : details.type==='icon' ? 'iconbox' : 'columns',15);
@@ -2542,14 +2613,15 @@ function renderImportedSettings(node){
     <div class="field-hint">Imported page editing is active. Double-click text to edit inline. Click icons directly to style them. Shift-click selects the parent container.</div>
     <div class="field-group">
       <div class="field-group-label">HTML source</div>
-      <div class="builder-file-stack"><button class="field-button" type="button" id="importedEditHtmlSourceBtn">Edit full HTML source</button></div>
-      <div class="field-hint">Open the complete page markup in the code editor.</div>
+      <textarea class="field-textarea code-output" id="f_importedHtmlCode" rows="16" spellcheck="false">${escapeHtml(importedHtmlModel?.content?.code || '')}</textarea>
+      <div class="builder-file-stack" style="margin-top:10px;"><button class="field-button" type="button" id="importedApplyHtmlSourceBtn">Apply HTML code</button><button class="field-button" type="button" id="importedEditHtmlSourceBtn">Select full HTML element</button></div>
+      <div class="field-hint">Edit the imported markup, then apply it to rebuild the canvas. The complete HTML remains editable as one source element.</div>
     </div>
     ${parentTarget ? `<div class="field-group"><div class="builder-file-stack"><button class="field-button" type="button" id="importedSelectParentBtn">Select parent container</button></div></div>` : ''}
     ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
     ${hasLinkField ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
     ${isIconElement ? `<div class="panel-section-label" style="padding:6px 0 10px;">Font Awesome</div>` : ''}
-    ${isIconElement ? selectField('Icon library', 'importedIconFamily', [['fa-solid','Solid'],['fa-brands','Brands']], importedIconFamily) : ''}
+    ${isIconElement ? selectField('Icon library', 'importedIconFamily', [['fa-solid','Solid'],['fa-regular','Regular'],['fa-brands','Brands']], importedIconFamily) : ''}
     ${isIconElement ? selectField('Preset icon', 'importedIconPreset', [['','Custom'], ...importedIconPresetChoices], importedIconPresetValue) : ''}
     ${isIconElement ? fieldInput('Font Awesome class', 'importedIconClass', importedIconClass || '') : ''}
     ${hasMediaTarget ? fieldInput('Image URL', 'importedImageUrl', mediaDetails?.src || details.src || '') : ''}
@@ -2626,6 +2698,21 @@ function renderImportedSettings(node){
       if(!model) return;
       clearImportedSelection();
       selectElement(model.id);
+    });
+  }
+  const applyHtmlSourceButton = document.getElementById('importedApplyHtmlSourceBtn');
+  const importedHtmlCodeNode = document.getElementById('f_importedHtmlCode');
+  if(applyHtmlSourceButton && importedHtmlCodeNode){
+    applyHtmlSourceButton.addEventListener('click', ()=>{
+      const model = getImportedHtmlElementModel();
+      if(!model) return;
+      model.content = model.content || {};
+      model.content.code = importedHtmlCodeNode.value;
+      clearImportedSelection();
+      pushHistory();
+      renderAll();
+      selectElement(model.id);
+      showToast('HTML code applied');
     });
   }
   const progressLabelNode = document.getElementById('f_importedProgressLabel');
@@ -2951,39 +3038,34 @@ function initializeImportedPage(){
     reportImportedEditorError('asset-hydration-failed', { error });
   }
   root.addEventListener('click', (event)=>{
-    const rawTarget = resolveImportedPointerTarget(event);
-    const iconTarget = getImportedIconTarget(event.target);
-    const textTarget = iconTarget ? null : getImportedInlineTextTarget(event.target);
-    const mediaTarget = textTarget || iconTarget ? null : getImportedEditableMediaTarget(rawTarget);
-    const target = iconTarget || textTarget || mediaTarget || getImportedContentNode(rawTarget);
+    const interaction = resolveImportedInteractionTarget(event);
+    const target = interaction.target;
     if(!target) return;
     event.preventDefault();
     event.stopPropagation();
     selectImportedNode(event.shiftKey && target.parentElement && target.parentElement!==root ? target.parentElement : target);
   }, true);
   root.addEventListener('dblclick', (event)=>{
-    const directTarget = resolveImportedPointerTarget(event);
+    const interaction = resolveImportedInteractionTarget(event);
+    const directTarget = interaction.target;
     if(!directTarget) return;
-    const iconTarget = getImportedIconTarget(event.target);
-    const textTarget = iconTarget ? null : getImportedInlineTextTarget(event.target);
-    const mediaTarget = textTarget || iconTarget ? null : getImportedEditableMediaTarget(directTarget);
-    if(mediaTarget){
+    if(interaction.kind==='media'){
       event.preventDefault();
       event.stopPropagation();
-      selectImportedNode(mediaTarget);
+      selectImportedNode(directTarget);
       window.setTimeout(()=>{
         const mediaButton = document.getElementById('importedImageLibraryBtn');
         if(mediaButton) mediaButton.click();
       }, 0);
       return;
     }
-    if(iconTarget){
+    if(interaction.kind==='icon'){
       event.preventDefault();
       event.stopPropagation();
-      selectImportedNode(iconTarget);
+      selectImportedNode(directTarget);
       return;
     }
-    const target = textTarget || getImportedContentNode(directTarget);
+    const target = interaction.kind==='text' ? directTarget : getImportedContentNode(directTarget);
     if(!target || !String(target.textContent || '').trim()) return;
     event.preventDefault();
     event.stopPropagation();
@@ -3995,6 +4077,14 @@ function bindBoxStyleEvents(el){
         b[linkedKey] = !b[linkedKey];
         toggle.classList.toggle('active', b[linkedKey]);
         toggle.textContent = b[linkedKey] ? 'Clip' : 'Free';
+        updateLinkedQuadUi(prefix, b[linkedKey]);
+        if(b[linkedKey]){
+          const value = Number(inputs[0]?.value)||0;
+          inputs.forEach((input)=>{ input.value=String(value); });
+          propNames.forEach((prop)=>{ b[prop]=value; });
+          b[propPrefix]=value;
+          reRenderElement(el);
+        }
         pushHistory();
       });
     }
@@ -4028,19 +4118,27 @@ function sliderWithUnitField(label, id, value, options, selectedUnit, min=0, max
       <div class="range-row"><input type="range" id="f_${id}" min="${min}" max="${max}" step="${step}" value="${value}"></div>
     </div></div>`;
 }
-function simpleNumberField(label, id, value, min=-999, max=999, step=1){
-  return `<div class="quad-field"><label>${label}</label><input class="field-input" id="${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
+function simpleNumberField(label, id, value, min=-999, max=999, step=1, side=''){
+  return `<div class="quad-field"${side ? ` data-quad-side="${side}"` : ''}><label>${label}</label><input class="field-input" id="${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
 }
 function linkedQuadField(title, prefix, values, linked=true, min=0, max=200){
   return `<div class="field-group">
     <div class="linked-head"><div class="field-group-label" style="margin-bottom:0;">${title}</div><button type="button" class="clip-toggle ${linked?'active':''}" id="${prefix}Linked">${linked?'Clip':'Free'}</button></div>
-    <div class="linked-grid">
-      ${simpleNumberField('Top', `${prefix}Top`, values.top, min, max)}
-      ${simpleNumberField('Right', `${prefix}Right`, values.right, min, max)}
-      ${simpleNumberField('Bottom', `${prefix}Bottom`, values.bottom, min, max)}
-      ${simpleNumberField('Left', `${prefix}Left`, values.left, min, max)}
+    <div class="linked-grid ${linked?'is-linked':'is-free'}" data-linked-grid="${prefix}">
+      ${simpleNumberField(linked ? 'All directions' : 'Top', `${prefix}Top`, values.top, min, max, 1, 'top')}
+      ${simpleNumberField('Bottom', `${prefix}Bottom`, values.bottom, min, max, 1, 'bottom')}
+      ${simpleNumberField('Left', `${prefix}Left`, values.left, min, max, 1, 'left')}
+      ${simpleNumberField('Right', `${prefix}Right`, values.right, min, max, 1, 'right')}
     </div>
   </div>`;
+}
+function updateLinkedQuadUi(prefix, linked){
+  const grid = document.querySelector(`[data-linked-grid="${prefix}"]`);
+  if(!grid) return;
+  grid.classList.toggle('is-linked', !!linked);
+  grid.classList.toggle('is-free', !linked);
+  const topLabel = grid.querySelector('[data-quad-side="top"] label');
+  if(topLabel) topLabel.textContent = linked ? 'All directions' : 'Top';
 }
 function stepperField(label, id, value, min=-999, max=999, step=1){
   return `<div class="field-group"><div class="field-group-label">${label}</div><div class="stepper-field"><input class="field-input" id="f_${id}" type="number" min="${min}" max="${max}" step="${step}" value="${value}"><div class="stepper-buttons"><button type="button" data-step-target="f_${id}" data-step-delta="1">+</button><button type="button" data-step-target="f_${id}" data-step-delta="-1">-</button></div></div></div>`;
@@ -4276,6 +4374,13 @@ function renderAdvancedFields(el){
         a[linkedKey] = !a[linkedKey];
         toggle.classList.toggle('active', a[linkedKey]);
         toggle.textContent = a[linkedKey] ? 'Clip' : 'Free';
+        updateLinkedQuadUi(prefix, a[linkedKey]);
+        if(a[linkedKey]){
+          const value = Number(fields[0]?.value)||0;
+          fields.forEach((field)=>{ field.value=String(value); });
+          propNames.forEach((prop)=>{ a[prop]=value; });
+          reRenderElement(el);
+        }
         pushHistory();
       });
     }
@@ -4735,7 +4840,17 @@ renderContentFields=function(el){
   if(el.type==='list') h=renderListItemsEditor();
   if(el.type==='html') h=replaceAreaHtml('HTML code','code',c.code,18,'Paste trusted HTML here. Changes render immediately in the page canvas.');
   box.innerHTML=h;
-  Object.keys(c).forEach(key=>bindXInput(key,v=>{c[key]=key==='value'?Number(v):v;reRenderElement(el)}));
+  Object.keys(c).forEach(key=>{
+    if(el.type==='html' && key==='code'){
+      bindXInput(key,v=>{
+        c.code=v;
+        const widget=canvasPage.querySelector(`.el-wrap[data-id="${el.id}"] .custom-html-widget`);
+        if(widget) widget.innerHTML=v;
+      });
+      return;
+    }
+    bindXInput(key,v=>{c[key]=key==='value'?Number(v):v;reRenderElement(el)});
+  });
   if(el.type==='gallery')bindImageUpload('galleryUpload',src=>{c.images=(c.images?c.images+'\n':'')+src;reRenderElement(el);renderContentFields(el);});
   if(el.type==='list'){
     const commit = (items) => { c.listItemsData = items; c.items = items.map((item) => item.text).join('\n'); reRenderElement(el); };
@@ -5110,9 +5225,10 @@ reRenderElement = function(el){
   }
 };
 
+const _renderNestedContentFields = renderContentFields;
 renderContentFields = function(el){
   if(el.type !== 'container'){
-    return _renderContentFields(el);
+    return _renderNestedContentFields(el);
   }
   const box = document.getElementById('contentFields');
   box.innerHTML = fieldInput('Container label', 'containerName', (el.content&&el.content.name)||'Container') +
@@ -5124,8 +5240,9 @@ renderContentFields = function(el){
   }
 };
 
+const _renderNestedStyleFields = renderStyleFields;
 renderStyleFields = function(el){
-  _renderStyleFields(el);
+  _renderNestedStyleFields(el);
   if(el.type !== 'container') return;
   const box = document.getElementById('styleFields');
   const s = responsiveSectionProxy(el, 'style');
