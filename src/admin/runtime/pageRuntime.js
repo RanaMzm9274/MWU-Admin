@@ -901,7 +901,40 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
       page?.localOnly
     );
   const storedDocument = getStoredEditableDocument(page);
+  // The API can retain an older visual-builder snapshot when raw_html is
+  // replaced outside the iframe (for example by publishing supplied HTML).
+  // In that case the old element tree and the new document CSS describe two
+  // different DOMs, so the canvas appears completely unstyled. Treat the
+  // canonical raw document as authoritative whenever its body no longer
+  // matches the single imported-HTML snapshot.
+  const canonicalRawHtml = String(page?.raw_html || page?.rawHtml || "").trim();
+  const canonicalImportedBody = canonicalRawHtml ? extractBodyHtml(canonicalRawHtml) : "";
+  const canonicalEditableBody = canonicalImportedBody
+    ? rewriteHtmlForLocalEditing(canonicalImportedBody)
+    : "";
+  const storedImportedElement =
+    storedElements.length === 1 && String(storedElements?.[0]?.type || "").toLowerCase() === "html"
+      ? storedElements[0]
+      : null;
+  const storedImportedBody = String(storedImportedElement?.content?.code || "").trim();
+  const shouldRefreshImportedSnapshot = Boolean(
+    canonicalEditableBody &&
+    storedImportedElement &&
+    canonicalEditableBody.trim() !== storedImportedBody
+  );
+  const canonicalImportPage = shouldRefreshImportedSnapshot
+    ? {
+        ...page,
+        rawHtml: canonicalRawHtml,
+        raw_html: canonicalRawHtml,
+        bodyHtml: "",
+        body_html: "",
+        visualBuilder: null,
+        visual_builder: null
+      }
+    : page;
   const sourceImportHtml =
+    canonicalRawHtml ||
     storedDocument?.fullHtml ||
     page?.rawHtml ||
     page?.raw_html ||
@@ -936,7 +969,9 @@ const buildHtmlVisualBuilderInitPayload = (page = {}) => {
     importInlineCss,
     liveAssetProxyPrefix: LIVE_ASSET_PROXY_PREFIX,
     liveSiteOrigin: LIVE_SITE_ORIGIN,
-    elements: editableStoredElements.length
+    elements: shouldRefreshImportedSnapshot
+      ? [createHtmlBuilderImportedPageElement(canonicalImportPage)]
+      : editableStoredElements.length
       ? editableStoredElements
       : hasImportedHtml
         ? [createHtmlBuilderImportedPageElement(page)]
@@ -998,7 +1033,10 @@ const resolveHtmlBuilderImportCssLinks = (html = "") => {
   if (!discoveredLinks.length) {
     return proxiedSiteCssLinks;
   }
-  return Array.from(new Set([...discoveredLinks, ...proxiedSiteCssLinks]));
+  return Array.from(new Set([...discoveredLinks, ...proxiedSiteCssLinks])).sort((left, right) => {
+    const priority = (href) => (/\/assets\/css\/style\.css(?:[?#]|$)/i.test(String(href || "")) ? 0 : 1);
+    return priority(left) - priority(right);
+  });
 };
 
 const VISUAL_WIDGET_LIBRARY = {

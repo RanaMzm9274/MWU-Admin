@@ -1,6 +1,6 @@
 ﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +12,53 @@ const liveProxy = {
   changeOrigin: true,
   secure: true
 };
+
+const localWebsiteAssetsPlugin = () => ({
+  name: "mwu-local-website-assets",
+  configureServer(server) {
+    const adminRoot = path.dirname(fileURLToPath(import.meta.url));
+    const websitePublicRoot = path.resolve(adminRoot, "..", "MWU-Project", "public");
+    const mimeTypes = {
+      ".css": "text/css; charset=utf-8",
+      ".js": "application/javascript; charset=utf-8",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".webp": "image/webp",
+      ".svg": "image/svg+xml",
+      ".woff": "font/woff",
+      ".woff2": "font/woff2"
+    };
+
+    // Imported pages use /__live_asset so missing local files can fall back to
+    // the deployed website. During local Admin editing, prefer the matching
+    // MWU-Project asset when it exists; this keeps newly added CSS and images
+    // visible before the website deployment has been refreshed.
+    server.middlewares.use("/__live_asset", async (request, response, next) => {
+      try {
+        const requestPath = decodeURIComponent(String(request.url || "/").split(/[?#]/)[0]);
+        const relativePath = requestPath.replace(/^\/+/, "");
+        const targetPath = path.resolve(websitePublicRoot, relativePath);
+        if (!targetPath.startsWith(`${websitePublicRoot}${path.sep}`)) {
+          next();
+          return;
+        }
+        const details = await stat(targetPath).catch(() => null);
+        if (!details?.isFile()) {
+          next();
+          return;
+        }
+        const contents = await readFile(targetPath);
+        response.statusCode = 200;
+        response.setHeader("Content-Type", mimeTypes[path.extname(targetPath).toLowerCase()] || "application/octet-stream");
+        response.setHeader("Cache-Control", "no-store");
+        response.end(contents);
+      } catch {
+        next();
+      }
+    });
+  }
+});
 
 const siteChromePublishPlugin = () => ({
   name: "mwu-site-chrome-publish",
@@ -53,7 +100,7 @@ const siteChromePublishPlugin = () => ({
 });
 
 export default defineConfig({
-  plugins: [react(), siteChromePublishPlugin()],
+  plugins: [react(), localWebsiteAssetsPlugin(), siteChromePublishPlugin()],
   server: {
     host: "0.0.0.0",
     port: 5173,

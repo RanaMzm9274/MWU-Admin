@@ -682,6 +682,7 @@ let historyIndex = -1;
 let dragPayload = null; // { kind:'new', widgetType } or { kind:'move', id }
 let hostImportCssLinks = [];
 let hostImportInlineCss = '';
+let hostImportScopeHint = '';
 let hostLiveAssetProxyPrefix = '/__live_asset';
 let hostLiveSiteOrigin = '';
 let importedSelectionNode = null;
@@ -1438,13 +1439,34 @@ async function syncHostStylesheets(urls=[], inlineCss=''){
   document.querySelectorAll('style[data-host-import="true"]').forEach((node)=>node.remove());
   document.querySelectorAll('link[data-host-import="true"]').forEach((node)=>node.remove());
   const importedCssChunks = [];
+  const applyImportedCssChunks = ()=>{
+    if(requestId !== hostImportStyleRequestId) return;
+    let style=document.querySelector('style[data-host-import="true"]');
+    if(!style){
+      style=document.createElement('style');
+      style.setAttribute('data-host-import','true');
+      document.head.appendChild(style);
+    }
+    style.textContent=importedCssChunks.filter(Boolean).join('\n\n');
+    ensureBuilderChromeStyles();
+    const chromeProtect=document.getElementById('builderChromeProtect');
+    if(chromeProtect) document.head.appendChild(chromeProtect);
+  };
   for(const href of (urls || []).filter(Boolean)){
     try{
       const response = await fetch(href, { credentials:'same-origin' });
       if(!response.ok) continue;
-      const rawCss = await response.text();
+      let rawCss = await response.text();
+      if(hostImportScopeHint === 'president' && /\/assets\/css\/style\.css(?:[?#]|$)/i.test(href)){
+        const markerIndex = rawCss.indexOf('MWU President Profile');
+        if(markerIndex >= 0){
+          const commentStart = rawCss.lastIndexOf('/*', markerIndex);
+          rawCss = rawCss.slice(commentStart >= 0 ? commentStart : markerIndex);
+        }
+      }
       const rewrittenCss = rewriteImportedCssAssetUrls(rawCss, href);
       importedCssChunks.push(scopeImportedCssText(rewrittenCss));
+      applyImportedCssChunks();
     }catch{
       // Cross-origin website CSS may be valid for a stylesheet element even
       // when browser CORS prevents reading it with fetch(). Load it natively.
@@ -1462,14 +1484,10 @@ async function syncHostStylesheets(urls=[], inlineCss=''){
   }
   if(String(inlineCss || '').trim()){
     importedCssChunks.push(scopeImportedCssText(rewriteImportedCssAssetUrls(String(inlineCss || ''), window.location.href)));
+    applyImportedCssChunks();
   }
   if(requestId !== hostImportStyleRequestId) return;
-  if(importedCssChunks.length){
-    const style=document.createElement('style');
-    style.setAttribute('data-host-import','true');
-    style.textContent=importedCssChunks.filter(Boolean).join('\n\n');
-    document.head.appendChild(style);
-  }
+  if(importedCssChunks.length) applyImportedCssChunks();
   ensureBuilderChromeStyles();
   const chromeProtect=document.getElementById('builderChromeProtect');
   if(chromeProtect) document.head.appendChild(chromeProtect);
@@ -2522,6 +2540,11 @@ function renderImportedSettings(node){
   const textEditable = supportsTypography && details.text;
   contentBox.innerHTML = `
     <div class="field-hint">Imported page editing is active. Double-click text to edit inline. Click icons directly to style them. Shift-click selects the parent container.</div>
+    <div class="field-group">
+      <div class="field-group-label">HTML source</div>
+      <div class="builder-file-stack"><button class="field-button" type="button" id="importedEditHtmlSourceBtn">Edit full HTML source</button></div>
+      <div class="field-hint">Open the complete page markup in the code editor.</div>
+    </div>
     ${parentTarget ? `<div class="field-group"><div class="builder-file-stack"><button class="field-button" type="button" id="importedSelectParentBtn">Select parent container</button></div></div>` : ''}
     ${textEditable ? fieldTextarea('Text content', 'importedTextContent', details.text, 5) : ''}
     ${hasLinkField ? fieldInput('Link URL', 'importedLinkUrl', details.url || '#') : ''}
@@ -2595,6 +2618,15 @@ function renderImportedSettings(node){
   const parentSelectButton = document.getElementById('importedSelectParentBtn');
   if(parentSelectButton && parentTarget){
     parentSelectButton.addEventListener('click', ()=> selectImportedNode(parentTarget));
+  }
+  const editHtmlSourceButton = document.getElementById('importedEditHtmlSourceBtn');
+  if(editHtmlSourceButton){
+    editHtmlSourceButton.addEventListener('click', ()=>{
+      const model = getImportedHtmlElementModel();
+      if(!model) return;
+      clearImportedSelection();
+      selectElement(model.id);
+    });
   }
   const progressLabelNode = document.getElementById('f_importedProgressLabel');
   if(progressLabelNode && progressContext?.label){
@@ -4381,7 +4413,7 @@ WIDGETS.push(
   {type:'progress',label:'Progress Bar',icon:'progress',category:'Content'},
   {type:'form',label:'Contact Form',icon:'form',category:'Forms'},
   {type:'social',label:'Social Icons',icon:'social',category:'Social'},
-  {type:'html',label:'Custom HTML',icon:'html',category:'Advanced'}
+  {type:'html',label:'Custom HTML',icon:'html',category:'Content'}
 );
 
 let pageSettings = {
@@ -4701,7 +4733,7 @@ renderContentFields=function(el){
   if(el.type==='form') h=replaceFieldHtml('Form title','title',c.title)+replaceAreaHtml('Fields','fields',c.fields,8,'One per line: Label | type | required/optional')+replaceFieldHtml('Button text','buttonText',c.buttonText)+replaceFieldHtml('Success message','successMessage',c.successMessage);
   if(el.type==='social') h=renderSocialItemsEditor();
   if(el.type==='list') h=renderListItemsEditor();
-  if(el.type==='html') h=replaceAreaHtml('Trusted HTML','code',c.code,12,'This advanced widget renders raw HTML. Only use markup from trusted administrators.');
+  if(el.type==='html') h=replaceAreaHtml('HTML code','code',c.code,18,'Paste trusted HTML here. Changes render immediately in the page canvas.');
   box.innerHTML=h;
   Object.keys(c).forEach(key=>bindXInput(key,v=>{c[key]=key==='value'?Number(v):v;reRenderElement(el)}));
   if(el.type==='gallery')bindImageUpload('galleryUpload',src=>{c.images=(c.images?c.images+'\n':'')+src;reRenderElement(el);renderContentFields(el);});
@@ -5011,6 +5043,7 @@ deleteElement = function(id){
 };
 
 selectElement = function(id){
+  clearImportedSelection();
   selectedId = id;
   document.querySelectorAll('.el-wrap').forEach(w=> w.classList.toggle('selected', w.dataset.id===id));
   openSettingsFor(id);
@@ -5438,6 +5471,9 @@ async function loadHostSnapshot(data={}){
   pageSettings={...pageSettings,...nextPageSettings};
   hostImportCssLinks = Array.isArray(data.importCssLinks)?data.importCssLinks:[];
   hostImportInlineCss = String(data.importInlineCss || '');
+  hostImportScopeHint = Array.isArray(data.elements) && data.elements.some((element)=>
+    String(element?.content?.code || '').includes('president-profile-page')
+  ) ? 'president' : '';
   hostLiveAssetProxyPrefix = data.liveAssetProxyPrefix || hostLiveAssetProxyPrefix;
   hostLiveSiteOrigin = data.liveSiteOrigin || hostLiveSiteOrigin;
   console.info('[MWU editor debug] iframe:load-payload', {
