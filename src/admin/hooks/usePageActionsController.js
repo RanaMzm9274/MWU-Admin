@@ -4,6 +4,41 @@ import { slugify, normalizeSlugReference, migratePageSlugReferences, normalizePa
 import { getSiteChromeHtml } from "../runtime/siteChromeRuntime";
 import { isNormalWebsitePage } from "../runtime/programRuntime";
 
+const clonePageValue = (value) => {
+  if (typeof structuredClone === "function") return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+};
+
+const createDuplicatePageDraft = (sourcePage = {}, slugSuffix = "") => {
+  const clonedPage = clonePageValue(sourcePage);
+  // A duplicate must never retain any database identity alias from its source.
+  const {
+    id: _sourceId,
+    page_id: _sourcePageId,
+    pageId: _sourcePageIdAlias,
+    isLocalDraft: _sourceLocalDraft,
+    _isLocalDraft: _sourcePrivateLocalDraft,
+    localOnly: _sourceLocalOnly,
+    ...pageContent
+  } = clonedPage;
+  const suffix = slugSuffix || Math.random().toString(36).slice(2, 7);
+
+  return {
+    ...pageContent,
+    id: makeId(),
+    title: `${sourcePage.title || "Untitled Page"} Copy`,
+    slug: `${slugify(sourcePage.slug || sourcePage.title || "untitled-page")}-copy-${suffix}`,
+    status: "Draft",
+    updatedAt: todayIso(),
+    createdAt: todayIso(),
+    revisions: [],
+    isLocalDraft: true,
+    _isLocalDraft: true,
+    localOnly: true,
+    sections: (clonedPage.sections || []).map((section) => ({ ...section, id: makeId() }))
+  };
+};
+
 export default function usePageActionsController({
   canCreatePages, requireAnyPortalAccess, pages, setPages, activePageId, setActivePageId, formPage, setFormPage, setEditorTab, setActiveView,
   adminToken, setAdminToken, setNotice, selectedPageIds, setSelectedPageIds, filteredPages, persistPageToApi,
@@ -231,7 +266,10 @@ export default function usePageActionsController({
         );
       }
     
-      const replacementIds = new Set(getPageApiIdentifiers(pageToSave).concat(savedPage.id).map(String));  
+      const pageIdentifiers = isLocalDraftPage(pageToSave)
+        ? [pageToSave.id, pageToSave.slug]
+        : getPageApiIdentifiers(pageToSave);
+      const replacementIds = new Set(pageIdentifiers.concat(savedPage.id).filter(Boolean).map(String));
       setPages((current) => {  
         let replaced = false;  
         const nextPages = current.map((page) => {  
@@ -295,7 +333,8 @@ export default function usePageActionsController({
     if (!requireAnyPortalAccess(["pages", "page-editor", "blogs", "events", "programs", "site-chrome"], "Page duplication")) {  
       return;  
     }  
-    const copyPage = {  
+    const copyPage = createDuplicatePageDraft(formPage);
+    /* const legacyCopyPage = {
       ...formPage,  
       id: makeId(),  
       isLocalDraft: true,  
@@ -304,7 +343,7 @@ export default function usePageActionsController({
       status: "Draft",  
       updatedAt: todayIso(),  
       sections: formPage.sections.map((section) => ({ ...section, id: makeId() }))  
-    };  
+    }; */
     
     setPages((current) => [copyPage, ...current]);  
     setActivePageId(copyPage.id);  
@@ -600,8 +639,18 @@ export default function usePageActionsController({
     const copies = pages  
       .filter((page) => selectedPageIds.some((id) => String(id) === String(page.id)))  
       .map((page) => ({  
-        ...page,  
-        id: makeId(),  
+        ...clonePageValue(page),
+        id: makeId(),
+
+        page_id: undefined,
+
+        pageId: undefined,
+
+        isLocalDraft: true,
+
+        _isLocalDraft: true,
+
+        localOnly: true,
         title: `${page.title} Copy`,  
         slug: `${page.slug}-copy-${Math.random().toString(36).slice(2, 5)}`,  
         status: "Draft",  
